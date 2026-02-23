@@ -1,0 +1,50 @@
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+model User {
+  id        String   @id @default(uuid())
+  username  String   @unique
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+  rooms     Room[]
+}
+
+model Room {
+  id        String   @id @default(uuid())
+  slug      String   @unique
+  name      String
+  status    String   @default("LOBBY") // LOBBY, IN_PROGRESS
+  hostId    String
+  host      User     @relation(fields: [hostId], references: [id])
+  settings  Json? // Variant & modding configuration
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+  hands     Hand[]
+}
+
+model Hand {
+  id        String      @id @default(uuid())
+  roomId    String
+  room      Room        @relation(fields: [roomId], references: [id])
+  metadata  Json? // Plugin modifiers & pot sizes
+  createdAt DateTime    @default(now())
+  events    HandEvent[]
+}
+
+model HandEvent {
+  id        String   @id @default(uuid())
+  handId    String
+  hand      Hand     @relation(fields: [handId], references: [id])
+  type      String
+  sequence  Int
+  payload   Json
+  createdAt DateTime @default(now())
+
+  @@unique([handId, sequence])
+}
