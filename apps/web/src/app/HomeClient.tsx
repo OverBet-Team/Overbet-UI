@@ -1,9 +1,9 @@
 "use client";
 
-import { createRoom } from "@/app/actions/room";
+import { createRoom } from "./actions/room";
 import { useRouter } from "next/navigation";
 import { useState } from "react";
-import { useUser } from "@/hooks/useUser";
+import { useUser } from "../hooks/useUser";
 
 export default function HomeClient() {
   const router = useRouter();

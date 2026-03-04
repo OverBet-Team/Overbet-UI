@@ -10,7 +10,10 @@
         "vercel-build": "npx prisma@^5.10.0 generate --schema=packages/db/prisma/schema.prisma && turbo run build"
     },
     "devDependencies": {
+        "next": "16.1.6",
         "prettier": "^3.2.0",
+        "react": "19.2.3",
+        "react-dom": "19.2.3",
         "turbo": "^1.12.0",
         "vitest": "^4.0.18"
     },
