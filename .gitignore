@@ -33,3 +33,5 @@ out
 .env
 .env.*.local
 .ant-colony/
+
+.vercel

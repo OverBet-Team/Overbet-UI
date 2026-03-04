@@ -6,7 +6,8 @@
         "dev": "turbo run dev",
         "test": "vitest run",
         "lint": "turbo run lint",
-        "format": "prettier --write \"**/*.{ts,tsx,md}\""
+        "format": "prettier --write \"**/*.{ts,tsx,md}\"",
+        "vercel-build": "prisma generate --schema=packages/db/prisma/schema.prisma && turbo run build"
     },
     "devDependencies": {
         "prettier": "^3.2.0",
