@@ -87,7 +87,7 @@ async function hydrateRoom(roomId: string) {
         const lastHand = room.hands[0];
         currentHandId = lastHand.id;
         engine.loadEvents(lastHand.events as any);
-        seq = lastHand.events.length > 0 ? Math.max(...lastHand.events.map(e => e.sequence)) : 0;
+        seq = lastHand.events.length > 0 ? Math.max(...lastHand.events.map((e: any) => e.sequence)) : 0;
     }
 
     // Parse settings from DB
@@ -262,7 +262,7 @@ async function startHand(roomId: string, schema_version: number = 1) {
     if (!roomData) throw new Error('Room not found');
 
     const state = roomData.engine.getState();
-    if (state.phase !== 'IDLE' && state.phase !== 'LOBBY' && state.phase !== 'CLEANUP') {
+    if (state.phase !== 'LOBBY' && state.phase !== 'CLEANUP') {
         throw new Error(`Game already in progress (Phase: ${state.phase})`);
     }
 
