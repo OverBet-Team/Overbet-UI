@@ -41,9 +41,13 @@ The following components are **complete and must not be regressively edited or d
 - **Repo Rules Compatibility**: Implementation must follow local repo rules explicitly set in `AGENTS.md` (if present) and utilize base Turborepo workspace commands (e.g., `pnpm run build`, `pnpm test`).
 
 ### Dependency Mapping
-- **Database**: PostgreSQL (Supabase / Local)
+- **Database**: PostgreSQL (Supabase)
   - *Purpose*: Core state, ledger aggregations, and hand event sourcing.
-  - *Auth*: Username/Password connection via `.env` placeholder `DATABASE_URL`.
+  - *Security*: Dedicated `prisma` database role created for application-level access (observability + least privilege).
+  - *Connection Strategy*: 
+    - **Runtime**: Supavisor Transaction Pooler (port `6543`) with `pgbouncer=true` to handle serverless connection bursts.
+    - **Migrations/Direct**: Supavisor Session Mode (port `5432`) mapped to `DIRECT_URL`.
+  - *Auth*: Username/Password connection via `.env` placeholders `DATABASE_URL` and `DIRECT_URL`.
   - *Failure Mode*: API returns 500; active sockets must gracefully terminate and request snapshot upon reconnection.
 - **Cache / WebSocket Adapter**: Redis
   - *Purpose*: Ephemeral socket routing (Socket.io Redis adapter) and hard rate limits.
@@ -72,8 +76,8 @@ flowchart TD
   - `RoomMember`: Player stack balances, role allocations, seating map index.
   - `Hand` & `HandEvent`: Event-sourced append-only sequential logs.
   - `LedgerTransaction`: Computed finalized settlement payload instructions.
-- **Migrations Strategy**: Use `pnpm dlx prisma migrate dev` strictly within local dev tracks. Do not write raw SQL overrides manually.
-- **Seed/Test Data Strategy**: Relies on a scripted `seed.ts` via Dockerized local PostgreSQL.
+- **Migrations Strategy**: Use `npx prisma db push` for rapid schema prototyping on Supabase; formal migrations via `npx prisma migrate dev` once schema stabilizes.
+- **Seed/Test Data Strategy**: Seed scripts targeting Supabase staging tables; relies on the secure `prisma` role connection.
 
 ## 7. Security / Auth Model
 - **Identity Context**: Anonymous sessions inherently linked by `userId` maps (stored in `localStorage` securely orchestrated via `useUser`).
