@@ -3,17 +3,18 @@
 import { createRoom } from "@/app/actions/room";
 import { useRouter } from "next/navigation";
 import { useState } from "react";
+import { useUser } from "@/hooks/useUser";
 
 export default function HomeClient() {
   const router = useRouter();
+  const { userId } = useUser();
   const [loading, setLoading] = useState(false);
 
   const handleStartGame = async () => {
+    if (!userId) return;
     setLoading(true);
     try {
-      // For MVP, we use a random hostId or hardcode one
-      const hostId = "host-" + Math.random().toString(36).substring(2, 9);
-      const res = await createRoom(hostId, "My Poker Room");
+      const res = await createRoom(userId, "My Poker Room");
       if (res.success) {
         router.push(`/room/${res.roomSlug}`);
       }

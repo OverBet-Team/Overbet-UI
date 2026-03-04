@@ -8,24 +8,43 @@ datasource db {
 }
 
 model User {
+  id        String       @id @default(uuid())
+  username  String
+  isGuest   Boolean      @default(false)
+  createdAt DateTime     @default(now())
+  updatedAt DateTime     @updatedAt
+  rooms     Room[]
+  members   RoomMember[]
+}
+
+model RoomMember {
   id        String   @id @default(uuid())
-  username  String   @unique
+  roomId    String
+  room      Room     @relation(fields: [roomId], references: [id])
+  userId    String
+  user      User     @relation(fields: [userId], references: [id])
+  seatIndex Int?
+  stack     Int      @default(0)
+  status    String   @default("ACTIVE")
+
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
-  rooms     Room[]
+
+  @@unique([roomId, userId])
 }
 
 model Room {
-  id        String   @id @default(uuid())
-  slug      String   @unique
+  id        String       @id @default(uuid())
+  slug      String       @unique
   name      String
-  status    String   @default("LOBBY") // LOBBY, IN_PROGRESS
+  status    String       @default("LOBBY") // LOBBY, IN_PROGRESS
   hostId    String
-  host      User     @relation(fields: [hostId], references: [id])
-  settings  Json? // Variant & modding configuration
-  createdAt DateTime @default(now())
-  updatedAt DateTime @updatedAt
+  host      User         @relation(fields: [hostId], references: [id])
+  settings  Json?        // Variant & modding configuration
+  createdAt DateTime     @default(now())
+  updatedAt DateTime     @updatedAt
   hands     Hand[]
+  members   RoomMember[]
 }
 
 model Hand {

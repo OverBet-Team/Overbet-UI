@@ -3,16 +3,20 @@
 import { useEffect, useState } from "react";
 import { io, Socket } from "socket.io-client";
 import { Copy, Users, Play, Settings } from "lucide-react";
-
-interface Player {
-  id: string;
-  username: string;
-}
+import { PokerTable } from "@/components/poker/PokerTable";
+import { ActionBar } from "@/components/poker/ActionBar";
+import { BuyInModal } from "@/components/poker/BuyInModal";
+import { GameLog } from "@/components/poker/GameLog";
+import { PlayerData, TurnTimer } from "@/components/poker/Seat";
+import { useUser } from "@/hooks/useUser";
 
 interface RoomSettings {
   variant: string;
   smallBlind: number;
   bigBlind: number;
+  autoStartDelay?: number;
+  turnTimeout?: number;  // seconds
+  timeBank?: number;     // seconds
 }
 
 interface Room {
@@ -25,11 +29,19 @@ interface Room {
 }
 
 interface GameState {
-  board: { rank: string; suit: string }[];
+  phase: string;
+  board: string[];
   pot: number;
+  sidePots?: { amount: number, eligiblePlayers: string[] }[];
   dealerId: string;
   activePlayerId: string;
-  players: Record<string, { chips: number; cards?: { rank: string; suit: string }[] }>;
+  players: any[]; // Engine players are an array
+  currentBet?: number;
+  minRaise?: number;
+  lastHandReveal?: {
+    seed: number;
+    commitment: string;
+  };
 }
 
 interface RoomProps {
@@ -38,55 +50,127 @@ interface RoomProps {
 }
 
 export default function RoomClient({ slug, initialRoom }: RoomProps) {
+  const { userId } = useUser();
   const [socket, setSocket] = useState<Socket | null>(null);
   const [room, setRoom] = useState<Room>(initialRoom);
-  const [players, setPlayers] = useState<Player[]>([]);
+  const [players, setPlayers] = useState<PlayerData[]>([]);
   const [isHost, setIsHost] = useState(false);
   const [gameState, setGameState] = useState<GameState | null>(null);
   const [copied, setCopied] = useState(false);
-  const [userId, setUserId] = useState<string>("");
 
-  useEffect(() => {
-    // Generate a consistent userId for the session
-    const storedId = localStorage.getItem("overbet_user_id");
-    const id = storedId || "user-" + Math.random().toString(36).substring(2, 9);
-    if (!storedId) localStorage.setItem("overbet_user_id", id);
-    // eslint-disable-next-line react-hooks/set-state-in-effect
-    setUserId(id);
-  }, []);
+  // Seat request state
+  const [isBuyInOpen, setIsBuyInOpen] = useState(false);
+  const [selectedSeat, setSelectedSeat] = useState<number>(-1);
+  const [pendingRequests, setPendingRequests] = useState<{ playerId: string, seatIndex: number, stack: number, displayName?: string }[]>([]);
+  const [showFairnessModal, setShowFairnessModal] = useState(false);
+  const [currentCommitment, setCurrentCommitment] = useState<string>("");
+  const [turnTimer, setTurnTimer] = useState<TurnTimer | null>(null);
+  const [logs, setLogs] = useState<any[]>([]);
+  const [showSettingsModal, setShowSettingsModal] = useState(false);
+  const [settingsDraft, setSettingsDraft] = useState<RoomSettings | null>(null);
+
+  // Removed local userId effect, now using useUser() hook
 
   useEffect(() => {
     if (!userId) return;
 
-    const socketInstance = io(process.env.NEXT_PUBLIC_GATEWAY_URL || "http://localhost:3001", {
+    const socketInstance = io(process.env.NEXT_PUBLIC_GATEWAY_URL || "http://localhost:4000", {
       query: { roomId: slug, userId }
     });
 
-    // eslint-disable-next-line react-hooks/set-state-in-effect
     setSocket(socketInstance);
 
     socketInstance.on("connect", () => {
       console.log("Connected to room:", slug);
+      socketInstance.emit("INTENT_JOIN_ROOM", {
+        schema_version: 1,
+        room_id: slug,
+        client_msg_id: Math.random().toString(36)
+      });
+      // Explicitly request snapshot on connect to sync pending requests and room status
+      socketInstance.emit("INTENT_REQUEST_SNAPSHOT", {
+        schema_version: 1,
+        room_id: slug,
+        client_msg_id: Math.random().toString(36)
+      });
     });
 
-    socketInstance.on("ROOM_SNAPSHOT", (snapshot: { room: Room; players: Player[] }) => {
+    socketInstance.on("EVENT_ERROR", (err: any) => {
+      console.error("Socket error:", err);
+      alert(err.message || "An error occurred");
+    });
+
+    socketInstance.on("EVENT_HAND_LOG", (data: any) => {
+      if (data.type === "HAND_INIT" && data.commitment) {
+        setCurrentCommitment(data.commitment);
+      }
+      setLogs(prev => [...prev, { ...data, timestamp: Date.now() }]);
+    });
+
+    socketInstance.on("EVENT_HAND_REVEAL", (data: any) => {
+      // We could show a toast here, but for now just updating currentCommitment is handled via state update
+      console.log("Hand revealed:", data);
+    });
+
+    socketInstance.on("ROOM_SNAPSHOT", (snapshot: { room: Room; players: PlayerData[]; pendingRequests?: any[] }) => {
+      console.log("Snapshot received. Host:", snapshot.room.hostId, "Me:", userId);
       setRoom(snapshot.room);
       setPlayers(snapshot.players || []);
       setIsHost(snapshot.room.hostId === userId);
+      if (snapshot.pendingRequests) {
+        setPendingRequests(snapshot.pendingRequests);
+      }
     });
 
-    socketInstance.on("EVENT_SEAT_APPROVED", (data: { player: Player }) => {
-        setPlayers(prev => [...prev, data.player]);
+    socketInstance.on("EVENT_SEAT_REQUEST_PENDING", (data: any) => {
+      console.log("Pending seat request received:", data);
+      setPendingRequests(prev => {
+        const otherRequests = prev.filter(r => r.playerId !== data.playerId);
+        return [...otherRequests, data];
+      });
     });
 
-    socketInstance.on("GAME_SNAPSHOT", (snapshot: GameState) => {
-        setGameState(snapshot);
-        setRoom(prev => {
-            if (prev.status !== "INGAME") {
-                return { ...prev, status: "INGAME" };
-            }
-            return prev;
-        });
+    socketInstance.on("EVENT_SEAT_APPROVED", (data: any) => {
+      setPendingRequests(prev => prev.filter(r => r.playerId !== data.playerId));
+      setPlayers(prev => {
+        const exists = prev.find(p => p.id === data.playerId);
+        if (exists) return prev;
+        return [...prev, {
+          id: data.playerId,
+          username: data.displayName || `Player_${data.playerId.substring(0, 4)}`,
+          chips: data.stack,
+          status: 'ACTIVE',
+          seatIndex: data.seatIndex
+        }];
+      });
+    });
+
+    socketInstance.on("EVENT_STATE_UPDATE", (snapshot: { state: any }) => {
+      if (!snapshot.state) return;
+      setGameState(snapshot.state);
+      // Only switch to INGAME if a hand is actually started/active
+      if (snapshot.state.phase !== "LOBBY") {
+        setRoom(prev => prev.status !== "INGAME" ? { ...prev, status: "INGAME" } : prev);
+      }
+      setTurnTimer(prev => (prev && snapshot.state.activePlayerId === prev.playerId) ? prev : null);
+    });
+
+    socketInstance.on("EVENT_STATE_SNAPSHOT", (snapshot: { state: any }) => {
+      if (!snapshot.state) return;
+      setGameState(snapshot.state);
+      if (snapshot.state.phase !== "LOBBY") {
+        setRoom(prev => prev.status !== "INGAME" ? { ...prev, status: "INGAME" } : prev);
+      }
+      setTurnTimer(prev => (prev && snapshot.state.activePlayerId === prev.playerId) ? prev : null);
+    });
+
+    socketInstance.on("EVENT_TURN_TIMER", (data: any) => {
+      console.log("Turn timer started:", data);
+      setTurnTimer(data as TurnTimer);
+    });
+
+    socketInstance.on("EVENT_SETTINGS_UPDATED", (data: any) => {
+      setRoom(prev => ({ ...prev, settings: data.settings }));
     });
 
     return () => {
@@ -100,19 +184,102 @@ export default function RoomClient({ slug, initialRoom }: RoomProps) {
     setTimeout(() => setCopied(false), 2000);
   };
 
-  const handleSeatRequest = () => {
-    socket?.emit("INTENT_SEAT_REQUEST", { userId, username: `Player_${userId.substring(5, 9)}` });
+  const openBuyInModal = (seatIndex: number) => {
+    const isTaken = players.some(p => p.seatIndex === seatIndex);
+    if (isTaken) return;
+    setSelectedSeat(seatIndex);
+    setIsBuyInOpen(true);
+  };
+
+  const handleSeatRequest = (amount: number, displayName: string) => {
+    console.log("Sending seat request for seat:", selectedSeat, "with stack:", amount);
+    socket?.emit("INTENT_SEAT_REQUEST", {
+      room_id: slug,
+      seatIndex: selectedSeat,
+      stack: amount,
+      displayName: displayName // Send the custom display name
+    });
+
+    setIsBuyInOpen(false);
+  };
+
+  const approveSeat = (playerId: string) => {
+    socket?.emit("INTENT_SEAT_APPROVE", { room_id: slug, targetPlayerId: playerId });
   };
 
   const handleStartGame = () => {
-    socket?.emit("INTENT_START_GAME", { roomId: slug });
+    socket?.emit("INTENT_START_GAME", { room_id: slug });
+  };
+
+  const handleAction = (type: string, amount?: number) => {
+    socket?.emit("INTENT_PLAYER_ACTION", {
+      room_id: slug,
+      action: { type, amount }
+    });
+  };
+
+  const handleOpenSettings = () => {
+    setSettingsDraft({ ...room.settings });
+    setShowSettingsModal(true);
+  };
+
+  const handleSaveSettings = () => {
+    if (!settingsDraft) return;
+    socket?.emit("INTENT_UPDATE_SETTINGS", {
+      room_id: slug,
+      settings: settingsDraft
+    });
+    setShowSettingsModal(false);
   };
 
   if (!room) return <div className="flex items-center justify-center min-h-screen">Loading room...</div>;
 
+  // Sync gameState.players with local players array for rendering
+  const mappedPlayers: PlayerData[] = [
+    ...players.map(p => {
+      // Game state players is an array from the engine
+      const gPlayer = Array.isArray(gameState?.players)
+        ? gameState.players.find(gp => gp.id === p.id)
+        : (gameState?.players as any)?.[p.id];
+
+      if (gPlayer) {
+        return {
+          ...p,
+          chips: gPlayer.chips ?? gPlayer.stack ?? p.chips,
+          bet: gPlayer.bet || 0,
+          cards: gPlayer.cards || gPlayer.holeCards || []
+        } as PlayerData;
+      }
+      return p as PlayerData;
+    }),
+    // CRITICAL FIX: Merge pending requests into the table players
+    ...pendingRequests
+      .filter(req => !players.some(p => p.id === req.playerId)) // Don't duplicate if already seated
+      .map(req => ({
+        id: req.playerId,
+        username: req.displayName || `Player_${req.playerId.substring(0, 4)}`,
+        chips: req.stack,
+        status: 'PENDING' as any,
+        seatIndex: req.seatIndex,
+        bet: 0,
+        cards: []
+      } as PlayerData))
+  ];
+
   if (room.status === "LOBBY") {
     return (
-      <div className="flex flex-col items-center justify-center min-h-[calc(100vh-80px)] p-6">
+      <div className="flex flex-col items-center justify-center min-h-[calc(100vh-80px)] p-6 w-full">
+        <BuyInModal
+          isOpen={isBuyInOpen}
+          onClose={() => setIsBuyInOpen(false)}
+          onSubmit={handleSeatRequest}
+          minAmount={room.settings?.smallBlind * 50 || 1000}
+          maxAmount={room.settings?.bigBlind * 200 || 4000}
+          seatIndex={selectedSeat}
+          isGuest={true} // For now, treat all as guests for testing name input
+          initialDisplayName=""
+        />
+
         <div className="w-full max-w-2xl p-8 border bg-surface rounded-2xl border-white/10 shadow-2xl">
           <div className="flex items-center justify-between mb-8">
             <div>
@@ -134,13 +301,14 @@ export default function RoomClient({ slug, initialRoom }: RoomProps) {
                 <Users size={20} />
                 <h2>Players ({players.length})</h2>
               </div>
-              <div className="space-y-2">
+              <div className="space-y-2 max-h-40 overflow-y-auto">
                 {players.length === 0 ? (
                   <p className="text-white/30 italic text-sm">No players yet...</p>
                 ) : (
                   players.map((p) => (
-                    <div key={p.id} className="flex items-center justify-between p-2 rounded bg-white/5">
+                    <div key={p.id} className="flex items-center justify-between p-2 rounded bg-white/5 text-sm">
                       <span className="font-medium">{p.username}</span>
+                      <span className="text-accent-2 font-mono">${p.chips}</span>
                       {room.hostId === p.id && <span className="text-[10px] px-2 py-0.5 rounded-full bg-accent-1/20 text-accent-1 border border-accent-1/30">HOST</span>}
                     </div>
                   ))
@@ -149,9 +317,19 @@ export default function RoomClient({ slug, initialRoom }: RoomProps) {
             </div>
 
             <div className="p-6 border rounded-xl bg-black/20 border-white/5">
-              <div className="flex items-center gap-2 mb-4 text-accent-2 font-semibold">
-                <Settings size={20} />
-                <h2>Settings</h2>
+              <div className="flex items-center justify-between mb-4">
+                <div className="flex items-center gap-2 text-accent-2 font-semibold">
+                  <Settings size={20} />
+                  <h2>Settings</h2>
+                </div>
+                {isHost && (
+                  <button
+                    onClick={handleOpenSettings}
+                    className="text-[10px] px-2 py-1 rounded border border-accent-2/30 bg-accent-2/10 text-accent-2 hover:bg-accent-2/20 transition-colors font-bold uppercase tracking-wider"
+                  >
+                    Edit
+                  </button>
+                )}
               </div>
               <div className="space-y-3 text-sm">
                 <div className="flex justify-between">
@@ -160,148 +338,450 @@ export default function RoomClient({ slug, initialRoom }: RoomProps) {
                 </div>
                 <div className="flex justify-between">
                   <span className="text-white/50">Blinds</span>
-                  <span className="font-medium">{room.settings?.smallBlind}/{room.settings?.bigBlind}</span>
+                  <span className="font-medium">{room.settings?.smallBlind || 10}/{room.settings?.bigBlind || 20}</span>
+                </div>
+                <div className="flex justify-between">
+                  <span className="text-white/50">Turn Time</span>
+                  <span className="font-medium">{room.settings?.turnTimeout || 30}s</span>
+                </div>
+                <div className="flex justify-between">
+                  <span className="text-white/50">Time Bank</span>
+                  <span className="font-medium">{room.settings?.timeBank || 30}s</span>
+                </div>
+                <div className="flex justify-between">
+                  <span className="text-white/50">Auto-Start</span>
+                  <span className="font-medium">{room.settings?.autoStartDelay || 5}s</span>
                 </div>
               </div>
             </div>
           </div>
 
           <div className="flex flex-col gap-3 mt-10">
+            {isHost && pendingRequests.length > 0 && (
+              <div className="mb-6 p-4 border border-accent-1/30 bg-accent-1/5 rounded-xl">
+                <h3 className="text-sm font-bold text-accent-1 uppercase tracking-wider mb-3">Pending Seat Requests</h3>
+                <div className="space-y-2">
+                  {pendingRequests.map(req => (
+                    <div key={req.playerId} className="flex items-center justify-between p-2 bg-black/40 rounded-lg">
+                      <span className="text-xs font-medium">
+                        {req.displayName || `Player_${req.playerId.substring(0, 4)}`} (Seat {req.seatIndex + 1}, ${req.stack})
+                      </span>
+                      <button
+                        onClick={() => approveSeat(req.playerId)}
+                        className="px-3 py-1 bg-accent-1 text-white text-[10px] font-bold rounded hover:brightness-110"
+                      >
+                        Approve
+                      </button>
+                    </div>
+                  ))}
+                </div>
+              </div>
+            )}
+
             {isHost ? (
               <button
                 onClick={handleStartGame}
-                className="flex items-center justify-center w-full py-4 font-bold text-white transition-all border shadow-lg rounded-xl bg-accent-1 hover:brightness-110 active:scale-[0.98] shadow-accent-1/20 border-white/10 text-lg"
+                disabled={players.length < 2}
+                className="disabled:opacity-50 disabled:cursor-not-allowed flex items-center justify-center w-full py-4 font-bold text-white transition-all border shadow-lg rounded-xl bg-accent-1 hover:brightness-110 active:scale-[0.98] shadow-accent-1/20 border-white/10 text-lg"
               >
                 <Play size={20} className="mr-2" />
                 Start Game
               </button>
             ) : (
-              <button
-                onClick={handleSeatRequest}
-                className="flex items-center justify-center w-full py-4 font-bold text-white transition-all border shadow-lg rounded-xl bg-accent-2 hover:brightness-110 active:scale-[0.98] shadow-accent-2/20 border-white/10 text-lg"
-              >
-                Request a Seat
-              </button>
+              <div className="space-y-4">
+                <div className="text-center p-4 bg-white/5 rounded-xl border border-white/10">
+                  <p className="text-white/70 font-semibold mb-2">Claim a seat below to join this game.</p>
+                </div>
+
+                {pendingRequests.find(r => r.playerId === userId) && (
+                  <div className="p-4 border border-accent-2/30 bg-accent-2/5 rounded-xl animate-pulse flex items-center gap-3">
+                    <div className="w-2 h-2 bg-accent-2 rounded-full shadow-[0_0_8px_rgba(234,179,8,0.5)]"></div>
+                    <span className="text-xs font-bold text-accent-2 uppercase tracking-wider">Waiting for Host Approval...</span>
+                  </div>
+                )}
+              </div>
             )}
             <p className="text-center text-sm text-white/30">
-              {isHost ? "Ready to shuffle?" : "Wait for the host to start the game."}
+              {isHost && players.length < 2 ? "Waiting for players..." : ""}
             </p>
           </div>
+        </div>
+
+        {/* Settings Modal */}
+        {showSettingsModal && settingsDraft && (
+          <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/70 backdrop-blur-sm">
+            <div className="w-full max-w-md p-6 border bg-surface rounded-2xl border-white/10 shadow-2xl relative">
+              <button
+                onClick={() => setShowSettingsModal(false)}
+                className="absolute top-4 right-4 text-white/30 hover:text-white text-xl"
+              >✕</button>
+              <h2 className="text-xl font-bold mb-6 flex items-center gap-2">
+                <Settings className="text-accent-2" size={20} />
+                Room Settings
+              </h2>
+
+              <div className="space-y-5">
+                {/* Turn Timeout */}
+                <div>
+                  <div className="flex justify-between items-center mb-1">
+                    <label className="text-sm font-semibold text-white/80">Turn Time</label>
+                    <span className="text-accent-1 font-mono font-bold text-sm">{settingsDraft.turnTimeout || 30}s</span>
+                  </div>
+                  <input
+                    type="range" min={10} max={120} step={5}
+                    value={settingsDraft.turnTimeout || 30}
+                    onChange={e => setSettingsDraft(prev => prev ? { ...prev, turnTimeout: Number(e.target.value) } : prev)}
+                    className="w-full accent-accent-1"
+                  />
+                  <div className="flex justify-between text-[10px] text-white/30 mt-0.5">
+                    <span>10s</span><span>120s</span>
+                  </div>
+                </div>
+
+                {/* Time Bank */}
+                <div>
+                  <div className="flex justify-between items-center mb-1">
+                    <label className="text-sm font-semibold text-white/80">Time Bank</label>
+                    <span className="text-orange-400 font-mono font-bold text-sm">{settingsDraft.timeBank || 30}s</span>
+                  </div>
+                  <input
+                    type="range" min={0} max={120} step={5}
+                    value={settingsDraft.timeBank || 30}
+                    onChange={e => setSettingsDraft(prev => prev ? { ...prev, timeBank: Number(e.target.value) } : prev)}
+                    className="w-full accent-orange-400"
+                  />
+                  <div className="flex justify-between text-[10px] text-white/30 mt-0.5">
+                    <span>0s (off)</span><span>120s</span>
+                  </div>
+                  <p className="text-[10px] text-white/30 mt-1 italic">Extra time pool per player. Activates after turn time expires.</p>
+                </div>
+
+                {/* Auto-Start Delay */}
+                <div>
+                  <div className="flex justify-between items-center mb-1">
+                    <label className="text-sm font-semibold text-white/80">Auto-Start Delay</label>
+                    <span className="text-accent-2 font-mono font-bold text-sm">{settingsDraft.autoStartDelay || 5}s</span>
+                  </div>
+                  <input
+                    type="range" min={2} max={30} step={1}
+                    value={settingsDraft.autoStartDelay || 5}
+                    onChange={e => setSettingsDraft(prev => prev ? { ...prev, autoStartDelay: Number(e.target.value) } : prev)}
+                    className="w-full accent-accent-2"
+                  />
+                  <div className="flex justify-between text-[10px] text-white/30 mt-0.5">
+                    <span>2s</span><span>30s</span>
+                  </div>
+                  <p className="text-[10px] text-white/30 mt-1 italic">Seconds between hand end and next hand start.</p>
+                </div>
+              </div>
+
+              <div className="flex gap-3 mt-8">
+                <button
+                  onClick={() => setShowSettingsModal(false)}
+                  className="flex-1 py-2 rounded-xl border border-white/10 text-white/50 hover:bg-white/5 text-sm font-semibold transition-colors"
+                >
+                  Cancel
+                </button>
+                <button
+                  onClick={handleSaveSettings}
+                  className="flex-1 py-2 rounded-xl bg-accent-1 text-white font-bold text-sm hover:brightness-110 transition-all active:scale-[0.98] shadow-lg shadow-accent-1/20"
+                >
+                  Save Settings
+                </button>
+              </div>
+            </div>
+          </div>
+        )}
+
+        {/* Mini Preview Table for seating */}
+        <div className="mt-12 w-full flex justify-center scale-75 origin-top">
+          <PokerTable
+            players={mappedPlayers}
+            dealerId=""
+            activePlayerId=""
+            userId={userId}
+            board={[]}
+            pots={[]}
+            handleSeatClick={openBuyInModal}
+            turnTimer={null}
+          />
         </div>
       </div>
     );
   }
 
   // GAME TABLE VIEW
+  const myPlayerInfo = Array.isArray(gameState?.players) 
+    ? gameState.players.find(p => p.id === userId)
+    : null;
+    
+  const isActivePlayer = gameState?.activePlayerId === userId;
+
+  // Format pots for PokerTable
+  const displayPots = [];
+  if (gameState?.pot && gameState.pot > 0) displayPots.push({ amount: gameState.pot, type: 'MAIN' });
+  if (gameState?.sidePots) {
+    gameState.sidePots.forEach(sp => displayPots.push({ amount: sp.amount, type: 'SIDE' }));
+  }
+
+
   return (
-    <div className="flex flex-col items-center justify-center min-h-[calc(100vh-80px)] p-4 overflow-hidden">
-        <div className="relative w-full max-w-5xl aspect-[2.1/1] bg-emerald-900/30 border-[12px] border-amber-900/40 rounded-[200px] shadow-2xl flex items-center justify-center">
-            <div className="absolute inset-4 border-2 border-white/5 rounded-[180px]"></div>
-            
-            <div className="text-center">
-                <div className="text-4xl font-bold text-white/10 uppercase tracking-[0.2em]">OverBet</div>
-                
-                <div className="mt-8 flex gap-3 justify-center">
-                    {(gameState?.board || [null, null, null, null, null]).map((card, i) => (
-                        <div key={i} className={`w-14 h-20 rounded-lg border flex items-center justify-center text-lg font-bold shadow-md transition-all ${card ? 'bg-white text-black border-white' : 'bg-black/20 border-white/10'}`}>
-                            {card ? `${card.rank}${card.suit}` : ""}
-                        </div>
-                    ))}
+    <div className="flex flex-col lg:flex-row items-start justify-center min-h-[calc(100vh-80px)] p-4 overflow-hidden w-full gap-8">
+      <div className="flex flex-col items-center flex-1 w-full relative pt-12">
+        <BuyInModal
+          isOpen={isBuyInOpen}
+          onClose={() => setIsBuyInOpen(false)}
+          onSubmit={handleSeatRequest}
+          minAmount={room.settings?.smallBlind * 50 || 1000}
+          maxAmount={room.settings?.bigBlind * 200 || 4000}
+          seatIndex={selectedSeat}
+          isGuest={true}
+          initialDisplayName=""
+        />
+
+        <PokerTable
+          players={mappedPlayers}
+          dealerId={gameState?.dealerId || ""}
+          activePlayerId={gameState?.activePlayerId || ""}
+          userId={userId}
+          board={gameState?.board || []}
+          pots={displayPots}
+          handleSeatClick={openBuyInModal}
+          turnTimer={turnTimer}
+        />
+
+        <div className="absolute top-4 right-4 flex flex-col gap-2 z-10">
+          {isHost && (
+            <button
+              onClick={handleOpenSettings}
+              className="p-2 border rounded-full bg-surface/50 border-white/10 hover:bg-white/10 transition-colors text-white/50 hover:text-accent-2"
+              title="Room Settings"
+            >
+              <Settings size={18} />
+            </button>
+          )}
+          <button
+            onClick={() => setShowFairnessModal(true)}
+            className="p-2 border rounded-full bg-surface/50 border-white/10 hover:bg-white/10 transition-colors text-white/50 hover:text-accent-1"
+            title="Provably Fair Info"
+          >
+            🔒
+          </button>
+        </div>
+
+        {/* Settings Modal (available in-game for host) */}
+        {showSettingsModal && settingsDraft && (
+          <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/70 backdrop-blur-sm">
+            <div className="w-full max-w-md p-6 border bg-surface rounded-2xl border-white/10 shadow-2xl relative">
+              <button
+                onClick={() => setShowSettingsModal(false)}
+                className="absolute top-4 right-4 text-white/30 hover:text-white text-xl"
+              >✕</button>
+              <h2 className="text-xl font-bold mb-1 flex items-center gap-2">
+                <Settings className="text-accent-2" size={20} />
+                Room Settings
+              </h2>
+              <p className="text-[10px] text-white/30 mb-6 italic">Changes take effect on the next hand.</p>
+
+              <div className="space-y-5">
+                <div>
+                  <div className="flex justify-between items-center mb-1">
+                    <label className="text-sm font-semibold text-white/80">Turn Time</label>
+                    <span className="text-accent-1 font-mono font-bold text-sm">{settingsDraft.turnTimeout || 30}s</span>
+                  </div>
+                  <input
+                    type="range" min={10} max={120} step={5}
+                    value={settingsDraft.turnTimeout || 30}
+                    onChange={e => setSettingsDraft(prev => prev ? { ...prev, turnTimeout: Number(e.target.value) } : prev)}
+                    className="w-full accent-accent-1"
+                  />
+                  <div className="flex justify-between text-[10px] text-white/30 mt-0.5">
+                    <span>10s</span><span>120s</span>
+                  </div>
                 </div>
 
-                {gameState && gameState.pot > 0 && (
-                    <div className="mt-6 flex justify-center">
-                        <div className="bg-black/40 px-4 py-2 rounded-full border border-accent-1/20 text-accent-1 font-bold text-sm shadow-lg backdrop-blur-sm">
-                            POT: ${gameState.pot}
-                        </div>
+                <div>
+                  <div className="flex justify-between items-center mb-1">
+                    <label className="text-sm font-semibold text-white/80">Time Bank</label>
+                    <span className="text-orange-400 font-mono font-bold text-sm">{settingsDraft.timeBank || 30}s</span>
+                  </div>
+                  <input
+                    type="range" min={0} max={120} step={5}
+                    value={settingsDraft.timeBank || 30}
+                    onChange={e => setSettingsDraft(prev => prev ? { ...prev, timeBank: Number(e.target.value) } : prev)}
+                    className="w-full accent-orange-400"
+                  />
+                  <div className="flex justify-between text-[10px] text-white/30 mt-0.5">
+                    <span>0s (off)</span><span>120s</span>
+                  </div>
+                  <p className="text-[10px] text-white/30 mt-1 italic">Extra time pool per player. Activates after turn time expires.</p>
+                </div>
+
+                <div>
+                  <div className="flex justify-between items-center mb-1">
+                    <label className="text-sm font-semibold text-white/80">Auto-Start Delay</label>
+                    <span className="text-accent-2 font-mono font-bold text-sm">{settingsDraft.autoStartDelay || 5}s</span>
+                  </div>
+                  <input
+                    type="range" min={2} max={30} step={1}
+                    value={settingsDraft.autoStartDelay || 5}
+                    onChange={e => setSettingsDraft(prev => prev ? { ...prev, autoStartDelay: Number(e.target.value) } : prev)}
+                    className="w-full accent-accent-2"
+                  />
+                  <div className="flex justify-between text-[10px] text-white/30 mt-0.5">
+                    <span>2s</span><span>30s</span>
+                  </div>
+                  <p className="text-[10px] text-white/30 mt-1 italic">Seconds between hand end and next hand start.</p>
+                </div>
+              </div>
+
+              <div className="flex gap-3 mt-8">
+                <button
+                  onClick={() => setShowSettingsModal(false)}
+                  className="flex-1 py-2 rounded-xl border border-white/10 text-white/50 hover:bg-white/5 text-sm font-semibold transition-colors"
+                >
+                  Cancel
+                </button>
+                <button
+                  onClick={handleSaveSettings}
+                  className="flex-1 py-2 rounded-xl bg-accent-1 text-white font-bold text-sm hover:brightness-110 transition-all active:scale-[0.98] shadow-lg shadow-accent-1/20"
+                >
+                  Save Settings
+                </button>
+              </div>
+            </div>
+          </div>
+        )}
+
+        {showFairnessModal && (
+          <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/60 backdrop-blur-sm">
+            <div className="w-full max-w-md p-6 border bg-surface rounded-2xl border-white/10 shadow-2xl relative">
+              <button
+                onClick={() => setShowFairnessModal(false)}
+                className="absolute top-4 right-4 text-white/30 hover:text-white"
+              >
+                ✕
+              </button>
+              <h2 className="text-xl font-bold mb-4 flex items-center gap-2">
+                <Settings className="text-accent-1" size={20} />
+                Fairness & Integrity
+              </h2>
+
+              <div className="space-y-6">
+                <div className="p-4 rounded-xl bg-white/5 border border-white/5">
+                  <label className="text-[10px] text-white/40 font-bold uppercase tracking-wider block mb-2">Current Hand Commitment</label>
+                  <div className="font-mono text-[10px] break-all bg-black/30 p-2 rounded border border-white/5">
+                    {currentCommitment || "Waiting for hand..."}
+                  </div>
+                  <p className="mt-2 text-[10px] text-white/30 leading-relaxed italic">
+                    This SHA-256 hash was generated before any cards were dealt, proving the deck order is fixed and unchangeable.
+                  </p>
+                </div>
+
+                {gameState?.lastHandReveal && (
+                  <div className="p-4 rounded-xl bg-accent-1/5 border border-accent-1/20 animate-in fade-in slide-in-from-bottom-2">
+                    <label className="text-[10px] text-accent-1 font-bold uppercase tracking-wider block mb-2 flex items-center justify-between">
+                      Last Hand Revealed
+                      <span className="bg-accent-1/20 text-[8px] px-1.5 py-0.5 rounded text-accent-1 border border-accent-1/30">VERIFIED</span>
+                    </label>
+                    <div className="space-y-3">
+                      <div>
+                        <span className="text-[9px] text-white/50 block">Revealed Seed</span>
+                        <code className="text-sm font-mono text-accent-1">{gameState.lastHandReveal.seed}</code>
+                      </div>
+                      <div>
+                        <span className="text-[9px] text-white/50 block">Matching Commitment</span>
+                        <code className="text-[9px] font-mono text-white/40 break-all">{gameState.lastHandReveal.commitment}</code>
+                      </div>
                     </div>
+                  </div>
                 )}
-            </div>
 
-            <div className="absolute top-0 left-1/2 -translate-x-1/2 -translate-y-1/2">
-                <PlayerNode player={players[0]} gameState={gameState} userId={userId} />
-            </div>
-            <div className="absolute top-1/4 right-0 translate-x-1/2 -translate-y-1/2">
-                <PlayerNode player={players[1]} gameState={gameState} userId={userId} />
-            </div>
-            <div className="absolute bottom-1/4 right-0 translate-x-1/2 translate-y-1/2">
-                <PlayerNode player={players[2]} gameState={gameState} userId={userId} />
-            </div>
-            <div className="absolute bottom-0 left-1/2 -translate-x-1/2 translate-y-1/2">
-                <PlayerNode player={players[3]} gameState={gameState} userId={userId} />
-            </div>
-            <div className="absolute bottom-1/4 left-0 -translate-x-1/2 translate-y-1/2">
-                <PlayerNode player={players[4]} gameState={gameState} userId={userId} />
-            </div>
-            <div className="absolute top-1/4 left-0 -translate-x-1/2 -translate-y-1/2">
-                <PlayerNode player={players[5]} gameState={gameState} userId={userId} />
-            </div>
-        </div>
-
-        <div className="mt-16 flex flex-col gap-6 w-full max-w-xl">
-            <div className="flex gap-4">
-                <div className="flex-1 bg-surface border border-white/5 p-4 rounded-2xl flex items-center justify-between">
-                    <div>
-                        <div className="text-[10px] text-white/40 font-bold uppercase tracking-wider">Your Hand</div>
-                        <div className="flex gap-2 mt-1">
-                            {gameState?.players?.[userId]?.cards?.map((card, i) => (
-                                <div key={i} className="w-10 h-14 bg-white text-black rounded-md flex items-center justify-center font-bold text-sm shadow-lg">
-                                    {card.rank}{card.suit}
-                                </div>
-                            )) || (
-                                <>
-                                    <div className="w-10 h-14 bg-accent-1/20 border border-accent-1/30 rounded-md flex items-center justify-center">
-                                        <div className="w-4 h-6 border border-accent-1/50 rounded-sm"></div>
-                                    </div>
-                                    <div className="w-10 h-14 bg-accent-1/20 border border-accent-1/30 rounded-md flex items-center justify-center">
-                                        <div className="w-4 h-6 border border-accent-1/50 rounded-sm"></div>
-                                    </div>
-                                </>
-                            )}
-                        </div>
-                    </div>
-                    <div className="text-right">
-                        <div className="text-[10px] text-white/40 font-bold uppercase tracking-wider">Your Stack</div>
-                        <div className="text-2xl font-black text-accent-1 mt-1">${gameState?.players?.[userId]?.chips || "---"}</div>
-                    </div>
+                <div className="text-[10px] text-white/30 text-center px-4">
+                  Absolute randomness ensures that even the server host cannot see your cards until they are revealed.
                 </div>
+              </div>
             </div>
+          </div>
+        )}
 
-            <div className="flex gap-4">
-                <button className="flex-1 py-4 bg-white/5 border border-white/10 rounded-2xl font-bold hover:bg-white/10 active:scale-95 transition-all text-white/70">Fold</button>
-                <button className="flex-1 py-4 bg-white/5 border border-white/10 rounded-2xl font-bold hover:bg-white/10 active:scale-95 transition-all text-white">Call</button>
-                <button className="flex-1 py-4 bg-accent-1 border border-white/10 rounded-2xl font-bold hover:brightness-110 active:scale-[0.98] transition-all text-white shadow-lg shadow-accent-1/20">Raise</button>
+        <div className="flex flex-col w-full max-w-xl gap-6 mt-16">
+          <div className="flex gap-4">
+            <div className="flex items-center justify-between flex-1 p-4 border bg-surface border-white/5 rounded-2xl">
+              <div>
+                <div className="text-[10px] text-white/40 font-bold uppercase tracking-wider">Your Hand</div>
+                <div className="flex gap-2 mt-1">
+                  {myPlayerInfo?.holeCards?.map((card: string, i: number) => (
+                    <div key={i} className="flex items-center justify-center w-10 text-sm font-bold text-black bg-white shadow-lg rounded-md h-14">
+                      {card}
+                    </div>
+                  )) || (
+                      <>
+                        <div className="flex items-center justify-center w-10 border rounded-md h-14 bg-accent-1/20 border-accent-1/30">
+                          <div className="w-4 h-6 border rounded-sm border-accent-1/50"></div>
+                        </div>
+                        <div className="flex items-center justify-center w-10 border rounded-md h-14 bg-accent-1/20 border-accent-1/30">
+                          <div className="w-4 h-6 border rounded-sm border-accent-1/50"></div>
+                        </div>
+                      </>
+                    )}
+                </div>
+              </div>
+              <div className="text-right">
+                <div className="text-[10px] text-white/40 font-bold uppercase tracking-wider">Your Stack</div>
+                <div className="mt-1 text-2xl font-black text-accent-1">${myPlayerInfo?.stack || "---"}</div>
+              </div>
             </div>
+          </div>
+
+          <ActionBar
+            isActive={isActivePlayer}
+            stack={myPlayerInfo?.stack || 0}
+            currentBet={gameState?.currentBet || 0}
+            playerBet={myPlayerInfo?.bet || 0}
+            minRaise={gameState?.minRaise || 0}
+            onAction={handleAction}
+          />
+
+          {isHost && pendingRequests.length > 0 && (
+            <div className="mt-8 p-4 border border-accent-1/30 bg-accent-1/5 rounded-xl">
+              <h3 className="text-xs font-bold text-accent-1 uppercase tracking-wider mb-3">Pending Seat Requests</h3>
+              <div className="space-y-2">
+                {pendingRequests.map(req => (
+                  <div key={req.playerId} className="flex items-center justify-between p-2 bg-black/40 rounded-lg">
+                    <span className="text-xs font-medium">
+                      {req.displayName || `Player_${req.playerId.substring(0, 4)}`} (Seat {req.seatIndex + 1}, ${req.stack})
+                    </span>
+                    <button
+                      onClick={() => approveSeat(req.playerId)}
+                      className="px-3 py-1 bg-accent-1 text-white text-[10px] font-bold rounded hover:brightness-110"
+                    >
+                      Approve
+                    </button>
+                  </div>
+                ))}
+              </div>
+            </div>
+          )}
+
+          {/* Requester Status Banner */}
+          {!isHost && pendingRequests.some(r => r.playerId === userId) && (
+            <div className="mt-8 p-4 border border-accent-2/30 bg-accent-2/5 rounded-xl animate-pulse">
+              <div className="flex items-center gap-3">
+                <div className="w-2 h-2 bg-accent-2 rounded-full shadow-[0_0_8px_rgba(234,179,8,0.5)]"></div>
+                <h3 className="text-xs font-bold text-accent-2 uppercase tracking-wider">Request Pending Approval</h3>
+              </div>
+              <p className="mt-2 text-[10px] text-white/50 leading-relaxed">
+                Your request for a seat has been sent to the host. Once approved, you'll be automatically seated and ready to play.
+              </p>
+            </div>
+          )}
         </div>
+      </div>
+
+      <div className="w-full lg:w-80 mt-8 lg:mt-0">
+        <GameLog logs={logs} players={mappedPlayers} />
+      </div>
     </div>
   );
-}
-
-function PlayerNode({ player, gameState, userId }: { player: Player | undefined; gameState: GameState | null; userId: string }) {
-    if (!player) return null;
-    const isDealer = gameState?.dealerId === player.id;
-    const isActive = gameState?.activePlayerId === player.id;
-    const isSelf = player.id === userId;
-    const chips = gameState?.players?.[player.id]?.chips ?? 1000;
-    
-    return (
-        <div className="flex flex-col items-center gap-2 group">
-            <div className={`w-16 h-16 rounded-full bg-surface border-4 flex items-center justify-center text-xl font-black shadow-2xl transition-all duration-300 relative ${isActive ? 'border-accent-1 scale-110 ring-4 ring-accent-1/20' : 'border-white/10 group-hover:border-white/20'}`}>
-                {player.username?.[0]}
-                {isDealer && (
-                    <div className="absolute -right-1 -bottom-1 w-6 h-6 rounded-full bg-white text-black text-[10px] flex items-center justify-center font-bold border-2 border-surface shadow-md">
-                        D
-                    </div>
-                )}
-            </div>
-            <div className="flex flex-col items-center gap-0.5">
-                <div className={`px-3 py-1 rounded-full border text-[10px] font-bold uppercase tracking-wider backdrop-blur-md transition-all ${isActive ? 'bg-accent-1 border-accent-1 text-white shadow-lg shadow-accent-1/30' : 'bg-black/60 border-white/10 text-white/80'}`}>
-                    {player.username} {isSelf && "(You)"}
-                </div>
-                <div className="bg-accent-2/10 px-2 py-0.5 rounded-md border border-accent-2/20 text-[10px] font-mono font-bold text-accent-2 shadow-sm">
-                    ${chips}
-                </div>
-            </div>
-        </div>
-    );
 }

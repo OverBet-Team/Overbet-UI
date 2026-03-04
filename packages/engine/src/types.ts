@@ -17,6 +17,7 @@ export type PlayerStatus = "ACTIVE" | "FOLDED" | "ALL_IN" | "BUSTED" | "SITTING_
 
 export interface Player {
     id: string;
+    displayName?: string;
     stack: number;
     status: PlayerStatus;
     seatIndex: number;
@@ -39,6 +40,10 @@ export interface GameState {
     smallBlind: number;
     bigBlind: number;
     ante: number;
+    lastHandReveal?: {
+        seed: number;
+        commitment: string;
+    };
 }
 
 export interface HandEvent {

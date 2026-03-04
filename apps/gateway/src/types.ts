@@ -46,13 +46,26 @@ export interface IntentSeatRequest extends BaseIntent {
     type: "INTENT_SEAT_REQUEST";
     seatIndex: number;
     stack: number;
+    displayName?: string;
+}
+
+export interface IntentSeatApprove extends BaseIntent {
+    type: "INTENT_SEAT_APPROVE";
+    targetPlayerId: string;
+}
+
+export interface IntentSeatReject extends BaseIntent {
+    type: "INTENT_SEAT_REJECT";
+    targetPlayerId: string;
 }
 
 export type AppIntent =
     | IntentJoinRoom
     | IntentRequestSnapshot
     | IntentPlayerAction
-    | IntentSeatRequest;
+    | IntentSeatRequest
+    | IntentSeatApprove
+    | IntentSeatReject;
 
 // ==========================================
 // EVENT_ types (Server -> Client)
@@ -62,7 +75,7 @@ export interface EventStateSnapshot extends BaseEvent {
     type: "EVENT_STATE_SNAPSHOT";
     /**
      * The full authoritative state machine state.
-     * Typed as ny or unknown until engine logic is wired.
+     * Typed as  ny or unknown until engine logic is wired.
      */
     state: any;
 }
@@ -84,12 +97,20 @@ export interface EventActionConfirmed extends BaseEvent {
 export interface EventSeatApproved extends BaseEvent {
     type: "EVENT_SEAT_APPROVED";
     playerId: string;
+    displayName?: string;
     seatIndex: number;
     stack: number;
+}
+
+export interface EventError extends BaseEvent {
+    type: "EVENT_ERROR";
+    code: string;
+    message: string;
 }
 
 export type AppEvent =
     | EventStateSnapshot
     | EventStateUpdate
     | EventActionConfirmed
-    | EventSeatApproved;
+    | EventSeatApproved
+    | EventError;

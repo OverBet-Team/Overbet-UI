@@ -32,3 +32,4 @@ out
 # env
 .env
 .env.*.local
+.ant-colony/
