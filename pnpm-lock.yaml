@@ -14,6 +14,9 @@ importers:
       prettier:
         specifier: ^3.2.0
         version: 3.8.1
+      prisma:
+        specifier: 5.22.0
+        version: 5.22.0
       react:
         specifier: 19.2.3
         version: 19.2.3
@@ -149,11 +152,11 @@ importers:
   packages/db:
     dependencies:
       '@prisma/client':
-        specifier: ^5.10.0
+        specifier: 5.22.0
         version: 5.22.0(prisma@5.22.0)
     devDependencies:
       prisma:
-        specifier: ^5.10.0
+        specifier: 5.22.0
         version: 5.22.0
       vitest:
         specifier: ^4.0.18

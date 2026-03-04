@@ -1,9 +1,7 @@
 "use server";
 
-import { PrismaClient } from "@overbet/db";
+import { prisma } from "@overbet/db";
 import { v4 as uuidv4 } from "uuid";
-
-const prisma = new PrismaClient();
 
 export async function createRoom(hostId: string, roomName: string) {
     // Generate a short 6-character slug for the URL

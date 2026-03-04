@@ -7,7 +7,7 @@
         "test": "vitest run",
         "lint": "turbo run lint",
         "format": "prettier --write \"**/*.{ts,tsx,md}\"",
-        "vercel-build": "npx prisma@^5.10.0 generate --schema=packages/db/prisma/schema.prisma && turbo run build"
+        "vercel-build": "pnpm --filter @overbet/db generate && turbo run build"
     },
     "devDependencies": {
         "next": "16.1.6",
@@ -15,7 +15,8 @@
         "react": "19.2.3",
         "react-dom": "19.2.3",
         "turbo": "^1.12.0",
-        "vitest": "^4.0.18"
+        "vitest": "^4.0.18",
+        "prisma": "5.22.0"
     },
     "packageManager": "pnpm@8.15.0"
 }
