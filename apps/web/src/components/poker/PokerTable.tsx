@@ -91,9 +91,20 @@ export function PokerTable({
   const communitySlots = Array.from({ length: 5 }).map((_, i) => board[i] ?? null);
 
   return (
+    // Responsive wrapper: on small screens, allow horizontal scroll rather than
+    // crushing the table. min-width 480px ensures seats remain usable.
+    <div
+      style={{
+        width: "100%",
+        overflowX: "auto",
+        WebkitOverflowScrolling: "touch",
+        // Hide scrollbar on mobile but keep scroll functionality
+        scrollbarWidth: "none",
+      }}
+    >
     <div
       className="relative w-full max-w-5xl my-10"
-      style={{ aspectRatio: "2.1 / 1" }}
+      style={{ aspectRatio: "2.1 / 1", minWidth: 480 }}
     >
       {/* ── Moon Poker dark velvet table ─────────────────────────────── */}
       {/* Outer shadow ring */}
@@ -246,6 +257,7 @@ export function PokerTable({
           />
         </div>
       ))}
+    </div>
     </div>
   );
 }

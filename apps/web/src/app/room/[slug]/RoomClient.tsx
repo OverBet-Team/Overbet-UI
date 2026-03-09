@@ -75,6 +75,9 @@ export default function RoomClient({ slug, initialRoom }: RoomProps) {
   const [showSettingsModal, setShowSettingsModal] = useState(false);
   const [settingsDraft, setSettingsDraft] = useState<RoomSettings | null>(null);
   const [winner, setWinner] = useState<{ name: string; pot: number; handName?: string } | null>(null);
+  const [isRebuyOpen, setIsRebuyOpen] = useState(false);
+  const [isBusted, setIsBusted] = useState(false);
+  const [myDisplayName, setMyDisplayName] = useState("");
 
   // ── Socket setup ────────────────────────────────────────────────────────────
   useEffect(() => {
@@ -101,12 +104,32 @@ export default function RoomClient({ slug, initialRoom }: RoomProps) {
     });
 
     socketInstance.on("EVENT_HAND_LOG", (data: any) => {
-      if (data.type === "HAND_INIT" && data.commitment) setCurrentCommitment(data.commitment);
+      // HAND_INIT carries the commitment for the Fairness modal
+      if (data.type === "HAND_INIT" && data.commitment) {
+        setCurrentCommitment(data.commitment);
+      }
+      // HAND_REVEAL carries the seed + commitment for provably-fair verification
+      // The engine emits this event before CLEANUP; gateway forwards it via EVENT_HAND_LOG
+      if (data.type === "HAND_REVEAL" && data.payload) {
+        setGameState((prev) =>
+          prev
+            ? { ...prev, lastHandReveal: { seed: data.payload.seed, commitment: data.payload.commitment } }
+            : prev
+        );
+      }
       setLogs((prev) => [...prev, { ...data, timestamp: Date.now() }]);
     });
 
+    // EVENT_HAND_REVEAL is a direct socket event (emitted by gateway when it detects
+    // the HAND_REVEAL engine event). It carries { seed, commitment } directly.
     socketInstance.on("EVENT_HAND_REVEAL", (data: any) => {
-      console.log("Hand revealed:", data);
+      if (data.seed !== undefined && data.commitment) {
+        setGameState((prev) =>
+          prev
+            ? { ...prev, lastHandReveal: { seed: data.seed, commitment: data.commitment } }
+            : prev
+        );
+      }
     });
 
     socketInstance.on("ROOM_SNAPSHOT", (snapshot: { room: Room; players: PlayerData[]; pendingRequests?: any[] }) => {
@@ -148,6 +171,24 @@ export default function RoomClient({ slug, initialRoom }: RoomProps) {
         setRoom((prev) => (prev.status !== "INGAME" ? { ...prev, status: "INGAME" } : prev));
       }
       setTurnTimer((prev) => (prev && state.activePlayerId === prev.playerId ? prev : null));
+
+      // Detect if local player is busted (stack === 0) after CLEANUP
+      if (state.phase === "CLEANUP") {
+        const myEnginePlayer = Array.isArray(state.players)
+          ? state.players.find((p: any) => p.id === userId)
+          : null;
+        if (myEnginePlayer && (myEnginePlayer.stack === 0 || myEnginePlayer.chips === 0)) {
+          setIsBusted(true);
+        }
+      } else if (state.phase === "PRE_FLOP" || state.phase === "PREFLOP") {
+        // New hand started — check if we're back in
+        const myEnginePlayer = Array.isArray(state.players)
+          ? state.players.find((p: any) => p.id === userId)
+          : null;
+        if (myEnginePlayer && (myEnginePlayer.stack > 0 || myEnginePlayer.chips > 0)) {
+          setIsBusted(false);
+        }
+      }
 
       // Detect winner from CLEANUP/SHOWDOWN
       if (state.phase === "CLEANUP" || state.phase === "SHOWDOWN") {
@@ -207,7 +248,21 @@ export default function RoomClient({ slug, initialRoom }: RoomProps) {
       schema_version: 1, client_msg_id: crypto.randomUUID(),
       room_id: slug, seatIndex: selectedSeat, stack: amount, displayName,
     });
+    if (displayName) setMyDisplayName(displayName);
     setIsBuyInOpen(false);
+  };
+
+  const handleRebuy = (amount: number, _displayName: string) => {
+    // Re-buy reuses the same seat the player was in
+    const myPlayer = players.find((p) => p.id === userId);
+    const seatIdx = myPlayer?.seatIndex ?? selectedSeat;
+    socket?.emit("INTENT_SEAT_REQUEST", {
+      schema_version: 1, client_msg_id: crypto.randomUUID(),
+      room_id: slug, seatIndex: seatIdx, stack: amount,
+      displayName: myDisplayName || myPlayer?.username || `Player_${userId.slice(0, 4)}`,
+    });
+    setIsRebuyOpen(false);
+    setIsBusted(false);
   };
 
   const approveSeat = (playerId: string) => {
@@ -541,7 +596,7 @@ export default function RoomClient({ slug, initialRoom }: RoomProps) {
           </div>
 
           {/* Two-column info grid */}
-          <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 14, marginBottom: 24 }}>
+          <div className="lobby-info-grid">
             {/* Players */}
             <div style={{
               padding: 18, borderRadius: 16, background: "rgba(255,255,255,0.03)",
@@ -715,11 +770,10 @@ export default function RoomClient({ slug, initialRoom }: RoomProps) {
   }
 
   return (
-    <div style={{
-      display: "flex", flexDirection: "row", alignItems: "flex-start", justifyContent: "center",
-      minHeight: "calc(100vh - 80px)", padding: "16px", gap: 24,
-      fontFamily: "Outfit, sans-serif",
-    }}>
+    <div
+      className="ingame-layout"
+      style={{ fontFamily: "Outfit, sans-serif" }}
+    >
       {/* ── Main table column ─────────────────────────────────────────────── */}
       <div style={{ display: "flex", flexDirection: "column", alignItems: "center", flex: 1, position: "relative", paddingTop: 48 }}>
         <BuyInModal
@@ -835,6 +889,32 @@ export default function RoomClient({ slug, initialRoom }: RoomProps) {
           {/* Pending requests (host, in-game) */}
           <PendingRequestsPanel />
 
+          {/* Re-buy CTA — shown when local player is busted */}
+          {isBusted && !pendingRequests.some((r) => r.playerId === userId) && (
+            <div style={{
+              display: "flex", alignItems: "center", justifyContent: "space-between",
+              padding: "14px 18px", borderRadius: 16,
+              background: "rgba(239,68,68,0.06)", border: "1px solid rgba(239,68,68,0.2)",
+            }}>
+              <div>
+                <div style={{ color: "#f87171", fontSize: 13, fontWeight: 700 }}>You're out of chips</div>
+                <div style={{ color: "rgba(255,255,255,0.35)", fontSize: 11, marginTop: 2 }}>Re-buy to stay in the game</div>
+              </div>
+              <button
+                onClick={() => setIsRebuyOpen(true)}
+                style={{
+                  padding: "9px 18px", borderRadius: 12, border: "none",
+                  background: "linear-gradient(135deg, #ef4444, #dc2626)",
+                  color: "#fff", fontSize: 13, fontWeight: 700, cursor: "pointer",
+                  fontFamily: "Outfit, sans-serif",
+                  boxShadow: "0 4px 16px rgba(239,68,68,0.25)",
+                }}
+              >
+                Re-buy
+              </button>
+            </div>
+          )}
+
           {/* Requester waiting banner */}
           {!isHost && pendingRequests.some((r) => r.playerId === userId) && (
             <div style={{
@@ -854,8 +934,8 @@ export default function RoomClient({ slug, initialRoom }: RoomProps) {
         </div>
       </div>
 
-      {/* ── Right sidebar: game log ─────────────────────────────────────────── */}
-      <div style={{ width: 300, flexShrink: 0, marginTop: 48 }}>
+      {/* ── Right sidebar: game log ───────────────────────────────────────────────────────── */}
+      <div className="gamelog-sidebar">
         <GameLog logs={logs} players={mappedPlayers} />
       </div>
 
@@ -867,6 +947,19 @@ export default function RoomClient({ slug, initialRoom }: RoomProps) {
           handName={winner.handName}
         />
       )}
+
+      {/* Re-buy modal */}
+      <BuyInModal
+        isOpen={isRebuyOpen}
+        onClose={() => setIsRebuyOpen(false)}
+        onSubmit={handleRebuy}
+        minAmount={room.settings?.smallBlind * 50 || 1000}
+        maxAmount={room.settings?.bigBlind * 200 || 4000}
+        seatIndex={players.find((p) => p.id === userId)?.seatIndex ?? 0}
+        isGuest={true}
+        initialDisplayName={myDisplayName || players.find((p) => p.id === userId)?.username || ""}
+        mode="rebuy"
+      />
     </div>
   );
 }

@@ -53,7 +53,9 @@ export default function WinnerToast({ winner, pot, handName }: WinnerToastProps)
     : "none";
 
   return (
-    <div style={{
+    <div
+      className="winner-toast"
+      style={{
       position: "fixed", bottom: 100, right: 20, zIndex: 60,
       maxWidth: 280, width: "calc(100vw - 40px)",
       opacity, transform: `translateY(${translateY}px)`, transition,
