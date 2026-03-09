@@ -1,12 +1,12 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import { io, Socket } from "socket.io-client";
 import { Copy, Users, Play, Settings, List } from "lucide-react";
 import { PokerTable } from "@/components/poker/PokerTable";
+import { RoomOverlay } from "@/components/poker/RoomOverlay";
 import { ActionBar } from "@/components/poker/ActionBar";
 import { BuyInModal } from "@/components/poker/BuyInModal";
-import { GameLog } from "@/components/poker/GameLog";
 import WinnerOverlay from "@/components/poker/WinnerOverlay";
 import RaiseModal from "@/components/poker/RaiseModal";
 import LogPanel from "@/components/poker/LogPanel";
@@ -74,8 +74,19 @@ export default function RoomClient({ slug, initialRoom }: RoomProps) {
   const [winnerToast, setWinnerToast] = useState<{ winner: string; pot: number; handName?: string } | null>(null);
   const [showRaiseModal, setShowRaiseModal] = useState(false);
   const [showLogPanel, setShowLogPanel] = useState(false);
+  const [showRoomOverlay, setShowRoomOverlay] = useState(false);
+  const hasAutoOpenedOverlay = useRef(false);
+  const hasAutoSeatedHost = useRef(false);
+  const roomRef = useRef(initialRoom);
+  roomRef.current = room;
 
-  // Removed local userId effect, now using useUser() hook
+  // One-time auto-open room overlay for host when entering LOBBY
+  useEffect(() => {
+    if (room?.status === "LOBBY" && isHost && !hasAutoOpenedOverlay.current) {
+      setShowRoomOverlay(true);
+      hasAutoOpenedOverlay.current = true;
+    }
+  }, [room?.status, isHost]);
 
   useEffect(() => {
     if (!userId) return;
@@ -137,11 +148,25 @@ export default function RoomClient({ slug, initialRoom }: RoomProps) {
 
     socketInstance.on("ROOM_SNAPSHOT", (snapshot: { room: Room; players: PlayerData[]; pendingRequests?: any[] }) => {
       console.log("Snapshot received. Host:", snapshot.room.hostId, "Me:", userId);
+      roomRef.current = snapshot.room;
       setRoom(snapshot.room);
       setPlayers(snapshot.players || []);
       setIsHost(snapshot.room.hostId === userId);
       if (snapshot.pendingRequests) {
         setPendingRequests(snapshot.pendingRequests);
+      }
+      // Host auto-seat: when host creates room, auto-request seat 0 and skip bird's-eye selection
+      const isHostNow = snapshot.room.hostId === userId;
+      const alreadySeated = (snapshot.players || []).some((p: PlayerData) => p.id === userId);
+      if (isHostNow && snapshot.room.status === "LOBBY" && !alreadySeated && !hasAutoSeatedHost.current) {
+        hasAutoSeatedHost.current = true;
+        const stack = snapshot.room.settings?.smallBlind ? snapshot.room.settings.smallBlind * 50 : 1000;
+        socketInstance.emit("INTENT_SEAT_REQUEST", {
+          room_id: slug,
+          seatIndex: 0,
+          stack: Math.max(stack, 1000),
+          displayName: "Host"
+        });
       }
     });
 
@@ -151,6 +176,11 @@ export default function RoomClient({ slug, initialRoom }: RoomProps) {
         const otherRequests = prev.filter(r => r.playerId !== data.playerId);
         return [...otherRequests, data];
       });
+      // Host auto-approve own seat request (for host auto-seat flow)
+      const r = roomRef.current;
+      if (data.playerId === userId && r?.hostId === userId) {
+        socketInstance.emit("INTENT_SEAT_APPROVE", { room_id: slug, targetPlayerId: data.playerId });
+      }
     });
 
     socketInstance.on("EVENT_SEAT_APPROVED", (data: any) => {
@@ -294,251 +324,7 @@ export default function RoomClient({ slug, initialRoom }: RoomProps) {
       } as PlayerData))
   ];
 
-  if (room.status === "LOBBY") {
-    return (
-      <div className="flex flex-col items-center justify-center min-h-[calc(100vh-80px)] p-6 w-full">
-        <BuyInModal
-          isOpen={isBuyInOpen}
-          onClose={() => setIsBuyInOpen(false)}
-          onSubmit={handleSeatRequest}
-          minAmount={room.settings?.smallBlind * 50 || 1000}
-          maxAmount={room.settings?.bigBlind * 200 || 4000}
-          seatIndex={selectedSeat}
-          isGuest={true} // For now, treat all as guests for testing name input
-          initialDisplayName=""
-        />
-
-        <div className="w-full max-w-2xl p-8 border bg-surface rounded-2xl border-white/10 shadow-2xl">
-          <div className="flex items-center justify-between mb-8">
-            <div>
-              <h1 className="text-3xl font-bold">{room.name}</h1>
-              <p className="text-white/50">Room ID: {slug}</p>
-            </div>
-            <button
-              onClick={copyLink}
-              className={`flex items-center gap-2 px-4 py-2 transition-all border rounded-lg bg-white/5 border-white/10 hover:bg-white/10 active:scale-95 ${copied ? 'text-green-400 border-green-400/30 bg-green-400/5' : ''}`}
-            >
-              <Copy size={18} />
-              {copied ? "Copied!" : "Copy Link"}
-            </button>
-          </div>
-
-          <div className="grid gap-6 md:grid-cols-2">
-            <div className="p-6 border rounded-xl bg-black/20 border-white/5">
-              <div className="flex items-center gap-2 mb-4 text-accent-1 font-semibold">
-                <Users size={20} />
-                <h2>Players ({players.length})</h2>
-              </div>
-              <div className="space-y-2 max-h-40 overflow-y-auto">
-                {players.length === 0 ? (
-                  <p className="text-white/30 italic text-sm">No players yet...</p>
-                ) : (
-                  players.map((p) => (
-                    <div key={p.id} className="flex items-center justify-between p-2 rounded bg-white/5 text-sm">
-                      <span className="font-medium">{p.username}</span>
-                      <span className="text-accent-2 font-mono">${p.chips}</span>
-                      {room.hostId === p.id && <span className="text-[10px] px-2 py-0.5 rounded-full bg-accent-1/20 text-accent-1 border border-accent-1/30">HOST</span>}
-                    </div>
-                  ))
-                )}
-              </div>
-            </div>
-
-            <div className="p-6 border rounded-xl bg-black/20 border-white/5">
-              <div className="flex items-center justify-between mb-4">
-                <div className="flex items-center gap-2 text-accent-2 font-semibold">
-                  <Settings size={20} />
-                  <h2>Settings</h2>
-                </div>
-                {isHost && (
-                  <button
-                    onClick={handleOpenSettings}
-                    className="text-[10px] px-2 py-1 rounded border border-accent-2/30 bg-accent-2/10 text-accent-2 hover:bg-accent-2/20 transition-colors font-bold uppercase tracking-wider"
-                  >
-                    Edit
-                  </button>
-                )}
-              </div>
-              <div className="space-y-3 text-sm">
-                <div className="flex justify-between">
-                  <span className="text-white/50">Variant</span>
-                  <span className="font-medium">{room.settings?.variant || "NLH"}</span>
-                </div>
-                <div className="flex justify-between">
-                  <span className="text-white/50">Blinds</span>
-                  <span className="font-medium">{room.settings?.smallBlind || 10}/{room.settings?.bigBlind || 20}</span>
-                </div>
-                <div className="flex justify-between">
-                  <span className="text-white/50">Turn Time</span>
-                  <span className="font-medium">{room.settings?.turnTimeout || 30}s</span>
-                </div>
-                <div className="flex justify-between">
-                  <span className="text-white/50">Time Bank</span>
-                  <span className="font-medium">{room.settings?.timeBank || 30}s</span>
-                </div>
-                <div className="flex justify-between">
-                  <span className="text-white/50">Auto-Start</span>
-                  <span className="font-medium">{room.settings?.autoStartDelay || 5}s</span>
-                </div>
-              </div>
-            </div>
-          </div>
-
-          <div className="flex flex-col gap-3 mt-10">
-            {isHost && pendingRequests.length > 0 && (
-              <div className="mb-6 p-4 border border-accent-1/30 bg-accent-1/5 rounded-xl">
-                <h3 className="text-sm font-bold text-accent-1 uppercase tracking-wider mb-3">Pending Seat Requests</h3>
-                <div className="space-y-2">
-                  {pendingRequests.map(req => (
-                    <div key={req.playerId} className="flex items-center justify-between p-2 bg-black/40 rounded-lg">
-                      <span className="text-xs font-medium">
-                        {req.displayName || `Player_${req.playerId.substring(0, 4)}`} (Seat {req.seatIndex + 1}, ${req.stack})
-                      </span>
-                      <button
-                        onClick={() => approveSeat(req.playerId)}
-                        className="px-3 py-1 bg-accent-1 text-white text-[10px] font-bold rounded hover:brightness-110"
-                      >
-                        Approve
-                      </button>
-                    </div>
-                  ))}
-                </div>
-              </div>
-            )}
-
-            {isHost ? (
-              <button
-                onClick={handleStartGame}
-                disabled={players.length < 2}
-                className="disabled:opacity-50 disabled:cursor-not-allowed flex items-center justify-center w-full py-4 font-bold text-white transition-all border shadow-lg rounded-xl bg-accent-1 hover:brightness-110 active:scale-[0.98] shadow-accent-1/20 border-white/10 text-lg"
-              >
-                <Play size={20} className="mr-2" />
-                Start Game
-              </button>
-            ) : (
-              <div className="space-y-4">
-                <div className="text-center p-4 bg-white/5 rounded-xl border border-white/10">
-                  <p className="text-white/70 font-semibold mb-2">Claim a seat below to join this game.</p>
-                </div>
-
-                {pendingRequests.find(r => r.playerId === userId) && (
-                  <div className="p-4 border border-accent-2/30 bg-accent-2/5 rounded-xl animate-pulse flex items-center gap-3">
-                    <div className="w-2 h-2 bg-accent-2 rounded-full shadow-[0_0_8px_rgba(234,179,8,0.5)]"></div>
-                    <span className="text-xs font-bold text-accent-2 uppercase tracking-wider">Waiting for Host Approval...</span>
-                  </div>
-                )}
-              </div>
-            )}
-            <p className="text-center text-sm text-white/30">
-              {isHost && players.length < 2 ? "Waiting for players..." : ""}
-            </p>
-          </div>
-        </div>
-
-        {/* Settings Modal */}
-        {showSettingsModal && settingsDraft && (
-          <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/70 backdrop-blur-sm">
-            <div className="w-full max-w-md p-6 border bg-surface rounded-2xl border-white/10 shadow-2xl relative">
-              <button
-                onClick={() => setShowSettingsModal(false)}
-                className="absolute top-4 right-4 text-white/30 hover:text-white text-xl"
-              >✕</button>
-              <h2 className="text-xl font-bold mb-6 flex items-center gap-2">
-                <Settings className="text-accent-2" size={20} />
-                Room Settings
-              </h2>
-
-              <div className="space-y-5">
-                {/* Turn Timeout */}
-                <div>
-                  <div className="flex justify-between items-center mb-1">
-                    <label className="text-sm font-semibold text-white/80">Turn Time</label>
-                    <span className="text-accent-1 font-mono font-bold text-sm">{settingsDraft.turnTimeout || 30}s</span>
-                  </div>
-                  <input
-                    type="range" min={10} max={120} step={5}
-                    value={settingsDraft.turnTimeout || 30}
-                    onChange={e => setSettingsDraft(prev => prev ? { ...prev, turnTimeout: Number(e.target.value) } : prev)}
-                    className="w-full accent-accent-1"
-                  />
-                  <div className="flex justify-between text-[10px] text-white/30 mt-0.5">
-                    <span>10s</span><span>120s</span>
-                  </div>
-                </div>
-
-                {/* Time Bank */}
-                <div>
-                  <div className="flex justify-between items-center mb-1">
-                    <label className="text-sm font-semibold text-white/80">Time Bank</label>
-                    <span className="text-orange-400 font-mono font-bold text-sm">{settingsDraft.timeBank || 30}s</span>
-                  </div>
-                  <input
-                    type="range" min={0} max={120} step={5}
-                    value={settingsDraft.timeBank || 30}
-                    onChange={e => setSettingsDraft(prev => prev ? { ...prev, timeBank: Number(e.target.value) } : prev)}
-                    className="w-full accent-orange-400"
-                  />
-                  <div className="flex justify-between text-[10px] text-white/30 mt-0.5">
-                    <span>0s (off)</span><span>120s</span>
-                  </div>
-                  <p className="text-[10px] text-white/30 mt-1 italic">Extra time pool per player. Activates after turn time expires.</p>
-                </div>
-
-                {/* Auto-Start Delay */}
-                <div>
-                  <div className="flex justify-between items-center mb-1">
-                    <label className="text-sm font-semibold text-white/80">Auto-Start Delay</label>
-                    <span className="text-accent-2 font-mono font-bold text-sm">{settingsDraft.autoStartDelay || 5}s</span>
-                  </div>
-                  <input
-                    type="range" min={2} max={30} step={1}
-                    value={settingsDraft.autoStartDelay || 5}
-                    onChange={e => setSettingsDraft(prev => prev ? { ...prev, autoStartDelay: Number(e.target.value) } : prev)}
-                    className="w-full accent-accent-2"
-                  />
-                  <div className="flex justify-between text-[10px] text-white/30 mt-0.5">
-                    <span>2s</span><span>30s</span>
-                  </div>
-                  <p className="text-[10px] text-white/30 mt-1 italic">Seconds between hand end and next hand start.</p>
-                </div>
-              </div>
-
-              <div className="flex gap-3 mt-8">
-                <button
-                  onClick={() => setShowSettingsModal(false)}
-                  className="flex-1 py-2 rounded-xl border border-white/10 text-white/50 hover:bg-white/5 text-sm font-semibold transition-colors"
-                >
-                  Cancel
-                </button>
-                <button
-                  onClick={handleSaveSettings}
-                  className="flex-1 py-2 rounded-xl bg-accent-1 text-white font-bold text-sm hover:brightness-110 transition-all active:scale-[0.98] shadow-lg shadow-accent-1/20"
-                >
-                  Save Settings
-                </button>
-              </div>
-            </div>
-          </div>
-        )}
-
-        {/* Mini Preview Table for seating */}
-        <div className="mt-12 w-full flex justify-center scale-75 origin-top">
-          <PokerTable
-            players={mappedPlayers}
-            dealerId=""
-            activePlayerId=""
-            userId={userId}
-            board={[]}
-            pots={[]}
-            handleSeatClick={openBuyInModal}
-            turnTimer={null}
-          />
-        </div>
-      </div>
-    );
-  }
-
-  // GAME TABLE VIEW
+  // Unified table-first layout for both LOBBY and INGAME
   const myPlayerInfo = Array.isArray(gameState?.players) 
     ? gameState.players.find(p => p.id === userId)
     : null;
@@ -554,19 +340,38 @@ export default function RoomClient({ slug, initialRoom }: RoomProps) {
 
 
   return (
-    <div className="flex flex-col lg:flex-row items-start justify-center min-h-[calc(100vh-80px)] p-4 overflow-hidden w-full gap-8">
-      <div className="flex flex-col items-center flex-1 w-full relative pt-12">
-        <BuyInModal
-          isOpen={isBuyInOpen}
-          onClose={() => setIsBuyInOpen(false)}
-          onSubmit={handleSeatRequest}
-          minAmount={room.settings?.smallBlind * 50 || 1000}
-          maxAmount={room.settings?.bigBlind * 200 || 4000}
-          seatIndex={selectedSeat}
-          isGuest={true}
-          initialDisplayName=""
+    <div
+      className="flex flex-col w-full h-[100dvh] overflow-hidden"
+      style={{ background: 'linear-gradient(170deg, #1a1428 0%, #141420 35%, #0f0e1a 100%)' }}
+    >
+      {showRoomOverlay && (
+        <RoomOverlay
+          room={room}
+          players={players}
+          isHost={isHost}
+          pendingRequests={pendingRequests}
+          onClose={() => setShowRoomOverlay(false)}
+          onCopyLink={copyLink}
+          onStartGame={handleStartGame}
+          onApproveSeat={approveSeat}
+          onOpenSettings={handleOpenSettings}
+          userId={userId}
+          copied={copied}
         />
+      )}
 
+      <BuyInModal
+        isOpen={isBuyInOpen}
+        onClose={() => setIsBuyInOpen(false)}
+        onSubmit={handleSeatRequest}
+        minAmount={room.settings?.smallBlind * 50 || 1000}
+        maxAmount={room.settings?.bigBlind * 200 || 4000}
+        seatIndex={selectedSeat}
+        isGuest={true}
+        initialDisplayName=""
+      />
+
+      <div className="flex-1 flex flex-col items-center w-full relative overflow-hidden">
         <PokerTable
           players={mappedPlayers}
           dealerId={gameState?.dealerId || ""}
@@ -576,28 +381,22 @@ export default function RoomClient({ slug, initialRoom }: RoomProps) {
           pots={displayPots}
           handleSeatClick={openBuyInModal}
           turnTimer={turnTimer}
+          myPlayerInfo={myPlayerInfo}
+          handleAction={handleAction}
+          onOpenRaiseModal={() => setShowRaiseModal(true)}
+          roomSettings={room.settings}
+          showLogPanel={showLogPanel}
+          onToggleLogPanel={() => setShowLogPanel(p => !p)}
+          currentBet={gameState?.currentBet ?? 0}
+          minRaise={gameState?.minRaise ?? room.settings?.bigBlind ?? 10}
+          onOpenRoomOverlay={() => setShowRoomOverlay(true)}
+          roomName={room.name}
         />
 
         <div className="absolute top-4 right-4 flex flex-col gap-2 z-10">
-          {isHost && (
-            <button
-              onClick={handleOpenSettings}
-              className="p-2 border rounded-full bg-surface/50 border-white/10 hover:bg-white/10 transition-colors text-white/50 hover:text-accent-2"
-              title="Room Settings"
-            >
-              <Settings size={18} />
-            </button>
-          )}
-          <button
-            onClick={() => setShowLogPanel(p => !p)}
-            className="p-2 border rounded-full bg-surface/50 border-white/10 hover:bg-white/10 transition-colors text-white/50 hover:text-white"
-            title="Game Log"
-          >
-            <List size={18} />
-          </button>
           <button
             onClick={() => setShowFairnessModal(true)}
-            className="p-2 border rounded-full bg-surface/50 border-white/10 hover:bg-white/10 transition-colors text-white/50 hover:text-accent-1"
+            className="p-2 border rounded-full bg-surface/50 border-white/10 hover:bg-white/10 transition-colors text-white/50 hover:text-accent"
             title="Provably Fair Info"
           >
             🔒
@@ -770,83 +569,38 @@ export default function RoomClient({ slug, initialRoom }: RoomProps) {
           </div>
         )}
 
-        <div className="flex flex-col w-full max-w-xl gap-6 mt-16">
-          <div className="flex gap-4">
-            <div className="flex items-center justify-between flex-1 p-4 border bg-surface border-white/5 rounded-2xl">
-              <div>
-                <div className="text-[10px] text-white/40 font-bold uppercase tracking-wider">Your Hand</div>
-                <div className="flex gap-2 mt-1">
-                  {myPlayerInfo?.holeCards?.map((card: string, i: number) => (
-                    <div key={i} className="flex items-center justify-center w-10 text-sm font-bold text-black bg-white shadow-lg rounded-md h-14">
-                      {card}
-                    </div>
-                  )) || (
-                      <>
-                        <div className="flex items-center justify-center w-10 border rounded-md h-14 bg-accent-1/20 border-accent-1/30">
-                          <div className="w-4 h-6 border rounded-sm border-accent-1/50"></div>
-                        </div>
-                        <div className="flex items-center justify-center w-10 border rounded-md h-14 bg-accent-1/20 border-accent-1/30">
-                          <div className="w-4 h-6 border rounded-sm border-accent-1/50"></div>
-                        </div>
-                      </>
-                    )}
+        {(isHost && pendingRequests.length > 0) && (
+          <div className="absolute bottom-4 left-4 z-20 max-w-xs p-4 border border-accent/30 bg-surface/95 rounded-xl backdrop-blur">
+            <h3 className="text-xs font-bold text-accent uppercase tracking-wider mb-3">Pending Seat Requests</h3>
+            <div className="space-y-2">
+              {pendingRequests.map(req => (
+                <div key={req.playerId} className="flex items-center justify-between p-2 bg-black/40 rounded-lg">
+                  <span className="text-xs font-medium">
+                    {req.displayName || `Player_${req.playerId.substring(0, 4)}`} (Seat {req.seatIndex + 1}, ${req.stack})
+                  </span>
+                  <button
+                    onClick={() => approveSeat(req.playerId)}
+                    className="px-3 py-1 bg-accent text-white text-[10px] font-bold rounded hover:brightness-110"
+                  >
+                    Approve
+                  </button>
                 </div>
-              </div>
-              <div className="text-right">
-                <div className="text-[10px] text-white/40 font-bold uppercase tracking-wider">Your Stack</div>
-                <div className="mt-1 text-2xl font-black text-accent-1">${myPlayerInfo?.stack || "---"}</div>
-              </div>
+              ))}
             </div>
           </div>
+        )}
 
-          <ActionBar
-            isActive={isActivePlayer}
-            stack={myPlayerInfo?.stack || 0}
-            currentBet={gameState?.currentBet || 0}
-            playerBet={myPlayerInfo?.bet || 0}
-            minRaise={gameState?.minRaise || 0}
-            onAction={handleAction}
-            onOpenRaiseModal={() => setShowRaiseModal(true)}
-          />
-
-          {isHost && pendingRequests.length > 0 && (
-            <div className="mt-8 p-4 border border-accent-1/30 bg-accent-1/5 rounded-xl">
-              <h3 className="text-xs font-bold text-accent-1 uppercase tracking-wider mb-3">Pending Seat Requests</h3>
-              <div className="space-y-2">
-                {pendingRequests.map(req => (
-                  <div key={req.playerId} className="flex items-center justify-between p-2 bg-black/40 rounded-lg">
-                    <span className="text-xs font-medium">
-                      {req.displayName || `Player_${req.playerId.substring(0, 4)}`} (Seat {req.seatIndex + 1}, ${req.stack})
-                    </span>
-                    <button
-                      onClick={() => approveSeat(req.playerId)}
-                      className="px-3 py-1 bg-accent-1 text-white text-[10px] font-bold rounded hover:brightness-110"
-                    >
-                      Approve
-                    </button>
-                  </div>
-                ))}
-              </div>
+        {!isHost && pendingRequests.some(r => r.playerId === userId) && (
+          <div className="absolute bottom-4 left-4 z-20 max-w-xs p-4 border border-[#eab308]/30 bg-[#eab308]/10 rounded-xl animate-pulse backdrop-blur">
+            <div className="flex items-center gap-3">
+              <div className="w-2 h-2 rounded-full bg-[#eab308] shadow-[0_0_8px_rgba(234,179,8,0.5)]" />
+              <h3 className="text-xs font-bold text-[#eab308] uppercase tracking-wider">Request Pending Approval</h3>
             </div>
-          )}
-
-          {/* Requester Status Banner */}
-          {!isHost && pendingRequests.some(r => r.playerId === userId) && (
-            <div className="mt-8 p-4 border border-accent-2/30 bg-accent-2/5 rounded-xl animate-pulse">
-              <div className="flex items-center gap-3">
-                <div className="w-2 h-2 bg-accent-2 rounded-full shadow-[0_0_8px_rgba(234,179,8,0.5)]"></div>
-                <h3 className="text-xs font-bold text-accent-2 uppercase tracking-wider">Request Pending Approval</h3>
-              </div>
-              <p className="mt-2 text-[10px] text-white/50 leading-relaxed">
-                Your request for a seat has been sent to the host. Once approved, you'll be automatically seated and ready to play.
-              </p>
-            </div>
-          )}
-        </div>
-      </div>
-
-      <div className="w-full lg:w-80 mt-8 lg:mt-0">
-        <GameLog logs={logs} players={mappedPlayers} />
+            <p className="mt-2 text-[10px] text-white/50 leading-relaxed">
+              Your request for a seat has been sent to the host.
+            </p>
+          </div>
+        )}
       </div>
     </div>
   );

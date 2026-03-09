@@ -1,16 +1,16 @@
 import type { Metadata } from "next";
-import { Inter } from "next/font/google";
+import { Outfit } from "next/font/google";
 import { Analytics } from "@vercel/analytics/next";
 import "./globals.css";
 
-const inter = Inter({
-  variable: "--font-inter",
+const outfit = Outfit({
+  variable: "--font-outfit",
   subsets: ["latin"],
 });
 
 export const metadata: Metadata = {
-  title: "OverBet - Build a Better Poker Now",
-  description: "Minimalist, satisfying, modern real-time home-game poker platform.",
+  title: "Moon Poker - Real-Time Home Game",
+  description: "Luxury Velvet Lounge style real-time home-game poker platform.",
 };
 
 export default function RootLayout({
@@ -20,7 +20,7 @@ export default function RootLayout({
 }>) {
   return (
     <html lang="en" className="dark">
-      <body className={`${inter.variable} antialiased bg-background text-foreground selection:bg-accent-2/30`}>
+      <body className={`${outfit.variable} font-sans antialiased bg-background text-foreground selection:bg-accent/30`}>
         {children}
         <Analytics />
       </body>

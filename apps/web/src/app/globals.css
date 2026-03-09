@@ -2,26 +2,32 @@
 @import "../styles/poker.css";
 
 :root {
-  --background: #001F3F;
-  --surface: #031E32;
-  --foreground: #FFFFFF;
-  --accent-1: #FF4500;
-  --accent-2: #00C2FF;
+  --background: #0f0e1a;
+  --surface: rgba(18, 15, 32, 0.95);
+  --foreground: #ffffff;
+  --primary: #7c3aed;
+  --accent: #a78bfa;
+  --gold: #eab308;
+  --accent-1: #7c3aed;
+  --accent-2: #eab308;
 }
 
 @theme inline {
   --color-background: var(--background);
   --color-surface: var(--surface);
   --color-foreground: var(--foreground);
+  --color-primary: var(--primary);
+  --color-accent: var(--accent);
+  --color-gold: var(--gold);
   --color-accent-1: var(--accent-1);
   --color-accent-2: var(--accent-2);
-  --font-sans: var(--font-inter);
+  --font-sans: var(--font-outfit);
 }
 
 body {
   background-color: var(--background);
   color: var(--foreground);
-  font-family: var(--font-sans), sans-serif;
+  font-family: var(--font-sans), 'Outfit', sans-serif;
   -webkit-font-smoothing: antialiased;
   -moz-osx-font-smoothing: grayscale;
 }

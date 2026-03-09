@@ -49,8 +49,8 @@ export function BuyInModal({
     };
 
     return (
-        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/60 backdrop-blur-sm">
-            <div className="w-full max-w-sm p-6 space-y-6 border shadow-2xl bg-surface border-white/10 rounded-2xl">
+        <div className="fixed inset-0 z-50 flex items-center justify-center p-4" style={{ background: "rgba(0,0,0,0.72)", backdropFilter: "blur(8px)" }}>
+            <div className="w-full max-w-sm p-6 space-y-6 rounded-2xl shadow-2xl" style={{ background: "rgba(22, 18, 40, 0.95)", border: "1px solid rgba(124,58,237,0.3)" }}>
                 <div>
                     <h3 className="text-xl font-bold tracking-tight text-white">Join Table</h3>
                     <p className="text-sm text-white/50">Request seat {seatIndex + 1}</p>
@@ -65,7 +65,8 @@ export function BuyInModal({
                                 placeholder="Enter your name"
                                 value={displayName}
                                 onChange={(e) => setDisplayName(e.target.value)}
-                                className="w-full h-12 px-4 font-medium text-white transition-colors border rounded-xl bg-black/20 border-white/10 focus:outline-none focus:border-accent-1 focus:ring-1 focus:ring-accent-1"
+                                className="w-full h-12 px-4 font-medium text-white transition-colors border rounded-xl focus:outline-none focus:ring-2 focus:ring-[#7c3aed]"
+                                style={{ background: "rgba(0,0,0,0.2)", borderColor: "rgba(255,255,255,0.1)" }}
                                 maxLength={20}
                             />
                         </div>
@@ -80,7 +81,8 @@ export function BuyInModal({
                                 inputMode="numeric"
                                 value={amountStr}
                                 onChange={(e) => handleAmountChange(e.target.value)}
-                                className="w-full h-12 pl-8 pr-4 font-mono text-lg font-bold text-white transition-colors border rounded-xl bg-black/20 border-white/10 focus:outline-none focus:border-accent-1 focus:ring-1 focus:ring-accent-1"
+                                className="w-full h-12 pl-8 pr-4 font-mono text-lg font-bold text-white transition-colors border rounded-xl focus:outline-none focus:ring-2 focus:ring-[#7c3aed]"
+                                style={{ background: "rgba(0,0,0,0.2)", borderColor: "rgba(255,255,255,0.1)" }}
                             />
                         </div>
                         <div className="flex justify-between mt-2 text-xs font-semibold text-white/40">
@@ -100,7 +102,8 @@ export function BuyInModal({
                     <button
                         onClick={handleConfirm}
                         disabled={isGuest && !displayName.trim()}
-                        className="flex-1 px-4 py-3 font-bold text-white transition-all shadow-lg rounded-xl bg-accent-1 hover:brightness-110 shadow-accent-1/20 disabled:opacity-50 disabled:cursor-not-allowed"
+                        className="flex-1 px-4 py-3 font-bold text-white transition-all shadow-lg rounded-xl hover:brightness-110 disabled:opacity-50 disabled:cursor-not-allowed"
+                        style={{ background: "linear-gradient(135deg, #7c3aed 0%, #5b21b6 100%)", boxShadow: "0 4px 20px rgba(124,58,237,0.4)" }}
                     >
                         Request Seat
                     </button>

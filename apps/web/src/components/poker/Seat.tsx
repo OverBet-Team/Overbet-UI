@@ -4,6 +4,25 @@ import React from "react";
 import { motion, AnimatePresence } from "framer-motion";
 import PlayingCard from "./PlayingCard";
 
+function ChipIcon({ size = 12, color = "rgba(255,255,255,0.5)" }: { size?: number; color?: string }) {
+  return (
+    <svg width={size} height={size} viewBox="0 0 20 20" fill="none" style={{ flexShrink: 0 }}>
+      <circle cx="10" cy="10" r="9" stroke={color} strokeWidth="1.5" />
+      <circle cx="10" cy="10" r="6" stroke={color} strokeWidth="1" />
+      <circle cx="10" cy="10" r="2.5" fill={color} />
+    </svg>
+  );
+}
+
+function mapStatusToBadge(status: string): string | null {
+  const s = (status || "").toLowerCase();
+  if (s === "folded") return "badge-folded";
+  if (s === "called" || s === "call") return "badge-called";
+  if (s === "raised" || s === "raise") return "badge-raised";
+  if (s === "checked" || s === "check") return "badge-checked";
+  return null;
+}
+
 export interface PlayerData {
     id: string;
     username: string;
@@ -79,33 +98,43 @@ export function Seat({ player, seatIndex, isDealer, isActive, isSelf, onSeatClic
         return (
             <button
                 onClick={() => onSeatClick(seatIndex)}
-                className="flex flex-col items-center justify-center w-16 h-16 transition-all duration-300 border-2 border-dashed rounded-full group bg-black/20 border-white/20 hover:border-accent-2/50 hover:bg-accent-2/10"
+                className="flex flex-col items-center justify-center w-16 h-16 transition-all duration-300 border-2 border-dashed rounded-full group bg-black/20 border-white/20 hover:border-[#a78bfa]/50 hover:bg-[#a78bfa]/10"
             >
-                <div className="text-2xl text-white/20 group-hover:text-accent-2/50">+</div>
+                <div className="text-2xl text-white/20 group-hover:text-[#a78bfa]/70">+</div>
             </button>
         );
     }
 
     const isPending = player.status === 'PENDING';
+    const statusBadge = mapStatusToBadge(player.status);
+    const showStatusBadge = statusBadge && !isPending;
+    const isFolded = (player.status || "").toLowerCase() === "folded";
 
     return (
-        <div className={`flex flex-col items-center gap-2 group ${isPending ? 'opacity-70 animate-pulse' : ''}`}>
+        <div className={`flex flex-col items-center gap-2 group ${isPending ? 'opacity-70 animate-pulse' : ''}`} style={{ animation: 'fadeInSeat 0.4s ease forwards' }}>
+            {showStatusBadge && (
+                <div className={`${statusBadge} text-[10px] font-bold px-2.5 py-1 rounded-full mb-0.5 uppercase tracking-wider`}>
+                    {player.status}
+                </div>
+            )}
             <AnimatePresence>
                 {player.bet && player.bet > 0 ? (
                     <motion.div
                         initial={{ opacity: 0, scale: 0, y: 0 }}
                         animate={{ opacity: 1, scale: 1, y: -24 }}
                         exit={{ opacity: 0, scale: 0, x: centerOffset.x, y: centerOffset.y }}
-                        className="absolute bg-black/60 px-2 py-0.5 rounded-full border border-accent-1/20 text-accent-1 font-bold text-xs shadow-lg backdrop-blur-sm whitespace-nowrap z-20"
+                        className="chip-badge text-[10px] px-2 py-0.5"
                     >
-                        bet ${player.bet}
+                        <ChipIcon size={10} color="#a78bfa" />
+                        <span>${player.bet}</span>
                     </motion.div>
                 ) : null}
             </AnimatePresence>
 
-            {/* Avatar circle with SVG timer ring */}
+            {/* Avatar circle with optional overlapping face-down card (opponents) */}
+            <div className="relative inline-block" style={{ minWidth: 72 }}>
             <div className={`w-16 h-16 rounded-full bg-surface border-4 flex items-center justify-center text-xl font-black shadow-2xl transition-all duration-300 relative
-                ${isActive ? 'border-accent-1 scale-110 ring-4 ring-accent-1/20' : isPending ? 'border-accent-2/50 scale-95' : 'border-white/10 group-hover:border-white/20'}`}
+                ${isActive ? 'border-accent-1 scale-110 ring-4 ring-accent-1/20 active-seat-pulse' : isPending ? 'border-accent-2/50 scale-95' : isFolded ? 'border-red-500/40 opacity-75' : 'border-white/10 group-hover:border-white/20'}`}
             >
                 {/* SVG progress ring */}
                 {isTimerActive && (
@@ -172,7 +201,7 @@ export function Seat({ player, seatIndex, isDealer, isActive, isSelf, onSeatClic
                     </div>
                 )}
 
-                {/* Hole cards — moon-poker style */}
+                {/* Hole cards — revealed (showdown) or overlapping face-down (opponents in hand) */}
                 <AnimatePresence>
                     {player.cards && player.cards.length === 2 && !isPending && (
                         <motion.div
@@ -187,6 +216,16 @@ export function Seat({ player, seatIndex, isDealer, isActive, isSelf, onSeatClic
                         </motion.div>
                     )}
                 </AnimatePresence>
+                {/* Overlapping face-down card for opponents when in hand (cards not yet revealed) */}
+                {!isSelf && !isPending && player.cards?.length !== 2 && (
+                    <div
+                        className="absolute left-[38px] top-[4px] z-[4] card-back-solid"
+                        style={{ width: 34, height: 47, borderRadius: 6, boxShadow: '0 4px 14px rgba(0,0,0,0.55)' }}
+                    >
+                        <div className="absolute inset-1 rounded border border-white/6" style={{ background: 'repeating-linear-gradient(45deg, transparent, transparent 2px, rgba(255,255,255,0.02) 2px, rgba(255,255,255,0.02) 4px)' }} />
+                    </div>
+                )}
+            </div>
             </div>
 
             {/* Name & chip label */}
@@ -199,9 +238,10 @@ export function Seat({ player, seatIndex, isDealer, isActive, isSelf, onSeatClic
                     {player.username} {isSelf && "(You)"} {isPending && "(WAITING)"}
                 </div>
 
-                {/* Chip stack */}
-                <div className="bg-accent-2/10 px-2 py-0.5 rounded-md border border-accent-2/20 text-[10px] font-mono font-bold text-accent-2 shadow-sm">
-                    ${player.chips}
+                {/* Chip stack — Moon Poker style with ChipIcon */}
+                <div className="flex items-center gap-1.5">
+                    <ChipIcon size={11} color="rgba(255,255,255,0.5)" />
+                    <span className="text-[11px] font-semibold text-white/70">{player.chips}</span>
                 </div>
 
                 {/* Time bank remaining bar (shown for active player when timer is visible) */}
