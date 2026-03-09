@@ -12,6 +12,7 @@
   "dependencies": {
     "@overbet/db": "workspace:*",
     "@overbet/engine": "workspace:*",
+    "@vercel/analytics": "^1.6.1",
     "framer-motion": "^12.34.3",
     "lucide-react": "^0.575.0",
     "next": "16.1.6",
