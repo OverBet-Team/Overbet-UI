@@ -2,235 +2,536 @@
 
 import React from "react";
 import { motion, AnimatePresence } from "framer-motion";
+import PlayingCard from "./PlayingCard";
 
 export interface PlayerData {
-    id: string;
-    username: string;
-    chips: number;
-    status: string;
-    seatIndex: number;
-    cards?: string[];
-    bet?: number;
+  id: string;
+  username: string;
+  chips: number;
+  status: string;
+  seatIndex: number;
+  cards?: string[];
+  bet?: number;
 }
 
 export interface TurnTimer {
-    playerId: string;
-    expiresAt: number;
-    total: number;
-    phase: 'base' | 'timebank';
-    timeBankMs: number;
+  playerId: string;
+  expiresAt: number;
+  total: number;
+  phase: "base" | "timebank";
+  timeBankMs: number;
 }
 
 interface SeatProps {
-    player: PlayerData | undefined;
-    seatIndex: number;
-    isDealer: boolean;
-    isActive: boolean;
-    isSelf: boolean;
-    onSeatClick: (index: number) => void;
-    timer?: TurnTimer | null;
-    centerOffset?: { x: number, y: number };
+  player: PlayerData | undefined;
+  seatIndex: number;
+  isDealer: boolean;
+  isActive: boolean;
+  isSelf: boolean;
+  onSeatClick: (index: number) => void;
+  timer?: TurnTimer | null;
+  centerOffset?: { x: number; y: number };
 }
 
 const CIRCUMFERENCE = 2 * Math.PI * 34; // r=34
 
-export function Seat({ player, seatIndex, isDealer, isActive, isSelf, onSeatClick, timer, centerOffset = { x: 0, y: 0 } }: SeatProps) {
-    const [timeLeft, setTimeLeft] = React.useState<number>(0);
-    const [displayTotal, setDisplayTotal] = React.useState<number>(1);
-    const [timerPhase, setTimerPhase] = React.useState<'base' | 'timebank'>('base');
-    const [timeBankLeft, setTimeBankLeft] = React.useState<number>(0);
+export function Seat({
+  player,
+  seatIndex,
+  isDealer,
+  isActive,
+  isSelf,
+  onSeatClick,
+  timer,
+  centerOffset = { x: 0, y: 0 },
+}: SeatProps) {
+  const [timeLeft, setTimeLeft] = React.useState<number>(0);
+  const [displayTotal, setDisplayTotal] = React.useState<number>(1);
+  const [timerPhase, setTimerPhase] = React.useState<"base" | "timebank">("base");
 
-    React.useEffect(() => {
-        const isMyTimer = isActive && timer && timer.playerId === player?.id;
+  React.useEffect(() => {
+    const isMyTimer = isActive && timer && timer.playerId === player?.id;
 
-        if (!isMyTimer) {
-            setTimeLeft(0);
-            return;
-        }
-
-        setDisplayTotal(timer.total);
-        setTimerPhase(timer.phase);
-        setTimeBankLeft(timer.timeBankMs);
-
-        const interval = setInterval(() => {
-            const now = Date.now();
-            const remaining = Math.max(0, timer.expiresAt - now);
-            setTimeLeft(remaining);
-            if (remaining === 0) clearInterval(interval);
-        }, 50);
-
-        return () => clearInterval(interval);
-    }, [isActive, timer, player?.id]);
-
-    const progress = displayTotal > 0 ? timeLeft / displayTotal : 0;
-    const strokeOffset = CIRCUMFERENCE * (1 - progress);
-
-    // Color: green for base time, orange for time bank, red when < 20%
-    const timerColor =
-        timerPhase === 'timebank'
-            ? progress < 0.2 ? '#ef4444' : '#f97316'  // orange → red
-            : progress < 0.2 ? '#ef4444' : '#22c55e';  // green → red
-
-    const isTimerActive = isActive && timer?.playerId === player?.id && timeLeft > 0;
-    const timeLeftSecs = Math.ceil(timeLeft / 1000);
-
-    if (!player) {
-        return (
-            <button
-                onClick={() => onSeatClick(seatIndex)}
-                className="flex flex-col items-center justify-center w-16 h-16 transition-all duration-300 border-2 border-dashed rounded-full group bg-black/20 border-white/20 hover:border-accent-2/50 hover:bg-accent-2/10"
-            >
-                <div className="text-2xl text-white/20 group-hover:text-accent-2/50">+</div>
-            </button>
-        );
+    if (!isMyTimer) {
+      setTimeLeft(0);
+      return;
     }
 
-    const isPending = player.status === 'PENDING';
+    setDisplayTotal(timer.total);
+    setTimerPhase(timer.phase);
 
+    const interval = setInterval(() => {
+      const now = Date.now();
+      const remaining = Math.max(0, timer.expiresAt - now);
+      setTimeLeft(remaining);
+      if (remaining === 0) clearInterval(interval);
+    }, 50);
+
+    return () => clearInterval(interval);
+  }, [isActive, timer, player?.id]);
+
+  const progress = displayTotal > 0 ? timeLeft / displayTotal : 0;
+  const strokeOffset = CIRCUMFERENCE * (1 - progress);
+
+  const timerColor =
+    timerPhase === "timebank"
+      ? progress < 0.2
+        ? "#ef4444"
+        : "#f97316"
+      : progress < 0.2
+      ? "#ef4444"
+      : "#22c55e";
+
+  const isTimerActive = isActive && timer?.playerId === player?.id && timeLeft > 0;
+  const timeLeftSecs = Math.ceil(timeLeft / 1000);
+
+  // ── Empty seat ──────────────────────────────────────────────────────────
+  if (!player) {
     return (
-        <div className={`flex flex-col items-center gap-2 group ${isPending ? 'opacity-70 animate-pulse' : ''}`}>
-            <AnimatePresence>
-                {player.bet && player.bet > 0 ? (
-                    <motion.div
-                        initial={{ opacity: 0, scale: 0, y: 0 }}
-                        animate={{ opacity: 1, scale: 1, y: -24 }}
-                        exit={{ opacity: 0, scale: 0, x: centerOffset.x, y: centerOffset.y }}
-                        className="absolute bg-black/60 px-2 py-0.5 rounded-full border border-accent-1/20 text-accent-1 font-bold text-xs shadow-lg backdrop-blur-sm whitespace-nowrap z-20"
-                    >
-                        bet ${player.bet}
-                    </motion.div>
-                ) : null}
-            </AnimatePresence>
-
-            {/* Avatar circle with SVG timer ring */}
-            <div className={`w-16 h-16 rounded-full bg-surface border-4 flex items-center justify-center text-xl font-black shadow-2xl transition-all duration-300 relative
-                ${isActive ? 'border-accent-1 scale-110 ring-4 ring-accent-1/20' : isPending ? 'border-accent-2/50 scale-95' : 'border-white/10 group-hover:border-white/20'}`}
-            >
-                {/* SVG progress ring */}
-                {isTimerActive && (
-                    <svg
-                        className="absolute -inset-1.5 w-[72px] h-[72px] -rotate-90 pointer-events-none"
-                        viewBox="0 0 72 72"
-                    >
-                        {/* Background track */}
-                        <circle
-                            cx="36" cy="36" r="34"
-                            fill="none"
-                            stroke="rgba(255,255,255,0.08)"
-                            strokeWidth="3"
-                        />
-                        {/* Animated progress arc */}
-                        <circle
-                            cx="36" cy="36" r="34"
-                            fill="none"
-                            stroke={timerColor}
-                            strokeWidth="3"
-                            strokeDasharray={CIRCUMFERENCE}
-                            strokeDashoffset={strokeOffset}
-                            strokeLinecap="round"
-                            style={{ transition: 'stroke-dashoffset 0.05s linear, stroke 0.3s ease' }}
-                        />
-                    </svg>
-                )}
-
-                {/* Avatar letter */}
-                {player.username?.[0]?.toUpperCase()}
-
-                {/* Countdown seconds badge */}
-                {isTimerActive && (
-                    <div
-                        className="absolute -top-2 -right-2 min-w-[20px] h-5 px-1 rounded-full flex items-center justify-center text-[9px] font-black border shadow-lg z-10"
-                        style={{
-                            background: timerPhase === 'timebank' ? 'rgba(249,115,22,0.9)' : 'rgba(34,197,94,0.9)',
-                            borderColor: timerColor,
-                            color: '#fff'
-                        }}
-                    >
-                        {timeLeftSecs}
-                    </div>
-                )}
-
-                {/* Time bank indicator dot (shown when in time bank phase) */}
-                {isTimerActive && timerPhase === 'timebank' && (
-                    <div className="absolute -bottom-2 left-1/2 -translate-x-1/2 text-[8px] font-bold text-orange-400 whitespace-nowrap bg-black/70 px-1 rounded border border-orange-400/30">
-                        TIME BANK
-                    </div>
-                )}
-
-                {/* Dealer button */}
-                {isDealer && !isPending && (
-                    <div className="absolute -right-1 -bottom-1 w-6 h-6 rounded-full bg-white text-black text-[10px] flex items-center justify-center font-bold border-2 border-surface shadow-md">
-                        D
-                    </div>
-                )}
-
-                {/* Pending indicator */}
-                {isPending && (
-                    <div className="absolute -right-1 -bottom-1 w-6 h-6 rounded-full bg-accent-2 text-white text-[8px] flex items-center justify-center font-bold border-2 border-surface shadow-md">
-                        ...
-                    </div>
-                )}
-
-                {/* Hole cards */}
-                <AnimatePresence>
-                    {player.cards && player.cards.length === 2 && !isPending && (
-                        <motion.div
-                            initial={{ opacity: 0, scale: 0, x: centerOffset.x, y: centerOffset.y, rotate: 0 }}
-                            animate={{ opacity: 1, scale: 1, x: -32, y: -8, rotate: -15 }}
-                            exit={{ opacity: 0, scale: 0, x: centerOffset.x, y: centerOffset.y }}
-                            transition={{ type: "spring", stiffness: 260, damping: 20 }}
-                            className="absolute flex -space-x-4"
-                        >
-                            <div className="flex items-center justify-center w-6 h-8 text-black bg-white rounded-sm shadow-md">
-                                <span className="text-[10px] font-bold">{player.cards[0]}</span>
-                            </div>
-                            <div className="flex items-center justify-center w-6 h-8 text-black bg-white border border-gray-200 rounded-sm shadow-md">
-                                <span className="text-[10px] font-bold">{player.cards[1]}</span>
-                            </div>
-                        </motion.div>
-                    )}
-                </AnimatePresence>
-            </div>
-
-            {/* Name & chip label */}
-            <div className="flex flex-col items-center gap-0.5 z-10">
-                <div className={`px-3 py-1 rounded-full border text-[10px] font-bold uppercase tracking-wider backdrop-blur-md transition-all
-                    ${isActive ? 'bg-accent-1 border-accent-1 text-white shadow-lg shadow-accent-1/30'
-                    : isPending ? 'bg-accent-2/20 border-accent-2/30 text-accent-2'
-                    : 'bg-black/80 border-white/10 text-white/80'}`}
-                >
-                    {player.username} {isSelf && "(You)"} {isPending && "(WAITING)"}
-                </div>
-
-                {/* Chip stack */}
-                <div className="bg-accent-2/10 px-2 py-0.5 rounded-md border border-accent-2/20 text-[10px] font-mono font-bold text-accent-2 shadow-sm">
-                    ${player.chips}
-                </div>
-
-                {/* Time bank remaining bar (shown for active player when timer is visible) */}
-                {isTimerActive && timer && timer.timeBankMs > 0 && (
-                    <div className="w-16 mt-0.5">
-                        <div className="flex items-center gap-1 mb-0.5">
-                            <span className="text-[7px] text-white/30 uppercase tracking-wider">Bank</span>
-                            <span className="text-[7px] font-mono text-orange-400">
-                                {timerPhase === 'timebank' ? `${timeLeftSecs}s` : `${Math.round(timer.timeBankMs / 1000)}s`}
-                            </span>
-                        </div>
-                        <div className="h-1 w-full bg-white/10 rounded-full overflow-hidden">
-                            <div
-                                className="h-full rounded-full transition-all duration-100"
-                                style={{
-                                    width: timerPhase === 'timebank'
-                                        ? `${(timeLeft / timer.timeBankMs) * 100}%`
-                                        : '100%',
-                                    background: timerPhase === 'timebank' ? '#f97316' : '#f97316',
-                                    opacity: timerPhase === 'timebank' ? 1 : 0.4
-                                }}
-                            />
-                        </div>
-                    </div>
-                )}
-            </div>
-        </div>
+      <button
+        onClick={() => onSeatClick(seatIndex)}
+        style={{
+          display: "flex",
+          flexDirection: "column",
+          alignItems: "center",
+          justifyContent: "center",
+          width: 56,
+          height: 56,
+          borderRadius: "50%",
+          border: "2px dashed rgba(255,255,255,0.18)",
+          background: "rgba(0,0,0,0.25)",
+          cursor: "pointer",
+          transition: "all 0.2s ease",
+          color: "rgba(255,255,255,0.2)",
+          fontSize: 22,
+          fontWeight: 700,
+        }}
+        onMouseEnter={(e) => {
+          e.currentTarget.style.borderColor = "rgba(124,58,237,0.55)";
+          e.currentTarget.style.background = "rgba(124,58,237,0.12)";
+          e.currentTarget.style.color = "rgba(167,139,250,0.7)";
+        }}
+        onMouseLeave={(e) => {
+          e.currentTarget.style.borderColor = "rgba(255,255,255,0.18)";
+          e.currentTarget.style.background = "rgba(0,0,0,0.25)";
+          e.currentTarget.style.color = "rgba(255,255,255,0.2)";
+        }}
+      >
+        +
+      </button>
     );
+  }
+
+  const isPending = player.status === "PENDING";
+  const isFolded = player.status === "FOLDED";
+
+  // Determine if we show face-up cards (self) or face-down (opponent)
+  const hasFaceUpCards = isSelf && player.cards && player.cards.length === 2;
+  const hasFaceDownCards = !isSelf && player.cards && player.cards.length === 2;
+
+  return (
+    <div
+      style={{
+        display: "flex",
+        flexDirection: "column",
+        alignItems: "center",
+        gap: 6,
+        opacity: isPending ? 0.7 : isFolded ? 0.5 : 1,
+        animation: isPending ? "pulse 2s infinite" : undefined,
+      }}
+    >
+      {/* Bet chip — floats above avatar */}
+      <AnimatePresence>
+        {player.bet && player.bet > 0 ? (
+          <motion.div
+            initial={{ opacity: 0, scale: 0, y: 0 }}
+            animate={{ opacity: 1, scale: 1, y: -4 }}
+            exit={{ opacity: 0, scale: 0, x: centerOffset.x, y: centerOffset.y }}
+            style={{
+              position: "absolute",
+              top: -28,
+              background: "rgba(0,0,0,0.7)",
+              border: "1px solid rgba(239,68,68,0.35)",
+              borderRadius: 999,
+              padding: "2px 10px",
+              color: "#f87171",
+              fontWeight: 700,
+              fontSize: 11,
+              backdropFilter: "blur(8px)",
+              whiteSpace: "nowrap",
+              zIndex: 20,
+              boxShadow: "0 2px 8px rgba(0,0,0,0.4)",
+              fontFamily: "Outfit, Inter, sans-serif",
+            }}
+          >
+            bet ${player.bet}
+          </motion.div>
+        ) : null}
+      </AnimatePresence>
+
+      {/* Avatar circle with SVG timer ring */}
+      <div style={{ position: "relative", width: 64, height: 64 }}>
+        {/* Active glow ring */}
+        {isActive && (
+          <div
+            style={{
+              position: "absolute",
+              inset: -4,
+              borderRadius: "50%",
+              border: "2px solid rgba(124,58,237,0.6)",
+              boxShadow: "0 0 16px rgba(124,58,237,0.35)",
+              animation: "pulse 1.5s ease-in-out infinite",
+            }}
+          />
+        )}
+
+        {/* SVG timer ring */}
+        {isTimerActive && (
+          <svg
+            style={{
+              position: "absolute",
+              top: -6,
+              left: -6,
+              width: 76,
+              height: 76,
+              transform: "rotate(-90deg)",
+              pointerEvents: "none",
+            }}
+            viewBox="0 0 76 76"
+          >
+            <circle
+              cx="38"
+              cy="38"
+              r="34"
+              fill="none"
+              stroke="rgba(255,255,255,0.08)"
+              strokeWidth="3"
+            />
+            <circle
+              cx="38"
+              cy="38"
+              r="34"
+              fill="none"
+              stroke={timerColor}
+              strokeWidth="3"
+              strokeDasharray={CIRCUMFERENCE}
+              strokeDashoffset={strokeOffset}
+              strokeLinecap="round"
+              style={{
+                transition: "stroke-dashoffset 0.05s linear, stroke 0.3s ease",
+              }}
+            />
+          </svg>
+        )}
+
+        {/* Avatar body */}
+        <div
+          style={{
+            width: 64,
+            height: 64,
+            borderRadius: "50%",
+            background: isActive
+              ? "linear-gradient(135deg, #1e1b4b, #312e81)"
+              : "linear-gradient(135deg, #1f2937, #111827)",
+            border: isActive
+              ? "3px solid rgba(124,58,237,0.7)"
+              : isPending
+              ? "3px solid rgba(99,102,241,0.4)"
+              : isFolded
+              ? "3px solid rgba(239,68,68,0.3)"
+              : "3px solid rgba(255,255,255,0.1)",
+            display: "flex",
+            alignItems: "center",
+            justifyContent: "center",
+            fontSize: 22,
+            fontWeight: 800,
+            color: isActive ? "#c4b5fd" : "rgba(255,255,255,0.7)",
+            fontFamily: "Outfit, Inter, sans-serif",
+            boxShadow: isActive
+              ? "0 4px 20px rgba(124,58,237,0.4)"
+              : "0 4px 12px rgba(0,0,0,0.5)",
+            transition: "all 0.25s ease",
+            position: "relative",
+          }}
+        >
+          {player.username?.[0]?.toUpperCase()}
+
+          {/* Countdown badge */}
+          {isTimerActive && (
+            <div
+              style={{
+                position: "absolute",
+                top: -6,
+                right: -6,
+                minWidth: 20,
+                height: 20,
+                padding: "0 4px",
+                borderRadius: 999,
+                display: "flex",
+                alignItems: "center",
+                justifyContent: "center",
+                fontSize: 9,
+                fontWeight: 900,
+                border: `1px solid ${timerColor}`,
+                background:
+                  timerPhase === "timebank"
+                    ? "rgba(249,115,22,0.9)"
+                    : "rgba(34,197,94,0.9)",
+                color: "#fff",
+                zIndex: 10,
+                boxShadow: "0 2px 6px rgba(0,0,0,0.4)",
+              }}
+            >
+              {timeLeftSecs}
+            </div>
+          )}
+
+          {/* TIME BANK label */}
+          {isTimerActive && timerPhase === "timebank" && (
+            <div
+              style={{
+                position: "absolute",
+                bottom: -14,
+                left: "50%",
+                transform: "translateX(-50%)",
+                fontSize: 7,
+                fontWeight: 700,
+                color: "#fb923c",
+                whiteSpace: "nowrap",
+                background: "rgba(0,0,0,0.75)",
+                padding: "1px 4px",
+                borderRadius: 4,
+                border: "1px solid rgba(249,115,22,0.3)",
+              }}
+            >
+              TIME BANK
+            </div>
+          )}
+
+          {/* Dealer button */}
+          {isDealer && !isPending && (
+            <div
+              style={{
+                position: "absolute",
+                right: -4,
+                bottom: -4,
+                width: 22,
+                height: 22,
+                borderRadius: "50%",
+                background: "#fff",
+                color: "#111",
+                fontSize: 9,
+                fontWeight: 900,
+                display: "flex",
+                alignItems: "center",
+                justifyContent: "center",
+                border: "2px solid #111",
+                boxShadow: "0 2px 6px rgba(0,0,0,0.5)",
+                zIndex: 10,
+              }}
+            >
+              D
+            </div>
+          )}
+
+          {/* Pending indicator */}
+          {isPending && (
+            <div
+              style={{
+                position: "absolute",
+                right: -4,
+                bottom: -4,
+                width: 22,
+                height: 22,
+                borderRadius: "50%",
+                background: "rgba(99,102,241,0.9)",
+                color: "#fff",
+                fontSize: 8,
+                fontWeight: 700,
+                display: "flex",
+                alignItems: "center",
+                justifyContent: "center",
+                border: "2px solid rgba(255,255,255,0.2)",
+                boxShadow: "0 2px 6px rgba(0,0,0,0.5)",
+                zIndex: 10,
+              }}
+            >
+              ···
+            </div>
+          )}
+        </div>
+
+        {/* Hole cards — Moon Poker style, anchored to avatar */}
+        <AnimatePresence>
+          {(hasFaceUpCards || hasFaceDownCards) && !isPending && (
+            <motion.div
+              initial={{
+                opacity: 0,
+                scale: 0,
+                x: centerOffset.x * 0.3,
+                y: centerOffset.y * 0.3,
+              }}
+              animate={{ opacity: 1, scale: 1, x: -36, y: -10 }}
+              exit={{ opacity: 0, scale: 0 }}
+              transition={{ type: "spring", stiffness: 260, damping: 20 }}
+              style={{
+                position: "absolute",
+                top: 0,
+                left: 0,
+                display: "flex",
+                gap: -8,
+              }}
+            >
+              {hasFaceUpCards ? (
+                // Self — show face-up cards with suit symbols
+                <>
+                  <PlayingCard
+                    card={player.cards![0]}
+                    size="xs"
+                    rotate={-8}
+                    style={{ zIndex: 2 }}
+                  />
+                  <PlayingCard
+                    card={player.cards![1]}
+                    size="xs"
+                    rotate={-3}
+                    style={{ marginLeft: -10, zIndex: 1 }}
+                  />
+                </>
+              ) : (
+                // Opponent — face-down
+                <>
+                  <PlayingCard faceDown size="xs" rotate={-8} style={{ zIndex: 2 }} />
+                  <PlayingCard
+                    faceDown
+                    size="xs"
+                    rotate={-3}
+                    style={{ marginLeft: -10, zIndex: 1 }}
+                  />
+                </>
+              )}
+            </motion.div>
+          )}
+        </AnimatePresence>
+      </div>
+
+      {/* Name + chip label */}
+      <div
+        style={{
+          display: "flex",
+          flexDirection: "column",
+          alignItems: "center",
+          gap: 2,
+          zIndex: 10,
+        }}
+      >
+        <div
+          style={{
+            padding: "3px 10px",
+            borderRadius: 999,
+            border: isActive
+              ? "1px solid rgba(124,58,237,0.6)"
+              : isPending
+              ? "1px solid rgba(99,102,241,0.35)"
+              : isFolded
+              ? "1px solid rgba(239,68,68,0.25)"
+              : "1px solid rgba(255,255,255,0.1)",
+            background: isActive
+              ? "rgba(124,58,237,0.25)"
+              : isPending
+              ? "rgba(99,102,241,0.12)"
+              : "rgba(0,0,0,0.6)",
+            backdropFilter: "blur(8px)",
+            fontSize: 10,
+            fontWeight: 700,
+            textTransform: "uppercase",
+            letterSpacing: "0.06em",
+            color: isActive ? "#c4b5fd" : isPending ? "#a5b4fc" : "rgba(255,255,255,0.8)",
+            fontFamily: "Outfit, Inter, sans-serif",
+            whiteSpace: "nowrap",
+            maxWidth: 100,
+            overflow: "hidden",
+            textOverflow: "ellipsis",
+            boxShadow: isActive ? "0 2px 12px rgba(124,58,237,0.3)" : undefined,
+          }}
+        >
+          {player.username}
+          {isSelf && " (You)"}
+          {isPending && " (WAITING)"}
+          {isFolded && " (FOLDED)"}
+        </div>
+
+        {/* Chip count */}
+        <div
+          style={{
+            padding: "2px 8px",
+            borderRadius: 6,
+            border: "1px solid rgba(99,102,241,0.2)",
+            background: "rgba(99,102,241,0.08)",
+            fontSize: 10,
+            fontWeight: 700,
+            fontFamily: "monospace",
+            color: "#a5b4fc",
+          }}
+        >
+          ${player.chips}
+        </div>
+
+        {/* Time bank bar */}
+        {isTimerActive && timer && timer.timeBankMs > 0 && (
+          <div style={{ width: 64, marginTop: 2 }}>
+            <div
+              style={{
+                display: "flex",
+                alignItems: "center",
+                gap: 4,
+                marginBottom: 2,
+              }}
+            >
+              <span
+                style={{
+                  fontSize: 7,
+                  color: "rgba(255,255,255,0.3)",
+                  textTransform: "uppercase",
+                  letterSpacing: "0.05em",
+                }}
+              >
+                Bank
+              </span>
+              <span
+                style={{ fontSize: 7, fontFamily: "monospace", color: "#fb923c" }}
+              >
+                {timerPhase === "timebank"
+                  ? `${timeLeftSecs}s`
+                  : `${Math.round(timer.timeBankMs / 1000)}s`}
+              </span>
+            </div>
+            <div
+              style={{
+                height: 3,
+                width: "100%",
+                background: "rgba(255,255,255,0.08)",
+                borderRadius: 999,
+                overflow: "hidden",
+              }}
+            >
+              <div
+                style={{
+                  height: "100%",
+                  borderRadius: 999,
+                  transition: "width 0.1s linear",
+                  width:
+                    timerPhase === "timebank"
+                      ? `${(timeLeft / timer.timeBankMs) * 100}%`
+                      : "100%",
+                  background: "#f97316",
+                  opacity: timerPhase === "timebank" ? 1 : 0.35,
+                }}
+              />
+            </div>
+          </div>
+        )}
+      </div>
+    </div>
+  );
 }

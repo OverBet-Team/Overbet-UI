@@ -8,6 +8,8 @@ import { ActionBar } from "@/components/poker/ActionBar";
 import { BuyInModal } from "@/components/poker/BuyInModal";
 import { GameLog } from "@/components/poker/GameLog";
 import { PlayerData, TurnTimer } from "@/components/poker/Seat";
+import WinnerToast from "@/components/poker/WinnerToast";
+import PlayingCard from "@/components/poker/PlayingCard";
 import { useUser } from "@/hooks/useUser";
 
 interface RoomSettings {
@@ -68,6 +70,7 @@ export default function RoomClient({ slug, initialRoom }: RoomProps) {
   const [logs, setLogs] = useState<any[]>([]);
   const [showSettingsModal, setShowSettingsModal] = useState(false);
   const [settingsDraft, setSettingsDraft] = useState<RoomSettings | null>(null);
+  const [winner, setWinner] = useState<{ name: string; pot: number } | null>(null);
 
   // Removed local userId effect, now using useUser() hook
 
@@ -147,12 +150,25 @@ export default function RoomClient({ slug, initialRoom }: RoomProps) {
 
     socketInstance.on("EVENT_STATE_UPDATE", (snapshot: { state: any }) => {
       if (!snapshot.state) return;
-      setGameState(snapshot.state);
+      const state = snapshot.state;
+      setGameState(state);
       // Only switch to INGAME if a hand is actually started/active
-      if (snapshot.state.phase !== "LOBBY") {
+      if (state.phase !== "LOBBY") {
         setRoom(prev => prev.status !== "INGAME" ? { ...prev, status: "INGAME" } : prev);
       }
-      setTurnTimer(prev => (prev && snapshot.state.activePlayerId === prev.playerId) ? prev : null);
+      setTurnTimer(prev => (prev && state.activePlayerId === prev.playerId) ? prev : null);
+      // Detect winner from CLEANUP phase — show WinnerToast
+      if (state.phase === "CLEANUP" || state.phase === "SHOWDOWN") {
+        const winnerPlayer = state.players?.find((p: any) =>
+          p.status === "WINNER" || p.status === "WIN"
+        );
+        if (winnerPlayer) {
+          setWinner({ name: winnerPlayer.displayName || winnerPlayer.username || winnerPlayer.id, pot: state.pot || 0 });
+        }
+      } else if (state.phase === "PRE_FLOP" || state.phase === "PREFLOP") {
+        // New hand started — clear winner toast
+        setWinner(null);
+      }
     });
 
     socketInstance.on("EVENT_STATE_SNAPSHOT", (snapshot: { state: any }) => {
@@ -194,25 +210,37 @@ export default function RoomClient({ slug, initialRoom }: RoomProps) {
   const handleSeatRequest = (amount: number, displayName: string) => {
     console.log("Sending seat request for seat:", selectedSeat, "with stack:", amount);
     socket?.emit("INTENT_SEAT_REQUEST", {
+      schema_version: 1,
+      client_msg_id: crypto.randomUUID(),
       room_id: slug,
       seatIndex: selectedSeat,
       stack: amount,
-      displayName: displayName // Send the custom display name
+      displayName: displayName
     });
-
     setIsBuyInOpen(false);
   };
 
   const approveSeat = (playerId: string) => {
-    socket?.emit("INTENT_SEAT_APPROVE", { room_id: slug, targetPlayerId: playerId });
+    socket?.emit("INTENT_SEAT_APPROVE", {
+      schema_version: 1,
+      client_msg_id: crypto.randomUUID(),
+      room_id: slug,
+      targetPlayerId: playerId
+    });
   };
 
   const handleStartGame = () => {
-    socket?.emit("INTENT_START_GAME", { room_id: slug });
+    socket?.emit("INTENT_START_GAME", {
+      schema_version: 1,
+      client_msg_id: crypto.randomUUID(),
+      room_id: slug
+    });
   };
 
   const handleAction = (type: string, amount?: number) => {
     socket?.emit("INTENT_PLAYER_ACTION", {
+      schema_version: 1,
+      client_msg_id: crypto.randomUUID(),
       room_id: slug,
       action: { type, amount }
     });
@@ -493,8 +521,8 @@ export default function RoomClient({ slug, initialRoom }: RoomProps) {
           </div>
         )}
 
-        {/* Mini Preview Table for seating */}
-        <div className="mt-12 w-full flex justify-center scale-75 origin-top">
+        {/* Mini Preview Table for seating — GAP-07: use zoom instead of scale to preserve pointer hit-targets */}
+        <div className="mt-12 w-full flex justify-center" style={{ zoom: 0.75, transformOrigin: 'top center' }}>
           <PokerTable
             players={mappedPlayers}
             dealerId=""
@@ -711,20 +739,16 @@ export default function RoomClient({ slug, initialRoom }: RoomProps) {
               <div>
                 <div className="text-[10px] text-white/40 font-bold uppercase tracking-wider">Your Hand</div>
                 <div className="flex gap-2 mt-1">
-                  {myPlayerInfo?.holeCards?.map((card: string, i: number) => (
-                    <div key={i} className="flex items-center justify-center w-10 text-sm font-bold text-black bg-white shadow-lg rounded-md h-14">
-                      {card}
-                    </div>
-                  )) || (
-                      <>
-                        <div className="flex items-center justify-center w-10 border rounded-md h-14 bg-accent-1/20 border-accent-1/30">
-                          <div className="w-4 h-6 border rounded-sm border-accent-1/50"></div>
-                        </div>
-                        <div className="flex items-center justify-center w-10 border rounded-md h-14 bg-accent-1/20 border-accent-1/30">
-                          <div className="w-4 h-6 border rounded-sm border-accent-1/50"></div>
-                        </div>
-                      </>
-                    )}
+                  {(myPlayerInfo?.holeCards || myPlayerInfo?.cards)?.length === 2 ? (
+                    (myPlayerInfo?.holeCards || myPlayerInfo?.cards).map((card: string, i: number) => (
+                      <PlayingCard key={i} card={card} size="sm" />
+                    ))
+                  ) : (
+                    <>
+                      <PlayingCard dashed size="sm" />
+                      <PlayingCard dashed size="sm" />
+                    </>
+                  )}
                 </div>
               </div>
               <div className="text-right">
@@ -740,8 +764,19 @@ export default function RoomClient({ slug, initialRoom }: RoomProps) {
             currentBet={gameState?.currentBet || 0}
             playerBet={myPlayerInfo?.bet || 0}
             minRaise={gameState?.minRaise || 0}
+            pot={gameState?.pot || 0}
             onAction={handleAction}
           />
+
+          {/* Winner announcement — Moon Poker WinnerToast */}
+          {winner && (
+            <WinnerToast
+              winner={winner.name}
+              pot={winner.pot}
+              isHost={isHost}
+              onNewHand={isHost ? handleStartGame : undefined}
+            />
+          )}
 
           {isHost && pendingRequests.length > 0 && (
             <div className="mt-8 p-4 border border-accent-1/30 bg-accent-1/5 rounded-xl">

@@ -3,6 +3,7 @@
     "private": true,
     "scripts": {
         "build": "turbo run build",
+        "predev": "pnpm --filter @overbet/db generate",
         "dev": "turbo run dev",
         "test": "vitest run",
         "lint": "turbo run lint",

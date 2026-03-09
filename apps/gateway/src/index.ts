@@ -66,7 +66,7 @@ async function hydrateRoom(roomId: string) {
     let seq = 0;
     let currentHandId = undefined;
 
-    const members = await (prisma as any).roomMember.findMany({
+    const members = await prisma.roomMember.findMany({
         where: { roomId: room.id, status: 'ACTIVE' },
         include: { user: true }
     });
@@ -210,6 +210,8 @@ async function startTurnTimer(roomId: string) {
             // Enter time bank phase
             const timeBankExpiresAt = Date.now() + currentTimeBankMs;
             const timeBankStartedAt = Date.now();
+            // Store start time so performPlayerAction can compute exact deduction
+            (roomData as any).timeBankStartedAt = timeBankStartedAt;
 
             io.to(roomId).emit('EVENT_TURN_TIMER', {
                 room_id: roomId,
@@ -343,14 +345,18 @@ async function performPlayerAction(roomId: string, userId: string, action: any, 
     let roomData = roomStates[roomId];
     if (!roomData || !roomData.currentHandId) throw new Error('Hand has not started');
 
-    // Track how much time bank was used: if base timer already expired and time bank timer is running,
-    // deduct elapsed time bank usage
+    // GAP-03: Deduct time bank usage when player acts during time bank phase
     const settings = roomData.settings || { turnTimeoutMs: DEFAULT_TURN_TIMEOUT_MS, timeBankMs: DEFAULT_TIME_BANK_MS, autoStartDelay: 5 };
     if (roomData.timeBankTimer && playerTimeBanks[roomId]?.[userId] !== undefined) {
-        // timeBankTimer exists means we're in time bank phase — deduct approximate usage
-        // We approximate by checking remaining time bank balance vs what we started with
-        // For simplicity: reduce by half the time bank (TODO: track exact start time)
-        // A more precise version would store timeBankStartedAt, but this is acceptable
+        // timeBankTimer is active → player is in time bank phase
+        // The timer was started at the moment the base time expired.
+        // We store timeBankStartedAt on the roomData when the timer fires.
+        const startedAt = (roomData as any).timeBankStartedAt as number | undefined;
+        if (startedAt) {
+            const elapsed = Date.now() - startedAt;
+            const remaining = Math.max(0, playerTimeBanks[roomId][userId] - elapsed);
+            playerTimeBanks[roomId][userId] = remaining;
+        }
     }
 
     clearTurnTimer(roomId);
@@ -508,7 +514,7 @@ io.on('connection', (socket) => {
             const alreadySeated = state.players.some(p => p.id === userId);
             if (alreadySeated) throw new Error('Already seated at the table');
 
-            if (data.seatIndex < 0 || data.seatIndex > 5) throw new Error('Invalid seat index');
+            if (data.seatIndex < 0 || data.seatIndex > 9) throw new Error('Invalid seat index');
 
             const isTaken = state.players.some(p => p.seatIndex === data.seatIndex);
             if (isTaken) throw new Error('Seat already taken');
@@ -533,6 +539,11 @@ io.on('connection', (socket) => {
         let roomData = roomStates[data.room_id];
         if (!roomData) return emitError(socket, 'ERR_ROOM_NOT_FOUND', 'Room not found');
 
+        // BUG-05: Only the host may approve seat requests
+        const room = await prisma.room.findUnique({ where: { slug: data.room_id } });
+        if (!room) return emitError(socket, 'ERR_ROOM_NOT_FOUND', 'Room not found');
+        if (room.hostId !== userId) return emitError(socket, 'ERR_NOT_HOST', 'Only the host can approve seat requests');
+
         const pending = roomData.pendingSeats[data.targetPlayerId];
         if (!pending) return emitError(socket, 'ERR_NO_PENDING_REQUEST', 'No pending request found for player');
 
@@ -547,6 +558,19 @@ io.on('connection', (socket) => {
                 bet: 0,
                 hasActed: false
             });
+
+            // BUG-06: Persist the approved seat to the database so it survives gateway restarts
+            await prisma.user.upsert({
+                where: { id: data.targetPlayerId },
+                update: {},
+                create: { id: data.targetPlayerId, username: pending.displayName || `Player_${data.targetPlayerId.substring(0, 4)}` }
+            });
+            await prisma.roomMember.upsert({
+                where: { roomId_userId: { roomId: room.id, userId: data.targetPlayerId } },
+                update: { seatIndex: pending.seatIndex, stack: pending.stack, status: 'ACTIVE' },
+                create: { roomId: room.id, userId: data.targetPlayerId, seatIndex: pending.seatIndex, stack: pending.stack, status: 'ACTIVE' }
+            });
+
             delete roomData.pendingSeats[data.targetPlayerId];
 
             roomData.seq++;
@@ -589,6 +613,10 @@ io.on('connection', (socket) => {
 
     socket.on('INTENT_START_GAME', async (data: any) => {
         try {
+            // BUG-04: Only the host may start a hand
+            const room = await prisma.room.findUnique({ where: { slug: data.room_id } });
+            if (!room) return emitError(socket, 'ERR_ROOM_NOT_FOUND', 'Room not found');
+            if (room.hostId !== userId) return emitError(socket, 'ERR_NOT_HOST', 'Only the host can start the game');
             await startHand(data.room_id, data.schema_version);
         } catch (err: any) {
             emitError(socket, 'ERR_START_GAME', err.message);
