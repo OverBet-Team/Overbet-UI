@@ -41,17 +41,19 @@ interface PokerTableProps {
  *   8 = bottom-left
  *   9 = bottom-center-left (between 8 and 0)
  */
+// 10 seats distributed around an ellipse, clockwise from bottom-center.
+// Positions match Moon Poker's table layout (hero = seat 0 at bottom).
 const SEAT_POSITIONS: { top: string; left: string }[] = [
-  { top: "88%",  left: "50%" },   // 0 — bottom center
-  { top: "78%",  left: "75%" },   // 1 — bottom right
-  { top: "50%",  left: "95%" },   // 2 — right
-  { top: "22%",  left: "82%" },   // 3 — top right
-  { top: "8%",   left: "62%" },   // 4 — top center-right
-  { top: "8%",   left: "38%" },   // 5 — top center-left
-  { top: "22%",  left: "18%" },   // 6 — top left
-  { top: "50%",  left: "5%" },    // 7 — left
-  { top: "78%",  left: "25%" },   // 8 — bottom left
-  { top: "88%",  left: "30%" },   // 9 — bottom center-left (extra seat)
+  { top: "90%",  left: "50%" },   // 0 — bottom center (hero)
+  { top: "80%",  left: "74%" },   // 1 — bottom right
+  { top: "58%",  left: "93%" },   // 2 — right
+  { top: "28%",  left: "86%" },   // 3 — upper right
+  { top: "7%",   left: "65%" },   // 4 — top right
+  { top: "7%",   left: "35%" },   // 5 — top left
+  { top: "28%",  left: "14%" },   // 6 — upper left
+  { top: "58%",  left: "7%" },    // 7 — left
+  { top: "80%",  left: "26%" },   // 8 — bottom left
+  { top: "90%",  left: "30%" },   // 9 — bottom center-left
 ];
 
 // Approximate offset from seat toward table center for card deal animation
@@ -93,23 +95,49 @@ export function PokerTable({
       className="relative w-full max-w-5xl my-10"
       style={{ aspectRatio: "2.1 / 1" }}
     >
-      {/* ── Table felt ─────────────────────────────────────────────────── */}
+      {/* ── Moon Poker dark velvet table ─────────────────────────────── */}
+      {/* Outer shadow ring */}
       <div
-        className="absolute inset-0 rounded-[200px] shadow-2xl"
+        className="absolute inset-0 rounded-[200px]"
         style={{
-          background:
-            "radial-gradient(ellipse at 50% 40%, #1a4a2e 0%, #0f2d1a 60%, #0a1f12 100%)",
-          border: "12px solid #3d2008",
-          boxShadow:
-            "0 0 0 2px rgba(255,255,255,0.04), inset 0 0 80px rgba(0,0,0,0.4), 0 24px 80px rgba(0,0,0,0.7)",
+          background: "transparent",
+          boxShadow: "0 30px 100px rgba(0,0,0,0.8), 0 0 0 1px rgba(255,255,255,0.04)",
         }}
       />
-      {/* Inner rail line */}
+      {/* Table rail */}
       <div
-        className="absolute rounded-[180px] pointer-events-none"
+        className="absolute inset-0 rounded-[200px]"
         style={{
-          inset: "16px",
-          border: "1px solid rgba(255,255,255,0.06)",
+          background: "linear-gradient(180deg, #2a2040 0%, #1a1530 100%)",
+          border: "10px solid #1a1530",
+          boxShadow: "inset 0 0 0 1px rgba(255,255,255,0.06)",
+        }}
+      />
+      {/* Felt surface */}
+      <div
+        className="absolute rounded-[180px]"
+        style={{
+          inset: "10px",
+          background: "radial-gradient(ellipse 90% 70% at 50% 55%, #1f1848 0%, #181338 30%, #130f2e 60%, #0e0b22 100%)",
+          boxShadow: "inset 0 0 60px rgba(0,0,0,0.5)",
+        }}
+      />
+      {/* Inner rail highlight line */}
+      <div
+        className="absolute rounded-[175px] pointer-events-none"
+        style={{
+          inset: "14px",
+          border: "1px solid rgba(120,80,240,0.15)",
+        }}
+      />
+      {/* Center glow */}
+      <div
+        className="absolute pointer-events-none"
+        style={{
+          top: "25%", left: "50%", transform: "translateX(-50%)",
+          width: "50%", height: "35%",
+          background: "radial-gradient(ellipse, rgba(100,50,220,0.25) 0%, transparent 70%)",
+          filter: "blur(24px)",
         }}
       />
 

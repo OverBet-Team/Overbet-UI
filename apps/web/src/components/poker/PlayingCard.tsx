@@ -32,15 +32,17 @@ interface PlayingCardProps {
   faceDown?: boolean;
   /** Unrevealed community card slot — dashed border placeholder */
   dashed?: boolean;
+  /** Highlight with gold glow (winning hand card) */
+  winning?: boolean;
 }
 
 // ── Constants ──────────────────────────────────────────────────────────────
 const SIZES: Record<Size, { w: number; h: number; r: number; rankSize: number; suitCorner: number; suitCenter: number }> = {
-  xs: { w: 32,  h: 44,  r: 5,  rankSize: 9,  suitCorner: 7,  suitCenter: 14 },
-  sm: { w: 44,  h: 60,  r: 7,  rankSize: 12, suitCorner: 9,  suitCenter: 20 },
-  md: { w: 64,  h: 88,  r: 9,  rankSize: 16, suitCorner: 12, suitCenter: 30 },
-  lg: { w: 88,  h: 120, r: 11, rankSize: 20, suitCorner: 15, suitCenter: 42 },
-  xl: { w: 116, h: 160, r: 14, rankSize: 28, suitCorner: 20, suitCenter: 58 },
+  xs: { w: 34,  h: 46,  r: 5,  rankSize: 10, suitCorner: 8,  suitCenter: 16 },
+  sm: { w: 48,  h: 66,  r: 7,  rankSize: 13, suitCorner: 10, suitCenter: 22 },
+  md: { w: 72,  h: 100, r: 10, rankSize: 18, suitCorner: 13, suitCenter: 34 },
+  lg: { w: 96,  h: 132, r: 12, rankSize: 22, suitCorner: 16, suitCenter: 46 },
+  xl: { w: 130, h: 178, r: 16, rankSize: 30, suitCorner: 22, suitCenter: 64 },
 };
 
 const SUIT_SYMBOLS: Record<Suit, string> = {
@@ -95,6 +97,7 @@ export default function PlayingCard({
   dealDelay = 0,
   faceDown = false,
   dashed = false,
+  winning = false,
 }: PlayingCardProps) {
   const s = SIZES[size];
 
@@ -141,13 +144,8 @@ export default function PlayingCard({
   if (isFaceDown) {
     return (
       <div
-        className={cn(className)}
-        style={{
-          ...baseStyle,
-          background: "linear-gradient(135deg, #1e1b4b 0%, #312e81 100%)",
-          border: "1px solid rgba(255,255,255,0.12)",
-          boxShadow: "0 4px 12px rgba(0,0,0,0.5)",
-        }}
+        className={cn("card-back-solid card-deal", className)}
+        style={{ ...baseStyle, borderRadius: s.r }}
       >
         {/* Subtle diagonal pattern */}
         <div
@@ -187,12 +185,14 @@ export default function PlayingCard({
 
   return (
     <div
-      className={cn(className)}
+      className={cn("card-face card-deal", className)}
       style={{
         ...baseStyle,
-        background: "#ffffff",
-        border: "1px solid rgba(0,0,0,0.08)",
-        boxShadow: "0 4px 16px rgba(0,0,0,0.45), 0 1px 3px rgba(0,0,0,0.3)",
+        borderRadius: s.r,
+        ...(winning ? {
+          animation: "card-deal 0.32s cubic-bezier(0.34,1.56,0.64,1) forwards, winning-card-glow 1.5s ease-in-out infinite 0.4s",
+          border: "1.5px solid rgba(234,179,8,0.7)",
+        } : {}),
       }}
     >
       {/* Top-left corner */}
