@@ -7,9 +7,11 @@ interface ActionBarProps {
     playerBet: number;
     minRaise: number;
     onAction: (actionType: string, amount?: number) => void;
+    /** When provided, Raise opens this modal instead of inline input */
+    onOpenRaiseModal?: () => void;
 }
 
-export function ActionBar({ isActive, stack, currentBet, playerBet, minRaise, onAction }: ActionBarProps) {
+export function ActionBar({ isActive, stack, currentBet, playerBet, minRaise, onAction, onOpenRaiseModal }: ActionBarProps) {
     const minRaiseTo = currentBet + minRaise;
     const [raiseAmount, setRaiseAmount] = useState<number>(minRaiseTo);
 
@@ -44,22 +46,31 @@ export function ActionBar({ isActive, stack, currentBet, playerBet, minRaise, on
                 {toCall > 0 ? `Call $${toCall}` : "Check"}
             </button>
 
-            <div className="flex items-center flex-1 pr-2 transition-all border shadow-lg bg-accent-1 border-white/10 rounded-2xl hover:brightness-110 shadow-accent-1/20 focus-within:ring-2 focus-within:ring-white/20">
+            {onOpenRaiseModal ? (
                 <button
-                    onClick={() => onAction("RAISE", raiseAmount)}
-                    className="flex-1 py-4 pl-4 font-bold text-left text-white active:scale-[0.98]"
+                    onClick={onOpenRaiseModal}
+                    className="flex-1 py-4 font-bold text-white transition-all border shadow-lg bg-accent-1 border-white/10 rounded-2xl hover:brightness-110 active:scale-95 shadow-accent-1/20"
                 >
-                    Raise To
+                    Raise
                 </button>
-                <input
-                    type="number"
-                    value={raiseAmount}
-                    min={minRaiseTo}
-                    max={stack + playerBet}
-                    onChange={(e) => setRaiseAmount(Number(e.target.value))}
-                    className="w-20 px-2 py-1 font-mono font-bold text-black border-none rounded-md outline-none bg-white/90"
-                />
-            </div>
+            ) : (
+                <div className="flex items-center flex-1 pr-2 transition-all border shadow-lg bg-accent-1 border-white/10 rounded-2xl hover:brightness-110 shadow-accent-1/20 focus-within:ring-2 focus-within:ring-white/20">
+                    <button
+                        onClick={() => onAction("RAISE", raiseAmount)}
+                        className="flex-1 py-4 pl-4 font-bold text-left text-white active:scale-[0.98]"
+                    >
+                        Raise To
+                    </button>
+                    <input
+                        type="number"
+                        value={raiseAmount}
+                        min={minRaiseTo}
+                        max={stack + playerBet}
+                        onChange={(e) => setRaiseAmount(Number(e.target.value))}
+                        className="w-20 px-2 py-1 font-mono font-bold text-black border-none rounded-md outline-none bg-white/90"
+                    />
+                </div>
+            )}
 
             <button
                 onClick={() => onAction("ALL_IN")}

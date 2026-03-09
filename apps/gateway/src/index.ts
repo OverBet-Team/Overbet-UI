@@ -508,7 +508,7 @@ io.on('connection', (socket) => {
             const alreadySeated = state.players.some(p => p.id === userId);
             if (alreadySeated) throw new Error('Already seated at the table');
 
-            if (data.seatIndex < 0 || data.seatIndex > 5) throw new Error('Invalid seat index');
+            if (data.seatIndex < 0 || data.seatIndex > 9) throw new Error('Invalid seat index');
 
             const isTaken = state.players.some(p => p.seatIndex === data.seatIndex);
             if (isTaken) throw new Error('Seat already taken');

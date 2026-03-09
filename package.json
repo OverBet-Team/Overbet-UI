@@ -2,7 +2,7 @@
     "name": "overbet",
     "private": true,
     "scripts": {
-        "build": "turbo run build",
+        "build": "pnpm --filter @overbet/db generate && turbo run build",
         "dev": "turbo run dev",
         "test": "vitest run",
         "lint": "turbo run lint",

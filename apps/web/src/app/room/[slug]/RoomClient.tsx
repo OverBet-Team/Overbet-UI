@@ -2,11 +2,14 @@
 
 import { useEffect, useState } from "react";
 import { io, Socket } from "socket.io-client";
-import { Copy, Users, Play, Settings } from "lucide-react";
+import { Copy, Users, Play, Settings, List } from "lucide-react";
 import { PokerTable } from "@/components/poker/PokerTable";
 import { ActionBar } from "@/components/poker/ActionBar";
 import { BuyInModal } from "@/components/poker/BuyInModal";
 import { GameLog } from "@/components/poker/GameLog";
+import WinnerOverlay from "@/components/poker/WinnerOverlay";
+import RaiseModal from "@/components/poker/RaiseModal";
+import LogPanel from "@/components/poker/LogPanel";
 import { PlayerData, TurnTimer } from "@/components/poker/Seat";
 import { useUser } from "@/hooks/useUser";
 
@@ -68,6 +71,9 @@ export default function RoomClient({ slug, initialRoom }: RoomProps) {
   const [logs, setLogs] = useState<any[]>([]);
   const [showSettingsModal, setShowSettingsModal] = useState(false);
   const [settingsDraft, setSettingsDraft] = useState<RoomSettings | null>(null);
+  const [winnerToast, setWinnerToast] = useState<{ winner: string; pot: number; handName?: string } | null>(null);
+  const [showRaiseModal, setShowRaiseModal] = useState(false);
+  const [showLogPanel, setShowLogPanel] = useState(false);
 
   // Removed local userId effect, now using useUser() hook
 
@@ -105,6 +111,23 @@ export default function RoomClient({ slug, initialRoom }: RoomProps) {
         setCurrentCommitment(data.commitment);
       }
       setLogs(prev => [...prev, { ...data, timestamp: Date.now() }]);
+      if (data.type === "WIN" && data.payload) {
+        const winnerId = data.payload.playerId;
+        const amount = data.payload.amount ?? 0;
+        const handName = data.payload.handName;
+        setWinnerToast(prev => {
+          const existing = prev?.pot ?? 0;
+          return { winner: winnerId, pot: existing + amount, handName: handName || prev?.handName };
+        });
+      }
+      if (data.type === "EARLY_WIN" && data.payload) {
+        const winnerId = data.payload.winnerId;
+        const amount = data.payload.amount ?? 0;
+        setWinnerToast(prev => {
+          const existing = prev?.pot ?? 0;
+          return { winner: winnerId, pot: existing + amount };
+        });
+      }
     });
 
     socketInstance.on("EVENT_HAND_REVEAL", (data: any) => {
@@ -148,7 +171,9 @@ export default function RoomClient({ slug, initialRoom }: RoomProps) {
     socketInstance.on("EVENT_STATE_UPDATE", (snapshot: { state: any }) => {
       if (!snapshot.state) return;
       setGameState(snapshot.state);
-      // Only switch to INGAME if a hand is actually started/active
+      if (snapshot.state.phase === "LOBBY" || snapshot.state.phase === "HAND_INIT") {
+        setWinnerToast(null);
+      }
       if (snapshot.state.phase !== "LOBBY") {
         setRoom(prev => prev.status !== "INGAME" ? { ...prev, status: "INGAME" } : prev);
       }
@@ -158,6 +183,9 @@ export default function RoomClient({ slug, initialRoom }: RoomProps) {
     socketInstance.on("EVENT_STATE_SNAPSHOT", (snapshot: { state: any }) => {
       if (!snapshot.state) return;
       setGameState(snapshot.state);
+      if (snapshot.state.phase === "LOBBY" || snapshot.state.phase === "HAND_INIT") {
+        setWinnerToast(null);
+      }
       if (snapshot.state.phase !== "LOBBY") {
         setRoom(prev => prev.status !== "INGAME" ? { ...prev, status: "INGAME" } : prev);
       }
@@ -561,6 +589,13 @@ export default function RoomClient({ slug, initialRoom }: RoomProps) {
             </button>
           )}
           <button
+            onClick={() => setShowLogPanel(p => !p)}
+            className="p-2 border rounded-full bg-surface/50 border-white/10 hover:bg-white/10 transition-colors text-white/50 hover:text-white"
+            title="Game Log"
+          >
+            <List size={18} />
+          </button>
+          <button
             onClick={() => setShowFairnessModal(true)}
             className="p-2 border rounded-full bg-surface/50 border-white/10 hover:bg-white/10 transition-colors text-white/50 hover:text-accent-1"
             title="Provably Fair Info"
@@ -568,6 +603,36 @@ export default function RoomClient({ slug, initialRoom }: RoomProps) {
             🔒
           </button>
         </div>
+
+        {showLogPanel && (
+          <LogPanel
+            logs={logs}
+            players={mappedPlayers}
+            onClose={() => setShowLogPanel(false)}
+          />
+        )}
+
+        {winnerToast && (
+          <WinnerOverlay
+            winner={mappedPlayers.find(p => p.id === winnerToast.winner)?.username ?? winnerToast.winner}
+            pot={winnerToast.pot}
+            handName={winnerToast.handName}
+            onDismiss={() => setWinnerToast(null)}
+          />
+        )}
+
+        {showRaiseModal && (
+          <RaiseModal
+            minRaise={Math.max((gameState?.currentBet ?? 0) + (gameState?.minRaise ?? room.settings?.bigBlind ?? 10), 1)}
+            maxRaise={(myPlayerInfo?.stack ?? 0) + (myPlayerInfo?.bet ?? 0)}
+            currentBet={gameState?.currentBet ?? 0}
+            onConfirm={(amount) => {
+              handleAction("RAISE", amount);
+              setShowRaiseModal(false);
+            }}
+            onCancel={() => setShowRaiseModal(false)}
+          />
+        )}
 
         {/* Settings Modal (available in-game for host) */}
         {showSettingsModal && settingsDraft && (
@@ -741,6 +806,7 @@ export default function RoomClient({ slug, initialRoom }: RoomProps) {
             playerBet={myPlayerInfo?.bet || 0}
             minRaise={gameState?.minRaise || 0}
             onAction={handleAction}
+            onOpenRaiseModal={() => setShowRaiseModal(true)}
           />
 
           {isHost && pendingRequests.length > 0 && (

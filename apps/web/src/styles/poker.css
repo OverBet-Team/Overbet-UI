@@ -1,0 +1,104 @@
+/* Moon Poker — Poker-specific styles for OverBet integration */
+
+/* ---- PLAYING CARD ---- */
+.card-face {
+  background: #ffffff;
+  border-radius: 12px;
+  box-shadow:
+    0 8px 32px rgba(0, 0, 0, 0.55),
+    0 2px 8px rgba(0, 0, 0, 0.35),
+    inset 0 1px 0 rgba(255, 255, 255, 0.95);
+  border: 1px solid rgba(0, 0, 0, 0.06);
+  position: relative;
+  overflow: hidden;
+  flex-shrink: 0;
+}
+
+.card-back {
+  background: linear-gradient(145deg, #1e1b38 0%, #252245 100%);
+  border-radius: 12px;
+  border: 2px dashed rgba(255, 255, 255, 0.16);
+  box-shadow: 0 6px 24px rgba(0, 0, 0, 0.5);
+  position: relative;
+  overflow: hidden;
+  flex-shrink: 0;
+}
+
+.card-back-solid {
+  background: linear-gradient(145deg, #1e1b38 0%, #252245 100%);
+  border-radius: 12px;
+  border: 1px solid rgba(255, 255, 255, 0.08);
+  box-shadow: 0 6px 24px rgba(0, 0, 0, 0.5);
+  position: relative;
+  overflow: hidden;
+  flex-shrink: 0;
+}
+
+/* ---- CARD DEAL ANIMATION ---- */
+@keyframes card-deal {
+  from {
+    opacity: 0;
+    scale: 0.88;
+  }
+  to {
+    opacity: 1;
+    scale: 1;
+  }
+}
+
+.card-deal {
+  animation: card-deal 0.32s cubic-bezier(0.34, 1.56, 0.64, 1) forwards;
+}
+
+/* ---- SEAT FADE IN ---- */
+@keyframes fadeInSeat {
+  from { opacity: 0; transform: scale(0.92); }
+  to   { opacity: 1; transform: scale(1); }
+}
+
+/* ---- ACTIVE PLAYER PULSE ---- */
+@keyframes active-ring-pulse {
+  0%, 100% { opacity: 0.85; transform: scale(1); }
+  50% { opacity: 0.4; transform: scale(1.06); }
+}
+
+/* ---- CHIP SLIDE TO POT ---- */
+@keyframes chip-slide-to-pot {
+  0% {
+    transform: translate(0, 0) scale(1.1);
+    opacity: 1;
+  }
+  80% {
+    transform: translate(var(--slide-dx, 0px), var(--slide-dy, -300px)) scale(0.85);
+    opacity: 0.9;
+  }
+  100% {
+    transform: translate(var(--slide-dx, 0px), var(--slide-dy, -300px)) scale(0.7);
+    opacity: 0;
+  }
+}
+
+/* ---- CARD FLIP ---- */
+@keyframes card-flip-in {
+  0%   { transform: rotateY(90deg) scale(0.92); opacity: 0; }
+  60%  { transform: rotateY(-8deg) scale(1.04); opacity: 1; }
+  100% { transform: rotateY(0deg) scale(1); opacity: 1; }
+}
+
+.card-flip-reveal {
+  animation: card-flip-in 0.45s cubic-bezier(0.34, 1.3, 0.64, 1) forwards;
+  transform-style: preserve-3d;
+  perspective: 600px;
+}
+
+/* ---- WINNING CARD GLOW ---- */
+@keyframes winning-card-glow {
+  0%, 100% {
+    box-shadow: 0 0 8px rgba(234,179,8,0.4), 0 0 2px rgba(234,179,8,0.25);
+    border-color: rgba(234,179,8,0.7);
+  }
+  50% {
+    box-shadow: 0 0 16px rgba(234,179,8,0.65), 0 0 6px rgba(234,179,8,0.4);
+    border-color: rgba(234,179,8,0.95);
+  }
+}

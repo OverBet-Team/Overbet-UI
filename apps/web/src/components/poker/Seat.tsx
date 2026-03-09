@@ -2,6 +2,7 @@
 
 import React from "react";
 import { motion, AnimatePresence } from "framer-motion";
+import PlayingCard from "./PlayingCard";
 
 export interface PlayerData {
     id: string;
@@ -171,7 +172,7 @@ export function Seat({ player, seatIndex, isDealer, isActive, isSelf, onSeatClic
                     </div>
                 )}
 
-                {/* Hole cards */}
+                {/* Hole cards — moon-poker style */}
                 <AnimatePresence>
                     {player.cards && player.cards.length === 2 && !isPending && (
                         <motion.div
@@ -181,12 +182,8 @@ export function Seat({ player, seatIndex, isDealer, isActive, isSelf, onSeatClic
                             transition={{ type: "spring", stiffness: 260, damping: 20 }}
                             className="absolute flex -space-x-4"
                         >
-                            <div className="flex items-center justify-center w-6 h-8 text-black bg-white rounded-sm shadow-md">
-                                <span className="text-[10px] font-bold">{player.cards[0]}</span>
-                            </div>
-                            <div className="flex items-center justify-center w-6 h-8 text-black bg-white border border-gray-200 rounded-sm shadow-md">
-                                <span className="text-[10px] font-bold">{player.cards[1]}</span>
-                            </div>
+                            <PlayingCard card={player.cards[0]} size="xs" />
+                            <PlayingCard card={player.cards[1]} size="xs" />
                         </motion.div>
                     )}
                 </AnimatePresence>
