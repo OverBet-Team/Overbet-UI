@@ -57,7 +57,7 @@ Use your Supabase Postgres URL in `packages/db/.env` (or env) as `DATABASE_URL` 
 |-------|--------|
 | Framework | Next.js |
 | Root Directory | *(blank)* |
-| Build Command | `npx prisma@^5.10.0 generate --schema=packages/db/prisma/schema.prisma && turbo run build --filter=web` |
+| Build Command | `SCHEMA=packages/db/prisma/schema.prisma; [ -f "$SCHEMA" ] || SCHEMA=../../packages/db/prisma/schema.prisma; npx prisma@^5.10.0 generate --schema="$SCHEMA" && turbo run build --filter=web` |
 | Output Directory | `apps/web/.next` |
 | Install Command | `corepack enable && pnpm install` *(uses pnpm from package.json to avoid ERR_INVALID_THIS)* |
 
