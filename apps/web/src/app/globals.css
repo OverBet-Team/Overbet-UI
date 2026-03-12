@@ -172,6 +172,13 @@
   50%       { box-shadow: 0 0 16px rgba(234,179,8,0.65), 0 0 6px rgba(234,179,8,0.4); border-color: rgba(234,179,8,0.95); }
 }
 
+/* Moon-style chip slide to pot (for bet animation when engine supports it) */
+@keyframes chip-slide-to-pot {
+  0%   { transform: translate(0, 0) scale(1); opacity: 1; }
+  70%  { transform: translate(var(--chip-dx, 0), var(--chip-dy, -60px)) scale(0.9); opacity: 0.9; }
+  100% { transform: translate(var(--chip-dx, 0), var(--chip-dy, -80px)) scale(0); opacity: 0; }
+}
+
 /* ---- LOG PANEL ---- */
 .log-panel {
   position: absolute; bottom: 56px; left: 16px; width: 280px;

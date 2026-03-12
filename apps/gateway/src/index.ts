@@ -21,9 +21,13 @@ const prisma = new PrismaClient();
 
 const app = express();
 const httpServer = createServer(app);
+const allowedOrigins = process.env.ALLOWED_ORIGINS
+    ? process.env.ALLOWED_ORIGINS.split(',').map((s) => s.trim())
+    : '*';
+
 const io = new Server(httpServer, {
     cors: {
-        origin: '*', // Adjust this in production
+        origin: allowedOrigins,
         methods: ['GET', 'POST']
     }
 });

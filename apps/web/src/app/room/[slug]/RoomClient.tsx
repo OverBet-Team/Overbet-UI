@@ -4,16 +4,17 @@
 // Moon Poker visual language applied to both LOBBY and INGAME views.
 // NO manual "New Hand" button — OverBet auto-starts the next hand via gateway timer.
 
-import { useEffect, useState } from "react";
+import { useEffect, useState, useRef } from "react";
 import { io, Socket } from "socket.io-client";
-import { Copy, Users, Play, Settings, Shield } from "lucide-react";
+import { Copy, Users, Play, Settings, Shield, HelpCircle, ScrollText, Lock } from "lucide-react";
 import { PokerTable } from "@/components/poker/PokerTable";
+import { PlayerPerspectiveView } from "@/components/poker/PlayerPerspectiveView";
+import { toPlayerViewState } from "@/lib/overbet-to-player-view";
 import { ActionBar } from "@/components/poker/ActionBar";
 import { BuyInModal } from "@/components/poker/BuyInModal";
 import { GameLog } from "@/components/poker/GameLog";
 import { PlayerData, TurnTimer } from "@/components/poker/Seat";
 import WinnerToast from "@/components/poker/WinnerToast";
-import PlayingCard from "@/components/poker/PlayingCard";
 import { useUser } from "@/hooks/useUser";
 
 // ── Types ─────────────────────────────────────────────────────────────────────
@@ -53,6 +54,28 @@ interface RoomProps {
   initialRoom: Room;
 }
 
+// Timer pill for hero's turn — Moon-style, shown in bottom bar
+function TurnTimerPill({ timer }: { timer: TurnTimer }) {
+  const [timeLeft, setTimeLeft] = useState(Math.max(0, timer.expiresAt - Date.now()));
+  useEffect(() => {
+    const iv = setInterval(() => setTimeLeft(Math.max(0, timer.expiresAt - Date.now())), 100);
+    return () => clearInterval(iv);
+  }, [timer.expiresAt]);
+  const secs = Math.ceil(timeLeft / 1000);
+  const progress = timer.total > 0 ? timeLeft / timer.total : 0;
+  const color = progress < 0.2 ? "#ef4444" : progress < 0.4 ? "#f97316" : "#22c55e";
+  return (
+    <div style={{
+      display: "flex", alignItems: "center", gap: 6, padding: "6px 12px",
+      borderRadius: 999, background: "rgba(255,255,255,0.06)",
+      border: `1px solid ${color}33`,
+    }}>
+      <div style={{ width: 6, height: 6, borderRadius: "50%", background: color, boxShadow: `0 0 8px ${color}` }} />
+      <span style={{ color: "#fff", fontSize: 14, fontWeight: 700, fontVariantNumeric: "tabular-nums" }}>{secs}s</span>
+    </div>
+  );
+}
+
 // ── Component ─────────────────────────────────────────────────────────────────
 export default function RoomClient({ slug, initialRoom }: RoomProps) {
   const { userId } = useUser();
@@ -78,6 +101,9 @@ export default function RoomClient({ slug, initialRoom }: RoomProps) {
   const [isRebuyOpen, setIsRebuyOpen] = useState(false);
   const [isBusted, setIsBusted] = useState(false);
   const [myDisplayName, setMyDisplayName] = useState("");
+  const [showLogOverlay, setShowLogOverlay] = useState(false);
+  const [showHelpOverlay, setShowHelpOverlay] = useState(false);
+  const justApprovedRef = useRef(false);
 
   // ── Socket setup ────────────────────────────────────────────────────────────
   useEffect(() => {
@@ -134,7 +160,19 @@ export default function RoomClient({ slug, initialRoom }: RoomProps) {
 
     socketInstance.on("ROOM_SNAPSHOT", (snapshot: { room: Room; players: PlayerData[]; pendingRequests?: any[] }) => {
       setRoom(snapshot.room);
-      setPlayers(snapshot.players || []);
+      setPlayers((prev) => {
+        const fromSnapshot = snapshot.players || [];
+        if (fromSnapshot.some((p: any) => p.id === userId)) {
+          justApprovedRef.current = false;
+          return fromSnapshot;
+        }
+        const me = prev.find((p) => p.id === userId && p.seatIndex !== undefined);
+        if (me && justApprovedRef.current) {
+          justApprovedRef.current = false;
+          return [...fromSnapshot, me];
+        }
+        return fromSnapshot;
+      });
       setIsHost(snapshot.room.hostId === userId);
       if (snapshot.pendingRequests) setPendingRequests(snapshot.pendingRequests);
     });
@@ -147,6 +185,7 @@ export default function RoomClient({ slug, initialRoom }: RoomProps) {
     });
 
     socketInstance.on("EVENT_SEAT_APPROVED", (data: any) => {
+      if (data.playerId === userId) justApprovedRef.current = true;
       setPendingRequests((prev) => prev.filter((r) => r.playerId !== data.playerId));
       setPlayers((prev) => {
         if (prev.find((p) => p.id === data.playerId)) return prev;
@@ -535,9 +574,11 @@ export default function RoomClient({ slug, initialRoom }: RoomProps) {
   );
 
   // ════════════════════════════════════════════════════════════════════════════
-  // LOBBY VIEW
+  // VIEW SWITCH — mySeat is the authoritative trigger
+  // Bird's-eye when !mySeat; PlayerPerspectiveView when mySeat exists.
   // ════════════════════════════════════════════════════════════════════════════
-  if (room.status === "LOBBY") {
+  const mySeat = players.find((p) => p.id === userId && p.seatIndex !== undefined);
+  if (!mySeat) {
     return (
       <div style={{
         display: "flex", flexDirection: "column", alignItems: "center",
@@ -761,6 +802,10 @@ export default function RoomClient({ slug, initialRoom }: RoomProps) {
   const myPlayerInfo = Array.isArray(gameState?.players)
     ? gameState.players.find((p) => p.id === userId)
     : null;
+  // Fallback to the lobby players list when gameState isn't available yet
+  // (player is seated but hand hasn't started)
+  const myLobbyPlayer = players.find((p) => p.id === userId);
+  const myStack = myPlayerInfo?.stack ?? myPlayerInfo?.chips ?? myLobbyPlayer?.chips ?? null;
   const isActivePlayer = gameState?.activePlayerId === userId;
 
   const displayPots: { amount: number; type: string }[] = [];
@@ -769,13 +814,23 @@ export default function RoomClient({ slug, initialRoom }: RoomProps) {
     gameState.sidePots.forEach((sp) => displayPots.push({ amount: sp.amount, type: "SIDE" }));
   }
 
+  // Moon-style bottom bar helpers
+  const playerBet = myPlayerInfo?.bet ?? 0;
+
   return (
     <div
-      className="ingame-layout"
-      style={{ fontFamily: "Outfit, sans-serif" }}
+      style={{
+        display: "flex",
+        flexDirection: "column",
+        width: "100%",
+        height: "calc(100dvh - 5rem)",
+        minHeight: 0,
+        fontFamily: "Outfit, sans-serif",
+        overflow: "hidden",
+      }}
     >
-      {/* ── Main table column ─────────────────────────────────────────────── */}
-      <div style={{ display: "flex", flexDirection: "column", alignItems: "center", flex: 1, position: "relative", paddingTop: 48 }}>
+      {/* ── Game canvas (flex-fill) ────────────────────────────────────────── */}
+      <div style={{ flex: 1, minHeight: 0, display: "flex", flexDirection: "column", position: "relative" }}>
         <BuyInModal
           isOpen={isBuyInOpen}
           onClose={() => setIsBuyInOpen(false)}
@@ -787,17 +842,18 @@ export default function RoomClient({ slug, initialRoom }: RoomProps) {
           initialDisplayName=""
         />
 
-        {/* Table */}
-        <PokerTable
-          players={mappedPlayers}
-          dealerId={gameState?.dealerId || ""}
-          activePlayerId={gameState?.activePlayerId || ""}
-          userId={userId}
-          board={gameState?.board || []}
-          pots={displayPots}
-          handleSeatClick={openBuyInModal}
-          turnTimer={turnTimer}
-        />
+        {/* Table — PlayerPerspectiveView fills canvas */}
+        {(() => {
+          const viewState = toPlayerViewState(mappedPlayers, gameState, userId);
+          if (viewState) {
+            return (
+              <div style={{ flex: 1, minHeight: 0, display: "flex", width: "100%" }}>
+                <PlayerPerspectiveView viewState={viewState} />
+              </div>
+            );
+          }
+          return null;
+        })()}
 
         {/* Top-right icon buttons */}
         <div style={{ position: "absolute", top: 8, right: 8, display: "flex", flexDirection: "column", gap: 6, zIndex: 10 }}>
@@ -838,106 +894,240 @@ export default function RoomClient({ slug, initialRoom }: RoomProps) {
         {showSettingsModal && settingsDraft && <SettingsModal />}
         {showFairnessModal && <FairnessModal />}
 
-        {/* ── Bottom panel: hand + action bar ─────────────────────────────── */}
-        <div style={{ display: "flex", flexDirection: "column", width: "100%", maxWidth: 560, gap: 12, marginTop: 32 }}>
-
-          {/* Your Hand + Stack */}
+        {/* Pre-hand waiting banner — floating above bottom bar */}
+        {!gameState && (
           <div style={{
-            display: "flex", alignItems: "center", justifyContent: "space-between",
-            padding: "14px 18px", borderRadius: 18,
-            background: "rgba(16,13,28,0.9)", border: "1px solid rgba(255,255,255,0.08)",
-            backdropFilter: "blur(16px)",
+            position: "absolute", bottom: 88, left: "50%", transform: "translateX(-50%)",
+            display: "flex", alignItems: "center", gap: 12, padding: "14px 18px",
+            borderRadius: 16, background: "rgba(167,139,250,0.06)",
+            border: "1px solid rgba(167,139,250,0.15)", zIndex: 20,
           }}>
-            <div>
-              <div style={{ color: "rgba(255,255,255,0.3)", fontSize: 10, fontWeight: 700, textTransform: "uppercase", letterSpacing: "0.1em", marginBottom: 8 }}>
-                Your Hand
-              </div>
-              <div style={{ display: "flex", gap: 8 }}>
-                {(myPlayerInfo?.holeCards || myPlayerInfo?.cards)?.length === 2 ? (
-                  (myPlayerInfo?.holeCards || myPlayerInfo?.cards).map((card: string, i: number) => (
-                    <PlayingCard key={i} card={card} size="sm" />
-                  ))
-                ) : (
-                  <>
-                    <PlayingCard dashed size="sm" />
-                    <PlayingCard dashed size="sm" />
-                  </>
-                )}
-              </div>
-            </div>
-            <div style={{ textAlign: "right" }}>
-              <div style={{ color: "rgba(255,255,255,0.3)", fontSize: 10, fontWeight: 700, textTransform: "uppercase", letterSpacing: "0.1em", marginBottom: 4 }}>
-                Stack
-              </div>
-              <div style={{ color: "#a78bfa", fontSize: 24, fontWeight: 800, fontVariantNumeric: "tabular-nums" }}>
-                {myPlayerInfo?.stack != null ? `$${myPlayerInfo.stack.toLocaleString()}` : "—"}
-              </div>
-            </div>
-          </div>
-
-          {/* Action bar */}
-          <ActionBar
-            isActive={isActivePlayer}
-            stack={myPlayerInfo?.stack || 0}
-            currentBet={gameState?.currentBet || 0}
-            playerBet={myPlayerInfo?.bet || 0}
-            minRaise={gameState?.minRaise || 0}
-            pot={gameState?.pot || 0}
-            onAction={handleAction}
-          />
-
-          {/* Pending requests (host, in-game) */}
-          <PendingRequestsPanel />
-
-          {/* Re-buy CTA — shown when local player is busted */}
-          {isBusted && !pendingRequests.some((r) => r.playerId === userId) && (
             <div style={{
-              display: "flex", alignItems: "center", justifyContent: "space-between",
-              padding: "14px 18px", borderRadius: 16,
-              background: "rgba(239,68,68,0.06)", border: "1px solid rgba(239,68,68,0.2)",
-            }}>
-              <div>
-                <div style={{ color: "#f87171", fontSize: 13, fontWeight: 700 }}>You're out of chips</div>
-                <div style={{ color: "rgba(255,255,255,0.35)", fontSize: 11, marginTop: 2 }}>Re-buy to stay in the game</div>
+              width: 8, height: 8, borderRadius: "50%", flexShrink: 0,
+              background: "#a78bfa", boxShadow: "0 0 10px rgba(167,139,250,0.6)",
+              animation: "pulse 2s infinite",
+            }} />
+            <div>
+              <div style={{ color: "#a78bfa", fontSize: 13, fontWeight: 700 }}>
+                {isHost ? "Ready to start" : "Waiting for host to start the game"}
               </div>
+              <div style={{ color: "rgba(255,255,255,0.3)", fontSize: 11, marginTop: 2 }}>
+                {isHost
+                  ? players.length < 2
+                    ? "Need at least 2 players seated to start"
+                    : `${players.length} players seated — click Start Game when ready`
+                  : "Cards will be dealt once the host starts the hand"}
+              </div>
+            </div>
+            {isHost && players.length >= 2 && (
               <button
-                onClick={() => setIsRebuyOpen(true)}
+                onClick={handleStartGame}
                 style={{
-                  padding: "9px 18px", borderRadius: 12, border: "none",
+                  marginLeft: "auto", padding: "9px 18px", borderRadius: 12, border: "none",
                   background: "linear-gradient(135deg, #ef4444, #dc2626)",
                   color: "#fff", fontSize: 13, fontWeight: 700, cursor: "pointer",
                   fontFamily: "Outfit, sans-serif",
-                  boxShadow: "0 4px 16px rgba(239,68,68,0.25)",
+                  boxShadow: "0 4px 16px rgba(239,68,68,0.25)", flexShrink: 0,
                 }}
               >
-                Re-buy
+                Start Game
               </button>
-            </div>
-          )}
+            )}
+          </div>
+        )}
 
-          {/* Requester waiting banner */}
-          {!isHost && pendingRequests.some((r) => r.playerId === userId) && (
+        {/* Pending requests (host) — floating */}
+        <div style={{ position: "absolute", top: 56, left: "50%", transform: "translateX(-50%)", zIndex: 15 }}>
+          <PendingRequestsPanel />
+        </div>
+
+        {/* Re-buy CTA — floating above bottom bar */}
+        {isBusted && !pendingRequests.some((r) => r.playerId === userId) && (
+          <div style={{
+            position: "absolute", bottom: 88, left: "50%", transform: "translateX(-50%)",
+            display: "flex", alignItems: "center", justifyContent: "space-between",
+            padding: "14px 18px", borderRadius: 16, zIndex: 20,
+            background: "rgba(239,68,68,0.06)", border: "1px solid rgba(239,68,68,0.2)",
+          }}>
+            <div>
+              <div style={{ color: "#f87171", fontSize: 13, fontWeight: 700 }}>You're out of chips</div>
+              <div style={{ color: "rgba(255,255,255,0.35)", fontSize: 11, marginTop: 2 }}>Re-buy to stay in the game</div>
+            </div>
+            <button
+              onClick={() => setIsRebuyOpen(true)}
+              style={{
+                marginLeft: 16, padding: "9px 18px", borderRadius: 12, border: "none",
+                background: "linear-gradient(135deg, #ef4444, #dc2626)",
+                color: "#fff", fontSize: 13, fontWeight: 700, cursor: "pointer",
+                fontFamily: "Outfit, sans-serif",
+                boxShadow: "0 4px 16px rgba(239,68,68,0.25)",
+              }}
+            >
+              Re-buy
+            </button>
+          </div>
+        )}
+
+        {/* Requester waiting banner — floating */}
+        {!isHost && pendingRequests.some((r) => r.playerId === userId) && (
+          <div style={{
+            position: "absolute", bottom: 88, left: "50%", transform: "translateX(-50%)",
+            display: "flex", alignItems: "center", gap: 10, padding: "12px 16px",
+            borderRadius: 12, background: "rgba(167,139,250,0.06)",
+            border: "1px solid rgba(167,139,250,0.2)", zIndex: 20,
+          }}>
             <div style={{
-              display: "flex", alignItems: "center", gap: 10, padding: "12px 16px",
-              borderRadius: 12, background: "rgba(167,139,250,0.06)",
-              border: "1px solid rgba(167,139,250,0.2)",
-            }}>
-              <div style={{
-                width: 8, height: 8, borderRadius: "50%", background: "#a78bfa",
-                boxShadow: "0 0 8px rgba(167,139,250,0.6)",
-              }} />
-              <span style={{ color: "#a78bfa", fontSize: 12, fontWeight: 600 }}>
-                Waiting for host approval…
+              width: 8, height: 8, borderRadius: "50%", background: "#a78bfa",
+              boxShadow: "0 0 8px rgba(167,139,250,0.6)",
+            }} />
+            <span style={{ color: "#a78bfa", fontSize: 12, fontWeight: 600 }}>
+              Waiting for host approval…
+            </span>
+          </div>
+        )}
+      </div>
+
+      {/* ── Moon-style bottom bar (72px) ───────────────────────────────────── */}
+      <div style={{
+        height: 72,
+        flexShrink: 0,
+        display: "flex",
+        alignItems: "center",
+        justifyContent: "space-between",
+        padding: "0 20px",
+        background: "rgba(10, 8, 20, 0.88)",
+        backdropFilter: "blur(20px)",
+        borderTop: "1px solid rgba(255,255,255,0.05)",
+      }}>
+        {/* Left: Help, Log */}
+        <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
+          <button
+            onClick={() => setShowHelpOverlay((v) => !v)}
+            style={{
+              display: "flex", alignItems: "center", gap: 6, padding: "8px 14px",
+              borderRadius: 999, border: "1px solid rgba(255,255,255,0.1)",
+              background: showHelpOverlay ? "rgba(255,255,255,0.08)" : "transparent",
+              color: "rgba(255,255,255,0.7)", fontSize: 13, fontWeight: 600,
+              cursor: "pointer", fontFamily: "Outfit, sans-serif",
+            }}
+          >
+            <HelpCircle size={16} />
+            Help
+          </button>
+          <button
+            onClick={() => setShowLogOverlay((v) => !v)}
+            style={{
+              display: "flex", alignItems: "center", gap: 6, padding: "8px 14px",
+              borderRadius: 999, border: "1px solid rgba(255,255,255,0.1)",
+              background: showLogOverlay ? "rgba(255,255,255,0.08)" : "transparent",
+              color: "rgba(255,255,255,0.7)", fontSize: 13, fontWeight: 600,
+              cursor: "pointer", fontFamily: "Outfit, sans-serif",
+            }}
+          >
+            <ScrollText size={16} />
+            Log
+          </button>
+        </div>
+
+        {/* Center: ActionBar or waiting text */}
+        <div style={{ flex: 1, display: "flex", justifyContent: "center", alignItems: "center", minWidth: 0, maxWidth: 480 }}>
+          {gameState ? (
+            <ActionBar
+              isActive={isActivePlayer}
+              stack={myPlayerInfo?.stack || 0}
+              currentBet={gameState?.currentBet || 0}
+              playerBet={playerBet}
+              minRaise={gameState?.minRaise || 0}
+              pot={gameState?.pot || 0}
+              onAction={handleAction}
+            />
+          ) : (
+            <span style={{ color: "rgba(255,255,255,0.35)", fontSize: 13, fontWeight: 500 }}>
+              Waiting for hand…
+            </span>
+          )}
+        </div>
+
+        {/* Right: BankDisplay, TimerPill */}
+        <div style={{ display: "flex", alignItems: "center", gap: 12 }}>
+          <div style={{
+            display: "flex", flexDirection: "column", alignItems: "flex-end",
+            padding: "6px 14px", borderRadius: 12,
+            background: "rgba(255,255,255,0.04)", border: "1px solid rgba(255,255,255,0.06)",
+          }}>
+            <div style={{ display: "flex", alignItems: "center", gap: 5, marginBottom: 2 }}>
+              <Lock size={10} style={{ color: "rgba(255,255,255,0.4)" }} />
+              <span style={{ color: "rgba(255,255,255,0.5)", fontSize: 10, fontWeight: 700, textTransform: "uppercase", letterSpacing: "0.06em" }}>
+                Your Bank
               </span>
             </div>
+            <div style={{ display: "flex", alignItems: "center", gap: 6 }}>
+              <span style={{ color: "#a78bfa", fontSize: 18, fontWeight: 800, fontVariantNumeric: "tabular-nums" }}>
+                {myStack != null ? myStack.toLocaleString() : "—"}
+              </span>
+              {playerBet > 0 && (
+                <span style={{
+                  padding: "2px 6px", borderRadius: 6,
+                  background: "rgba(167,139,250,0.2)", color: "#a78bfa",
+                  fontSize: 10, fontWeight: 700,
+                }}>
+                  Bet: {playerBet}
+                </span>
+              )}
+            </div>
+          </div>
+          {turnTimer && turnTimer.playerId === userId && (
+            <TurnTimerPill timer={turnTimer} />
           )}
         </div>
       </div>
 
-      {/* ── Right sidebar: game log ───────────────────────────────────────────────────────── */}
-      <div className="gamelog-sidebar">
-        <GameLog logs={logs} players={mappedPlayers} />
-      </div>
+      {/* Game log overlay — toggle from bottom bar */}
+      {showLogOverlay && (
+        <div style={{
+          position: "fixed", inset: 0, zIndex: 40,
+          background: "rgba(0,0,0,0.7)", backdropFilter: "blur(8px)",
+          display: "flex", alignItems: "center", justifyContent: "center", padding: 24,
+        }} onClick={() => setShowLogOverlay(false)}>
+          <div style={{
+            width: "100%", maxWidth: 420, maxHeight: "70vh", overflow: "hidden",
+            background: "rgba(16,13,28,0.98)", borderRadius: 20,
+            border: "1px solid rgba(255,255,255,0.1)", boxShadow: "0 24px 80px rgba(0,0,0,0.6)",
+          }} onClick={(e) => e.stopPropagation()}>
+            <div style={{ padding: 16, borderBottom: "1px solid rgba(255,255,255,0.08)", display: "flex", justifyContent: "space-between", alignItems: "center" }}>
+              <span style={{ color: "#fff", fontSize: 16, fontWeight: 700 }}>Hand Log</span>
+              <button onClick={() => setShowLogOverlay(false)} style={{ background: "none", border: "none", color: "rgba(255,255,255,0.5)", cursor: "pointer", fontSize: 18 }}>✕</button>
+            </div>
+            <div style={{ overflowY: "auto", maxHeight: "calc(70vh - 60px)" }}>
+              <GameLog logs={logs} players={mappedPlayers} />
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Help overlay */}
+      {showHelpOverlay && (
+        <div style={{
+          position: "fixed", inset: 0, zIndex: 40,
+          background: "rgba(0,0,0,0.7)", backdropFilter: "blur(8px)",
+          display: "flex", alignItems: "center", justifyContent: "center", padding: 24,
+        }} onClick={() => setShowHelpOverlay(false)}>
+          <div style={{
+            width: "100%", maxWidth: 360, padding: 24,
+            background: "rgba(16,13,28,0.98)", borderRadius: 20,
+            border: "1px solid rgba(255,255,255,0.1)", boxShadow: "0 24px 80px rgba(0,0,0,0.6)",
+          }} onClick={(e) => e.stopPropagation()}>
+            <h3 style={{ color: "#fff", fontSize: 18, fontWeight: 700, margin: "0 0 16px 0" }}>Keyboard Shortcuts</h3>
+            <div style={{ display: "flex", flexDirection: "column", gap: 10, color: "rgba(255,255,255,0.8)", fontSize: 13 }}>
+              <div><kbd style={{ background: "rgba(255,255,255,0.1)", padding: "2px 8px", borderRadius: 6 }}>F</kbd> Fold</div>
+              <div><kbd style={{ background: "rgba(255,255,255,0.1)", padding: "2px 8px", borderRadius: 6 }}>C</kbd> Call / Check</div>
+              <div><kbd style={{ background: "rgba(255,255,255,0.1)", padding: "2px 8px", borderRadius: 6 }}>R</kbd> Raise</div>
+              <div><kbd style={{ background: "rgba(255,255,255,0.1)", padding: "2px 8px", borderRadius: 6 }}>A</kbd> All-In</div>
+            </div>
+            <button onClick={() => setShowHelpOverlay(false)} style={{ marginTop: 20, padding: "10px 20px", borderRadius: 12, border: "none", background: "#a78bfa", color: "#fff", fontWeight: 600, cursor: "pointer" }}>Close</button>
+          </div>
+        </div>
+      )}
 
       {/* Winner toast — no New Hand button, auto-start is handled by gateway */}
       {winner && (

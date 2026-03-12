@@ -1,0 +1,21 @@
+# Render Blueprint - Gateway service for Manus Poker
+# Deploy: Render Dashboard -> New -> Blueprint -> Connect repo
+# You must add DATABASE_URL and ALLOWED_ORIGINS in the service Environment tab
+
+services:
+  - type: web
+    name: manus-poker-gateway
+    runtime: node
+    region: oregon
+    plan: free
+
+    buildCommand: corepack enable && pnpm install && pnpm --filter @overbet/db generate && pnpm --filter @overbet/gateway build
+    startCommand: node apps/gateway/dist/index.js
+
+    envVars:
+      - key: NODE_ENV
+        value: production
+      - key: DATABASE_URL
+        sync: false
+      - key: ALLOWED_ORIGINS
+        sync: false
