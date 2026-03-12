@@ -103,6 +103,9 @@ export default function RoomClient({ slug, initialRoom }: RoomProps) {
   const [myDisplayName, setMyDisplayName] = useState("");
   const [showLogOverlay, setShowLogOverlay] = useState(false);
   const [showHelpOverlay, setShowHelpOverlay] = useState(false);
+  const [isPaused, setIsPaused] = useState(false);
+  const [isSeatPanelOpen, setIsSeatPanelOpen] = useState(false);
+  const [approvedSeatOverride, setApprovedSeatOverride] = useState<PlayerData | null>(null);
   const justApprovedRef = useRef(false);
 
   // ── Socket setup ────────────────────────────────────────────────────────────
@@ -158,10 +161,14 @@ export default function RoomClient({ slug, initialRoom }: RoomProps) {
       }
     });
 
-    socketInstance.on("ROOM_SNAPSHOT", (snapshot: { room: Room; players: PlayerData[]; pendingRequests?: any[] }) => {
+    socketInstance.on("ROOM_SNAPSHOT", (snapshot: { room: Room; players: PlayerData[]; pendingRequests?: any[]; isPaused?: boolean }) => {
       setRoom(snapshot.room);
+      const fromSnapshot = snapshot.players || [];
+      const meFromSnapshot = fromSnapshot.find((p: any) => p.id === userId);
+      if (meFromSnapshot) {
+        setApprovedSeatOverride(null);
+      }
       setPlayers((prev) => {
-        const fromSnapshot = snapshot.players || [];
         if (fromSnapshot.some((p: any) => p.id === userId)) {
           justApprovedRef.current = false;
           return fromSnapshot;
@@ -175,6 +182,7 @@ export default function RoomClient({ slug, initialRoom }: RoomProps) {
       });
       setIsHost(snapshot.room.hostId === userId);
       if (snapshot.pendingRequests) setPendingRequests(snapshot.pendingRequests);
+      setIsPaused(!!snapshot.isPaused);
     });
 
     socketInstance.on("EVENT_SEAT_REQUEST_PENDING", (data: any) => {
@@ -186,6 +194,17 @@ export default function RoomClient({ slug, initialRoom }: RoomProps) {
 
     socketInstance.on("EVENT_SEAT_APPROVED", (data: any) => {
       if (data.playerId === userId) justApprovedRef.current = true;
+      if (data.playerId === userId) {
+        setApprovedSeatOverride({
+          id: data.playerId,
+          username: data.displayName || `Player_${data.playerId.slice(0, 4)}`,
+          chips: data.stack,
+          status: "ACTIVE",
+          seatIndex: data.seatIndex,
+          bet: 0,
+          cards: [],
+        } as PlayerData);
+      }
       setPendingRequests((prev) => prev.filter((r) => r.playerId !== data.playerId));
       setPlayers((prev) => {
         if (prev.find((p) => p.id === data.playerId)) return prev;
@@ -266,6 +285,15 @@ export default function RoomClient({ slug, initialRoom }: RoomProps) {
       setRoom((prev) => ({ ...prev, settings: data.settings }));
     });
 
+    socketInstance.on("EVENT_GAME_PAUSED", () => {
+      setIsPaused(true);
+      setTurnTimer(null);
+    });
+
+    socketInstance.on("EVENT_GAME_RESUMED", () => {
+      setIsPaused(false);
+    });
+
     return () => { socketInstance.disconnect(); };
   }, [slug, userId]);
 
@@ -311,13 +339,34 @@ export default function RoomClient({ slug, initialRoom }: RoomProps) {
     });
   };
 
+  const rejectSeat = (playerId: string) => {
+    socket?.emit("INTENT_SEAT_REJECT", {
+      schema_version: 1, client_msg_id: crypto.randomUUID(),
+      room_id: slug, targetPlayerId: playerId,
+    });
+    setPendingRequests((prev) => prev.filter((r) => r.playerId !== playerId));
+  };
+
   const handleStartGame = () => {
     socket?.emit("INTENT_START_GAME", {
       schema_version: 1, client_msg_id: crypto.randomUUID(), room_id: slug,
     });
   };
 
+  const handlePauseGame = () => {
+    socket?.emit("INTENT_PAUSE_GAME", {
+      schema_version: 1, client_msg_id: crypto.randomUUID(), room_id: slug,
+    });
+  };
+
+  const handleResumeGame = () => {
+    socket?.emit("INTENT_RESUME_GAME", {
+      schema_version: 1, client_msg_id: crypto.randomUUID(), room_id: slug,
+    });
+  };
+
   const handleAction = (type: string, amount?: number) => {
+    if (isPaused) return;
     socket?.emit("INTENT_PLAYER_ACTION", {
       schema_version: 1, client_msg_id: crypto.randomUUID(),
       room_id: slug, action: { type, amount },
@@ -368,6 +417,9 @@ export default function RoomClient({ slug, initialRoom }: RoomProps) {
         bet: 0,
         cards: [],
       } as PlayerData)),
+    ...(approvedSeatOverride && !players.some((p) => p.id === approvedSeatOverride.id)
+      ? [approvedSeatOverride]
+      : []),
   ];
 
   // ── Settings Modal (shared between lobby and in-game) ───────────────────────
@@ -530,54 +582,148 @@ export default function RoomClient({ slug, initialRoom }: RoomProps) {
     </div>
   );
 
-  // ── Pending seat requests panel ─────────────────────────────────────────────
-  const PendingRequestsPanel = () => (
-    isHost && pendingRequests.length > 0 ? (
-      <div style={{
-        padding: "14px 16px", borderRadius: 16, marginTop: 16,
-        background: "rgba(239,68,68,0.06)", border: "1px solid rgba(239,68,68,0.2)",
-        fontFamily: "Outfit, sans-serif",
-      }}>
-        <div style={{ color: "#f87171", fontSize: 10, fontWeight: 700, textTransform: "uppercase", letterSpacing: "0.1em", marginBottom: 10 }}>
-          Seat Requests ({pendingRequests.length})
-        </div>
-        <div style={{ display: "flex", flexDirection: "column", gap: 6 }}>
-          {pendingRequests.map((req) => (
-            <div key={req.playerId} style={{
-              display: "flex", alignItems: "center", justifyContent: "space-between",
-              padding: "8px 10px", borderRadius: 10, background: "rgba(0,0,0,0.3)",
-            }}>
-              <div>
-                <span style={{ color: "#fff", fontSize: 12, fontWeight: 600 }}>
-                  {req.displayName || `Player_${req.playerId.slice(0, 4)}`}
-                </span>
-                <span style={{ color: "rgba(255,255,255,0.35)", fontSize: 11, marginLeft: 8 }}>
-                  Seat {req.seatIndex + 1} · ${req.stack.toLocaleString()}
-                </span>
-              </div>
+  // ── Host controls panel (collapsable) ───────────────────────────────────────
+  const HostControlPanel = ({ floating = false }: { floating?: boolean }) => {
+    if (!isHost) return null;
+    const hasPending = pendingRequests.length > 0;
+    const canStart =
+      players.length >= 2 &&
+      (!gameState || gameState.phase === "LOBBY" || gameState.phase === "CLEANUP");
+    const canPause =
+      !!gameState &&
+      gameState.phase !== "LOBBY" &&
+      gameState.phase !== "CLEANUP" &&
+      !isPaused;
+
+    return (
+      <div
+        style={{
+          ...(floating ? { position: "absolute", top: 8, left: 8, zIndex: 24 } : {}),
+          width: floating ? 260 : "100%",
+          maxWidth: 320,
+          fontFamily: "Outfit, sans-serif",
+        }}
+      >
+        <button
+          onClick={() => setIsSeatPanelOpen((v) => !v)}
+          style={{
+            display: "flex", alignItems: "center", gap: 6,
+            padding: "6px 12px", borderRadius: 999,
+            border: hasPending ? "1px solid rgba(239,68,68,0.45)" : "1px solid rgba(255,255,255,0.14)",
+            background: "rgba(16,13,28,0.9)",
+            color: hasPending ? "#fca5a5" : "rgba(255,255,255,0.65)",
+            fontSize: 11, fontWeight: 600, cursor: "pointer", backdropFilter: "blur(8px)",
+          }}
+        >
+          <Users size={13} />
+          Seat Requests {hasPending ? `(${pendingRequests.length})` : ""}
+        </button>
+
+        {isSeatPanelOpen && (
+          <div
+            style={{
+              marginTop: 8,
+              padding: "12px",
+              borderRadius: 14,
+              background: "rgba(16,13,28,0.96)",
+              border: "1px solid rgba(255,255,255,0.12)",
+              boxShadow: "0 16px 40px rgba(0,0,0,0.55)",
+            }}
+          >
+            <div style={{ display: "flex", gap: 8, marginBottom: 10 }}>
               <button
-                onClick={() => approveSeat(req.playerId)}
+                onClick={isPaused ? handleResumeGame : handleStartGame}
+                disabled={!isPaused && !canStart}
                 style={{
-                  padding: "5px 14px", borderRadius: 8, border: "none",
-                  background: "rgba(239,68,68,0.8)", color: "#fff",
-                  fontSize: 11, fontWeight: 700, cursor: "pointer",
+                  flex: 1, padding: "6px 8px", borderRadius: 9, border: "none",
+                  background: isPaused
+                    ? "linear-gradient(135deg, #22c55e, #16a34a)"
+                    : "linear-gradient(135deg, #ef4444, #dc2626)",
+                  color: "#fff",
+                  opacity: !isPaused && !canStart ? 0.45 : 1,
+                  fontSize: 11, fontWeight: 700, cursor: !isPaused && !canStart ? "not-allowed" : "pointer",
                   fontFamily: "Outfit, sans-serif",
                 }}
               >
-                Approve
+                {isPaused ? "Resume" : "Start"}
+              </button>
+              <button
+                onClick={handlePauseGame}
+                disabled={!canPause}
+                style={{
+                  flex: 1, padding: "6px 8px", borderRadius: 9,
+                  border: "1px solid rgba(251,146,60,0.55)",
+                  background: "rgba(251,146,60,0.12)",
+                  color: "#fdba74", opacity: canPause ? 1 : 0.45,
+                  fontSize: 11, fontWeight: 700, cursor: canPause ? "pointer" : "not-allowed",
+                  fontFamily: "Outfit, sans-serif",
+                }}
+              >
+                Pause
               </button>
             </div>
-          ))}
-        </div>
+
+            {hasPending ? (
+              <div style={{ display: "flex", flexDirection: "column", gap: 6, maxHeight: 220, overflowY: "auto" }}>
+                {pendingRequests.map((req) => (
+                  <div
+                    key={req.playerId}
+                    style={{
+                      display: "flex", alignItems: "center", justifyContent: "space-between",
+                      padding: "8px 10px", borderRadius: 10, background: "rgba(0,0,0,0.35)",
+                    }}
+                  >
+                    <div>
+                      <div style={{ color: "#fff", fontSize: 12, fontWeight: 600 }}>
+                        {req.displayName || `Player_${req.playerId.slice(0, 4)}`}
+                      </div>
+                      <div style={{ color: "rgba(255,255,255,0.5)", fontSize: 11 }}>
+                        Seat {req.seatIndex + 1} · ${req.stack.toLocaleString()}
+                      </div>
+                    </div>
+                    <div style={{ display: "flex", flexDirection: "column", gap: 4, marginLeft: 10 }}>
+                      <button
+                        onClick={() => approveSeat(req.playerId)}
+                        style={{
+                          padding: "4px 10px", borderRadius: 8, border: "none",
+                          background: "linear-gradient(135deg, #22c55e, #16a34a)", color: "#fff",
+                          fontSize: 11, fontWeight: 700, cursor: "pointer", fontFamily: "Outfit, sans-serif",
+                        }}
+                      >
+                        Approve
+                      </button>
+                      <button
+                        onClick={() => rejectSeat(req.playerId)}
+                        style={{
+                          padding: "3px 10px", borderRadius: 8,
+                          border: "1px solid rgba(239,68,68,0.5)", background: "transparent",
+                          color: "#fca5a5", fontSize: 10, fontWeight: 600, cursor: "pointer", fontFamily: "Outfit, sans-serif",
+                        }}
+                      >
+                        Reject
+                      </button>
+                    </div>
+                  </div>
+                ))}
+              </div>
+            ) : (
+              <div style={{ color: "rgba(255,255,255,0.45)", fontSize: 12, textAlign: "center", padding: "8px 0 2px" }}>
+                No pending requests.
+              </div>
+            )}
+          </div>
+        )}
       </div>
-    ) : null
-  );
+    );
+  };
 
   // ════════════════════════════════════════════════════════════════════════════
   // VIEW SWITCH — mySeat is the authoritative trigger
   // Bird's-eye when !mySeat; PlayerPerspectiveView when mySeat exists.
   // ════════════════════════════════════════════════════════════════════════════
-  const mySeat = players.find((p) => p.id === userId && p.seatIndex !== undefined);
+  const mySeat =
+    players.find((p) => p.id === userId && p.seatIndex !== undefined) ||
+    (approvedSeatOverride && approvedSeatOverride.id === userId ? approvedSeatOverride : undefined);
   if (!mySeat) {
     return (
       <div style={{
@@ -721,8 +867,8 @@ export default function RoomClient({ slug, initialRoom }: RoomProps) {
             </div>
           </div>
 
-          {/* Pending requests */}
-          <PendingRequestsPanel />
+          {/* Host controls */}
+          <HostControlPanel />
 
           {/* Waiting banner for non-host pending player */}
           {!isHost && pendingRequests.some((r) => r.playerId === userId) && (
@@ -890,6 +1036,20 @@ export default function RoomClient({ slug, initialRoom }: RoomProps) {
           </button>
         </div>
 
+        {/* Host controls (in-game, floating top-left) */}
+        <HostControlPanel floating />
+
+        {isPaused && (
+          <div style={{
+            position: "absolute", top: 10, left: "50%", transform: "translateX(-50%)",
+            zIndex: 23, padding: "6px 12px", borderRadius: 999,
+            background: "rgba(251,146,60,0.14)", border: "1px solid rgba(251,146,60,0.5)",
+            color: "#fdba74", fontSize: 11, fontWeight: 700, textTransform: "uppercase", letterSpacing: "0.06em",
+          }}>
+            Game Paused
+          </div>
+        )}
+
         {/* Modals */}
         {showSettingsModal && settingsDraft && <SettingsModal />}
         {showFairnessModal && <FairnessModal />}
@@ -935,11 +1095,6 @@ export default function RoomClient({ slug, initialRoom }: RoomProps) {
             )}
           </div>
         )}
-
-        {/* Pending requests (host) — floating */}
-        <div style={{ position: "absolute", top: 56, left: "50%", transform: "translateX(-50%)", zIndex: 15 }}>
-          <PendingRequestsPanel />
-        </div>
 
         {/* Re-buy CTA — floating above bottom bar */}
         {isBusted && !pendingRequests.some((r) => r.playerId === userId) && (

@@ -55,6 +55,7 @@ const roomStates: Record<string, {
     timeBankTimer?: NodeJS.Timeout;
     autoStartTimer?: NodeJS.Timeout;
     settings?: { turnTimeoutMs: number; timeBankMs: number; autoStartDelay: number };
+    isPaused?: boolean;
 }> = {};
 
 async function hydrateRoom(roomId: string) {
@@ -107,7 +108,7 @@ async function hydrateRoom(roomId: string) {
         autoStartDelay: dbSettings?.autoStartDelay ?? 5,
     };
 
-    const roomData = { engine, seq, currentHandId, dbRoomId: room.id, pendingSeats: {}, settings };
+    const roomData = { engine, seq, currentHandId, dbRoomId: room.id, pendingSeats: {}, settings, isPaused: false };
     roomStates[roomId] = roomData;
     return roomData;
 }
@@ -178,7 +179,7 @@ function clearTurnTimer(roomId: string) {
 
 async function startTurnTimer(roomId: string) {
     const roomData = roomStates[roomId];
-    if (!roomData) return;
+    if (!roomData || roomData.isPaused) return;
 
     clearTurnTimer(roomId);
 
@@ -250,7 +251,9 @@ async function startTurnTimer(roomId: string) {
 }
 
 async function autoAct(roomId: string, playerId: string, currentBet: number) {
-    const state = roomStates[roomId]?.engine?.getState();
+    const roomData = roomStates[roomId];
+    if (!roomData || roomData.isPaused) return;
+    const state = roomData.engine.getState();
     if (!state) return;
     const player = state.players.find(p => p.id === playerId);
     if (!player) return;
@@ -353,6 +356,7 @@ async function startHand(roomId: string, schema_version: number = 1) {
 async function performPlayerAction(roomId: string, userId: string, action: any, schema_version: number = 1, client_msg_id?: string, socket?: any) {
     let roomData = roomStates[roomId];
     if (!roomData || !roomData.currentHandId) throw new Error('Hand has not started');
+    if (roomData.isPaused) throw new Error('Game is paused');
 
     // GAP-03: Deduct time bank usage when player acts during time bank phase
     const settings = roomData.settings || { turnTimeoutMs: DEFAULT_TURN_TIMEOUT_MS, timeBankMs: DEFAULT_TIME_BANK_MS, autoStartDelay: 5 };
@@ -433,6 +437,10 @@ async function performPlayerAction(roomId: string, userId: string, action: any, 
         console.log(`Hand finished. Auto-starting next hand in ${autoStartDelay}ms...`);
         roomData.autoStartTimer = setTimeout(async () => {
             try {
+                if (roomData.isPaused) {
+                    console.log(`Room ${roomId} is paused. Skipping auto-start.`);
+                    return;
+                }
                 const currentState = roomData.engine.getState();
                 const activePlayers = currentState.players.filter((p: any) => p.stack > 0);
                 if (activePlayers.length >= 2) {
@@ -487,7 +495,8 @@ io.on('connection', (socket) => {
             pendingRequests: Object.entries(roomData.pendingSeats).map(([pid, req]) => ({
                 playerId: pid,
                 ...req
-            }))
+            })),
+            isPaused: !!roomData.isPaused
         });
 
         const snapshotEvent: EventStateSnapshot = {
@@ -626,9 +635,66 @@ io.on('connection', (socket) => {
             const room = await prisma.room.findUnique({ where: { slug: data.room_id } });
             if (!room) return emitError(socket, 'ERR_ROOM_NOT_FOUND', 'Room not found');
             if (room.hostId !== userId) return emitError(socket, 'ERR_NOT_HOST', 'Only the host can start the game');
+            const roomData = roomStates[data.room_id];
+            if (roomData) roomData.isPaused = false;
             await startHand(data.room_id, data.schema_version);
         } catch (err: any) {
             emitError(socket, 'ERR_START_GAME', err.message);
+        }
+    });
+
+    socket.on('INTENT_PAUSE_GAME', async (data: any) => {
+        try {
+            let roomData = roomStates[data.room_id];
+            if (!roomData) {
+                roomData = await hydrateRoom(data.room_id) as any;
+            }
+            if (!roomData) return emitError(socket, 'ERR_ROOM_NOT_FOUND', 'Room not found');
+
+            const room = await prisma.room.findUnique({ where: { slug: data.room_id } });
+            if (!room) return emitError(socket, 'ERR_ROOM_NOT_FOUND', 'Room not found');
+            if (room.hostId !== userId) return emitError(socket, 'ERR_NOT_HOST', 'Only the host can pause the game');
+
+            roomData.isPaused = true;
+            clearTurnTimer(data.room_id);
+
+            io.to(data.room_id).emit('EVENT_GAME_PAUSED', {
+                room_id: data.room_id,
+                schema_version: data.schema_version || 1,
+                pausedBy: userId,
+                server_ts: Date.now()
+            });
+        } catch (err: any) {
+            emitError(socket, 'ERR_PAUSE_GAME', err.message);
+        }
+    });
+
+    socket.on('INTENT_RESUME_GAME', async (data: any) => {
+        try {
+            let roomData = roomStates[data.room_id];
+            if (!roomData) {
+                roomData = await hydrateRoom(data.room_id) as any;
+            }
+            if (!roomData) return emitError(socket, 'ERR_ROOM_NOT_FOUND', 'Room not found');
+
+            const room = await prisma.room.findUnique({ where: { slug: data.room_id } });
+            if (!room) return emitError(socket, 'ERR_ROOM_NOT_FOUND', 'Room not found');
+            if (room.hostId !== userId) return emitError(socket, 'ERR_NOT_HOST', 'Only the host can resume the game');
+
+            roomData.isPaused = false;
+            const state = roomData.engine.getState();
+            if (state.phase && state.phase.endsWith("BETTING")) {
+                startTurnTimer(data.room_id);
+            }
+
+            io.to(data.room_id).emit('EVENT_GAME_RESUMED', {
+                room_id: data.room_id,
+                schema_version: data.schema_version || 1,
+                resumedBy: userId,
+                server_ts: Date.now()
+            });
+        } catch (err: any) {
+            emitError(socket, 'ERR_RESUME_GAME', err.message);
         }
     });
 
