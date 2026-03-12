@@ -21,13 +21,9 @@ const prisma = new PrismaClient();
 
 const app = express();
 const httpServer = createServer(app);
-const allowedOrigins = process.env.ALLOWED_ORIGINS
-    ? process.env.ALLOWED_ORIGINS.split(',').map((s) => s.trim())
-    : '*';
-
 const io = new Server(httpServer, {
     cors: {
-        origin: allowedOrigins,
+        origin: '*', // Adjust this in production
         methods: ['GET', 'POST']
     }
 });
@@ -429,7 +425,7 @@ async function performPlayerAction(roomId: string, userId: string, action: any, 
         roomData.autoStartTimer = setTimeout(async () => {
             try {
                 const currentState = roomData.engine.getState();
-                const activePlayers = currentState.players.filter(p => p.stack > 0);
+                const activePlayers = currentState.players.filter((p: any) => p.stack > 0);
                 if (activePlayers.length >= 2) {
                     await startHand(roomId, schema_version);
                 } else {
@@ -472,7 +468,7 @@ io.on('connection', (socket) => {
 
         socket.emit('ROOM_SNAPSHOT', {
             room,
-            players: roomData.engine.getState().players.map(p => ({
+            players: roomData.engine.getState().players.map((p: any) => ({
                 id: p.id,
                 username: p.displayName || `Player_${p.id.substring(0, 4)}`,
                 chips: p.stack,
@@ -515,12 +511,12 @@ io.on('connection', (socket) => {
 
             const state = roomData.engine.getState();
             // Check if user is already seated
-            const alreadySeated = state.players.some(p => p.id === userId);
+            const alreadySeated = state.players.some((p: any) => p.id === userId);
             if (alreadySeated) throw new Error('Already seated at the table');
 
             if (data.seatIndex < 0 || data.seatIndex > 9) throw new Error('Invalid seat index');
 
-            const isTaken = state.players.some(p => p.seatIndex === data.seatIndex);
+            const isTaken = state.players.some((p: any) => p.seatIndex === data.seatIndex);
             if (isTaken) throw new Error('Seat already taken');
 
             roomData.pendingSeats[userId] = {
