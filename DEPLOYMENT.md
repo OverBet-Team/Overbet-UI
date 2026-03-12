@@ -29,7 +29,7 @@ Use your Supabase Postgres URL in `packages/db/.env` (or env) as `DATABASE_URL` 
 | **Branch** | `main` *(already set)* |
 | **Region** | Oregon or your choice |
 | **Root Directory** | Leave blank |
-| **Build Command** | Replace with: `corepack enable && NODE_ENV=development pnpm install && npx prisma@5.22.0 generate --schema=packages/db/prisma/schema.prisma && NODE_ENV=production pnpm --filter @overbet/gateway build` |
+| **Build Command** | Replace with: `corepack enable && NODE_ENV=development pnpm install && npx prisma@5.22.0 generate --schema=packages/db/prisma/schema.prisma && pnpm --filter @overbet/engine build && NODE_ENV=production pnpm --filter @overbet/gateway build` |
 | **Start Command** | Replace with: `node apps/gateway/dist/index.js` |
 | **Instance Type** | Free *(already set)* |
 
