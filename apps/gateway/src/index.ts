@@ -20,6 +20,15 @@ import { PrismaClient } from '@overbet/db';
 const prisma = new PrismaClient();
 
 const app = express();
+
+app.get("/", (_req, res) => {
+    res.status(200).send("ok");
+});
+
+app.get("/healthz", (_req, res) => {
+    res.status(200).json({ ok: true });
+});
+
 const httpServer = createServer(app);
 const io = new Server(httpServer, {
     cors: {
