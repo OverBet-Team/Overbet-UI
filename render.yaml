@@ -9,7 +9,7 @@ services:
     region: oregon
     plan: free
 
-    buildCommand: corepack enable && pnpm install && pnpm --filter @overbet/db generate && pnpm --filter @overbet/engine build && pnpm --filter @overbet/gateway build
+    buildCommand: corepack enable && pnpm install && pnpm --filter @overbet/db generate && pnpm --filter @overbet/db build && pnpm --filter @overbet/engine build && pnpm --filter @overbet/gateway build
     startCommand: node apps/gateway/dist/index.js
 
     envVars:

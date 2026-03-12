@@ -2,9 +2,10 @@
     "name": "@overbet/db",
     "version": "0.1.0",
     "private": true,
-    "main": "index.ts",
-    "types": "index.ts",
+    "main": "dist/index.js",
+    "types": "dist/index.d.ts",
     "scripts": {
+        "build": "tsc",
         "generate": "prisma generate",
         "test": "vitest run"
     },
@@ -12,7 +13,9 @@
         "@prisma/client": "5.22.0"
     },
     "devDependencies": {
+        "@types/node": "^20.11.30",
         "prisma": "5.22.0",
+        "typescript": "^5.3.3",
         "vitest": "^4.0.18"
     }
 }

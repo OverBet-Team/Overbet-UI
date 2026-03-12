@@ -158,12 +158,18 @@ importers:
         specifier: 5.22.0
         version: 5.22.0(prisma@5.22.0)
     devDependencies:
+      '@types/node':
+        specifier: ^20.11.30
+        version: 20.19.33
       prisma:
         specifier: 5.22.0
         version: 5.22.0
+      typescript:
+        specifier: ^5.3.3
+        version: 5.9.3
       vitest:
         specifier: ^4.0.18
-        version: 4.0.18
+        version: 4.0.18(@types/node@20.19.33)(jsdom@28.1.0)
 
   packages/engine:
     dependencies:
