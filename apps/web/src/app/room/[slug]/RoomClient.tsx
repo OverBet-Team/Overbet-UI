@@ -238,6 +238,10 @@ export default function RoomClient({ slug, initialRoom }: RoomProps) {
     socketInstance.on("EVENT_STATE_UPDATE", (snapshot: { state: any }) => {
       if (!snapshot.state) return;
       const state = snapshot.state;
+      if (process.env.NODE_ENV === "development") {
+        const board = state?.board ?? [];
+        console.log("[EVENT_STATE_UPDATE] phase=", state?.phase, "board.length=", board.length, "board=", board.slice(0, 5));
+      }
       setGameState(state);
       if (state.phase !== "LOBBY") {
         setRoom((prev) => (prev.status !== "INGAME" ? { ...prev, status: "INGAME" } : prev));
@@ -282,6 +286,10 @@ export default function RoomClient({ slug, initialRoom }: RoomProps) {
 
     socketInstance.on("EVENT_STATE_SNAPSHOT", (snapshot: { state: any }) => {
       if (!snapshot.state) return;
+      if (process.env.NODE_ENV === "development") {
+        const board = snapshot.state?.board ?? [];
+        console.log("[EVENT_STATE_SNAPSHOT] phase=", snapshot.state?.phase, "board.length=", board.length, "board=", board.slice(0, 5));
+      }
       setGameState(snapshot.state);
       if (snapshot.state.phase !== "LOBBY") {
         setRoom((prev) => (prev.status !== "INGAME" ? { ...prev, status: "INGAME" } : prev));

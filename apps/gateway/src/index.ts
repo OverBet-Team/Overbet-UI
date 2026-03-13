@@ -80,15 +80,29 @@ async function hydrateRoom(roomId: string) {
         where: { roomId: room.id, status: 'ACTIVE' },
         include: { user: true }
     });
-    // userId consistency: Engine player IDs must match socket.handshake.query.userId.
-    // Sources: RoomMember.userId (hydrateRoom), data.targetPlayerId (INTENT_SEAT_APPROVE).
-    members.forEach((m: any) => {
+    const seenIds = new Set<string>();
+    const validMembers = members.filter((m: any) => {
+        if (!m.userId) return false;
+        if (seenIds.has(m.userId)) {
+            console.warn(`[hydrateRoom] Duplicate userId ${m.userId} in room ${roomId}, skipping`);
+            return false;
+        }
+        seenIds.add(m.userId);
+        const seatIndex = m.seatIndex ?? -1;
+        if (seatIndex < 0 || seatIndex > 9) {
+            console.warn(`[hydrateRoom] Invalid seatIndex ${seatIndex} for userId ${m.userId}, skipping`);
+            return false;
+        }
+        return true;
+    });
+    console.log(`[hydrateRoom] room=${roomId} hydrating ${validMembers.length} players: ${validMembers.map((m: any) => m.userId).join(', ')}`);
+    validMembers.forEach((m: any) => {
         engine.addPlayer({
             id: m.userId,
-            displayName: m.user.username,
-            stack: m.stack,
+            displayName: m.user?.username,
+            stack: m.stack ?? 0,
             status: 'ACTIVE',
-            seatIndex: m.seatIndex ?? -1,
+            seatIndex: m.seatIndex ?? 0,
             holeCards: [],
             bet: 0,
             hasActed: false

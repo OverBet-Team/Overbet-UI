@@ -8,3 +8,5 @@ build/
 !.env.example
 coverage/
 .DS_Store
+.pnpm-store
+.turbo

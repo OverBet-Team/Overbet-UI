@@ -71,4 +71,59 @@ describe('NLHMachine Engine', () => {
         const winEvents = events.filter(e => e.type === "WIN");
         expect(winEvents.length).toBeGreaterThan(0);
     });
+
+    it('should have board length 3 after pre-flop, 4 after flop, 5 after turn (heads-up)', () => {
+        const engine = new NLHMachine();
+        engine.addPlayer({ id: "p1", stack: 1000, status: "ACTIVE", seatIndex: 0, holeCards: [], bet: 0, hasActed: false });
+        engine.addPlayer({ id: "p2", stack: 1000, status: "ACTIVE", seatIndex: 1, holeCards: [], bet: 0, hasActed: false });
+
+        engine.startHand({ seed: 123 });
+        let state = engine.getState();
+        expect(state.phase).toBe('PRE_FLOP_BETTING');
+
+        engine.handleAction(state.players[state.activePlayerIndex].id, { type: "CALL" });
+        state = engine.getState();
+        engine.handleAction(state.players[state.activePlayerIndex].id, { type: "CHECK" });
+        state = engine.getState();
+
+        expect(state.phase).toBe('FLOP_BETTING');
+        expect(state.board).toHaveLength(3);
+        expect(state.board.every(c => typeof c === 'string' && c.length >= 2)).toBe(true);
+
+        engine.handleAction(state.players[state.activePlayerIndex].id, { type: "CHECK" });
+        state = engine.getState();
+        engine.handleAction(state.players[state.activePlayerIndex].id, { type: "CHECK" });
+        state = engine.getState();
+
+        expect(state.phase).toBe('TURN_BETTING');
+        expect(state.board).toHaveLength(4);
+
+        engine.handleAction(state.players[state.activePlayerIndex].id, { type: "CHECK" });
+        state = engine.getState();
+        engine.handleAction(state.players[state.activePlayerIndex].id, { type: "CHECK" });
+        state = engine.getState();
+
+        expect(state.phase).toBe('RIVER_BETTING');
+        expect(state.board).toHaveLength(5);
+    });
+
+    it('should throw when deck has insufficient cards for flop (25 players exhaust deck)', () => {
+        const engine = new NLHMachine();
+        for (let i = 0; i < 25; i++) {
+            engine.addPlayer({ id: `p${i}`, stack: 1000, status: "ACTIVE", seatIndex: i, holeCards: [], bet: 0, hasActed: false });
+        }
+        engine.startHand({ seed: 1 });
+        let state = engine.getState();
+        expect(state.phase).toBe('PRE_FLOP_BETTING');
+        const act = () => {
+            const pid = state.players[state.activePlayerIndex].id;
+            const toCall = state.currentBet - (state.players[state.activePlayerIndex].bet || 0);
+            if (toCall === 0) engine.handleAction(pid, { type: "CHECK" });
+            else engine.handleAction(pid, { type: "CALL" });
+            state = engine.getState();
+        };
+        expect(() => {
+            while (state.phase === 'PRE_FLOP_BETTING') act();
+        }).toThrow(/Insufficient deck/);
+    });
 });

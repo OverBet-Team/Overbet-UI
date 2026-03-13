@@ -47,3 +47,21 @@
 2026-03-13T03:22:18.559660Z  WARN turborepo_lib::package_changes_watcher: changed_packages: Ok(Some({WorkspacePackage { name: Other("@overbet/gateway"), path: AnchoredSystemPathBuf("apps/gateway") }}))
 2026-03-13T03:22:22.858973Z  WARN turborepo_lib::package_changes_watcher: changed_files: {AnchoredSystemPathBuf("apps/gateway/src/index.ts")}
 2026-03-13T03:22:22.858991Z  WARN turborepo_lib::package_changes_watcher: changed_packages: Ok(Some({WorkspacePackage { name: Other("@overbet/gateway"), path: AnchoredSystemPathBuf("apps/gateway") }}))
+2026-03-13T03:39:37.852257Z  WARN turborepo_lib::package_changes_watcher: changed_files: {AnchoredSystemPathBuf(".gitignore")}
+2026-03-13T03:39:37.852311Z  WARN turborepo_lib::package_changes_watcher: changed_packages: Ok(Some({WorkspacePackage { name: Root, path: AnchoredSystemPathBuf("") }}))
+2026-03-13T03:43:58.737898Z  WARN turborepo_lib::package_changes_watcher: changed_files: {AnchoredSystemPathBuf("packages/engine/src/variants/NLH.ts")}
+2026-03-13T03:43:58.738408Z  WARN turborepo_lib::package_changes_watcher: changed_packages: Ok(Some({WorkspacePackage { name: Other("@overbet/engine"), path: AnchoredSystemPathBuf("packages/engine") }}))
+2026-03-13T03:44:22.039466Z  WARN turborepo_lib::package_changes_watcher: changed_files: {AnchoredSystemPathBuf("apps/gateway/src/index.ts")}
+2026-03-13T03:44:22.039500Z  WARN turborepo_lib::package_changes_watcher: changed_packages: Ok(Some({WorkspacePackage { name: Other("@overbet/gateway"), path: AnchoredSystemPathBuf("apps/gateway") }}))
+2026-03-13T03:44:42.334792Z  WARN turborepo_lib::package_changes_watcher: changed_files: {AnchoredSystemPathBuf("apps/web/src/app/room/[slug]/RoomClient.tsx")}
+2026-03-13T03:44:42.334834Z  WARN turborepo_lib::package_changes_watcher: changed_packages: Ok(Some({WorkspacePackage { name: Other("web"), path: AnchoredSystemPathBuf("apps/web") }}))
+2026-03-13T03:44:46.435084Z  WARN turborepo_lib::package_changes_watcher: changed_files: {AnchoredSystemPathBuf("apps/web/src/app/room/[slug]/RoomClient.tsx")}
+2026-03-13T03:44:46.435118Z  WARN turborepo_lib::package_changes_watcher: changed_packages: Ok(Some({WorkspacePackage { name: Other("web"), path: AnchoredSystemPathBuf("apps/web") }}))
+2026-03-13T03:45:08.435061Z  WARN turborepo_lib::package_changes_watcher: changed_files: {AnchoredSystemPathBuf("packages/engine/test/engine.test.ts")}
+2026-03-13T03:45:08.435084Z  WARN turborepo_lib::package_changes_watcher: changed_packages: Ok(Some({WorkspacePackage { name: Other("@overbet/engine"), path: AnchoredSystemPathBuf("packages/engine") }}))
+2026-03-13T03:45:30.234886Z  WARN turborepo_lib::package_changes_watcher: changed_files: {AnchoredSystemPathBuf("packages/engine/test/engine.test.ts")}
+2026-03-13T03:45:30.234930Z  WARN turborepo_lib::package_changes_watcher: changed_packages: Ok(Some({WorkspacePackage { name: Other("@overbet/engine"), path: AnchoredSystemPathBuf("packages/engine") }}))
+2026-03-13T03:45:44.035896Z  WARN turborepo_lib::package_changes_watcher: changed_files: {AnchoredSystemPathBuf("packages/engine/test/engine.test.ts")}
+2026-03-13T03:45:44.035918Z  WARN turborepo_lib::package_changes_watcher: changed_packages: Ok(Some({WorkspacePackage { name: Other("@overbet/engine"), path: AnchoredSystemPathBuf("packages/engine") }}))
+2026-03-13T03:46:00.535784Z  WARN turborepo_lib::package_changes_watcher: changed_files: {AnchoredSystemPathBuf("apps/web/next-env.d.ts")}
+2026-03-13T03:46:00.535886Z  WARN turborepo_lib::package_changes_watcher: changed_packages: Ok(Some({WorkspacePackage { name: Other("web"), path: AnchoredSystemPathBuf("apps/web") }}))

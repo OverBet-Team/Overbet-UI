@@ -424,13 +424,26 @@ export class NLHMachine implements PokerEngine {
     }
 
     private dealCards(events: HandEvent[], phaseName: string, count: number) {
+        const available = this.state.deck?.length ?? 0;
+        if (available < count) {
+            throw new Error(
+                `Insufficient deck for ${phaseName}: need ${count} cards, deck has ${available}`
+            );
+        }
         this.state.phase = phaseName as any; // Temporary transition to log dealing event
-        const dealt = [];
+        const dealt: string[] = [];
         for (let i = 0; i < count; i++) {
             const c = this.state.deck.pop();
-            if (c) dealt.push(c);
+            if (!c) throw new Error(`${phaseName}: deck.pop() returned undefined at index ${i}`);
+            dealt.push(c);
         }
         this.state.board.push(...dealt);
+        const expectedBoardLen = phaseName === "DEAL_FLOP" ? 3 : phaseName === "DEAL_TURN" ? 4 : 5;
+        if (this.state.board.length !== expectedBoardLen) {
+            throw new Error(
+                `Board length mismatch after ${phaseName}: expected ${expectedBoardLen}, got ${this.state.board.length}`
+            );
+        }
         events.push(this.createEvent(phaseName, { cards: dealt }));
     }
 
