@@ -268,7 +268,7 @@ const arcCY_pct = 0.44;
 const arcRX_pct = 0.38;
 const arcRY_pct = 0.38;
 
-export function PlayerPerspectiveView({ viewState }: { viewState: PlayerViewState }) {
+export function PlayerPerspectiveView({ viewState, cleanupShowAllRevealed }: { viewState: PlayerViewState; cleanupShowAllRevealed?: boolean }) {
   const { hero, opponents, board, pot } = viewState;
   const total = opponents.length + 1;
   const seatSize: "lg" | "md" | "sm" = total <= 4 ? "lg" : total <= 6 ? "md" : "sm";

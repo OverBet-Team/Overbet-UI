@@ -34,11 +34,13 @@ export interface PlayerViewState {
   pot: number;
   dealerId: string;
   activePlayerId: string;
+  /** When true (cleanup phase), UI may reveal full board on Show All click */
+  phase?: string;
 }
 
 export function toPlayerViewState(
   players: PlayerData[],
-  gameState: { board?: string[]; pot?: number; dealerId?: string; activePlayerId?: string; players?: any[] } | null,
+  gameState: { board?: string[]; pot?: number; phase?: string; dealerId?: string; activePlayerId?: string; players?: any[] } | null,
   userId: string
 ): PlayerViewState | null {
   const mySeat = players.find((p) => p.id === userId && p.seatIndex !== undefined);
@@ -82,5 +84,6 @@ export function toPlayerViewState(
     pot: gameState?.pot ?? 0,
     dealerId: gameState?.dealerId ?? "",
     activePlayerId: gameState?.activePlayerId ?? "",
+    phase: gameState?.phase,
   };
 }

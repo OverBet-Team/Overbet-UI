@@ -126,4 +126,63 @@ describe('NLHMachine Engine', () => {
             while (state.phase === 'PRE_FLOP_BETTING') act();
         }).toThrow(/Insufficient deck/);
     });
+
+    it('payout + cleanup: winner receives pot and reaches CLEANUP', () => {
+        const engine = new NLHMachine();
+        engine.addPlayer({ id: "p1", stack: 1000, status: "ACTIVE", seatIndex: 0, holeCards: [], bet: 0, hasActed: false });
+        engine.addPlayer({ id: "p2", stack: 1000, status: "ACTIVE", seatIndex: 1, holeCards: [], bet: 0, hasActed: false });
+        engine.addPlayer({ id: "p3", stack: 1000, status: "ACTIVE", seatIndex: 2, holeCards: [], bet: 0, hasActed: false });
+
+        const totalBefore = 3000;
+        engine.startHand({ seed: 42 });
+        let state = engine.getState();
+
+        // Fold p1 and p2, p3 wins (early win)
+        engine.handleAction(state.players[state.activePlayerIndex].id, { type: "FOLD" });
+        state = engine.getState();
+        engine.handleAction(state.players[state.activePlayerIndex].id, { type: "FOLD" });
+        state = engine.getState();
+
+        expect(state.phase).toBe('CLEANUP');
+        const totalAfter = state.players.reduce((s: number, p: any) => s + p.stack, 0);
+        expect(totalAfter).toBe(totalBefore);
+        const winner = state.players.find((p: any) => p.stack > 1000);
+        expect(winner).toBeDefined();
+    });
+
+    it('startHand throws when not enough ACTIVE/ALL_IN players', () => {
+        const engine = new NLHMachine();
+        engine.addPlayer({ id: "p1", stack: 1000, status: "ACTIVE", seatIndex: 0, holeCards: [], bet: 0, hasActed: false });
+        engine.addPlayer({ id: "p2", stack: 1000, status: "FOLDED", seatIndex: 1, holeCards: [], bet: 0, hasActed: true });
+        expect(() => engine.startHand()).toThrow(/Not enough active players/);
+    });
+
+    it('chip conservation: EARLY_WIN zeros pot after award', () => {
+        const engine = new NLHMachine();
+        engine.addPlayer({ id: "p1", stack: 1000, status: "ACTIVE", seatIndex: 0, holeCards: [], bet: 0, hasActed: false });
+        engine.addPlayer({ id: "p2", stack: 1000, status: "ACTIVE", seatIndex: 1, holeCards: [], bet: 0, hasActed: false });
+        engine.startHand({ seed: 1 });
+        const state = engine.getState();
+        const activeId = state.players[state.activePlayerIndex].id;
+        engine.handleAction(activeId, { type: "FOLD" });
+        const stateAfter = engine.getState();
+        expect(stateAfter.phase).toBe('CLEANUP');
+        expect(stateAfter.pot).toBe(0);
+        const total = stateAfter.players.reduce((s: number, p: any) => s + p.stack, 0);
+        expect(total).toBe(2000);
+    });
+
+    it('invalid action (wrong player) throws and does not corrupt state', () => {
+        const engine = new NLHMachine();
+        engine.addPlayer({ id: "p1", stack: 1000, status: "ACTIVE", seatIndex: 0, holeCards: [], bet: 0, hasActed: false });
+        engine.addPlayer({ id: "p2", stack: 1000, status: "ACTIVE", seatIndex: 1, holeCards: [], bet: 0, hasActed: false });
+        engine.startHand({ seed: 1 });
+        const state = engine.getState();
+        const activeId = state.players[state.activePlayerIndex].id;
+        const wrongId = activeId === 'p1' ? 'p2' : 'p1';
+        const phaseBefore = state.phase;
+        expect(() => engine.handleAction(wrongId, { type: "CHECK" })).toThrow();
+        const stateAfter = engine.getState();
+        expect(stateAfter.phase).toBe(phaseBefore);
+    });
 });

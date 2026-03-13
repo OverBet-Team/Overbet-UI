@@ -65,3 +65,136 @@
 2026-03-13T03:45:44.035918Z  WARN turborepo_lib::package_changes_watcher: changed_packages: Ok(Some({WorkspacePackage { name: Other("@overbet/engine"), path: AnchoredSystemPathBuf("packages/engine") }}))
 2026-03-13T03:46:00.535784Z  WARN turborepo_lib::package_changes_watcher: changed_files: {AnchoredSystemPathBuf("apps/web/next-env.d.ts")}
 2026-03-13T03:46:00.535886Z  WARN turborepo_lib::package_changes_watcher: changed_packages: Ok(Some({WorkspacePackage { name: Other("web"), path: AnchoredSystemPathBuf("apps/web") }}))
+2026-03-13T03:59:34.864414Z  WARN turborepo_lib::package_changes_watcher: changed_files: {AnchoredSystemPathBuf("apps/gateway/src/index.ts")}
+2026-03-13T03:59:34.864850Z  WARN turborepo_lib::package_changes_watcher: changed_packages: Ok(Some({WorkspacePackage { name: Other("@overbet/gateway"), path: AnchoredSystemPathBuf("apps/gateway") }}))
+2026-03-13T03:59:45.161551Z  WARN turborepo_lib::package_changes_watcher: changed_files: {AnchoredSystemPathBuf("apps/gateway/src/index.ts")}
+2026-03-13T03:59:45.161580Z  WARN turborepo_lib::package_changes_watcher: changed_packages: Ok(Some({WorkspacePackage { name: Other("@overbet/gateway"), path: AnchoredSystemPathBuf("apps/gateway") }}))
+2026-03-13T04:00:17.663005Z  WARN turborepo_lib::package_changes_watcher: changed_files: {AnchoredSystemPathBuf("apps/gateway/src/index.ts")}
+2026-03-13T04:00:17.663028Z  WARN turborepo_lib::package_changes_watcher: changed_packages: Ok(Some({WorkspacePackage { name: Other("@overbet/gateway"), path: AnchoredSystemPathBuf("apps/gateway") }}))
+2026-03-13T04:00:21.962739Z  WARN turborepo_lib::package_changes_watcher: changed_files: {AnchoredSystemPathBuf("apps/gateway/src/index.ts")}
+2026-03-13T04:00:21.962771Z  WARN turborepo_lib::package_changes_watcher: changed_packages: Ok(Some({WorkspacePackage { name: Other("@overbet/gateway"), path: AnchoredSystemPathBuf("apps/gateway") }}))
+2026-03-13T04:00:28.662174Z  WARN turborepo_lib::package_changes_watcher: changed_files: {AnchoredSystemPathBuf("apps/gateway/src/index.ts")}
+2026-03-13T04:00:28.662199Z  WARN turborepo_lib::package_changes_watcher: changed_packages: Ok(Some({WorkspacePackage { name: Other("@overbet/gateway"), path: AnchoredSystemPathBuf("apps/gateway") }}))
+2026-03-13T04:00:31.564156Z  WARN turborepo_lib::package_changes_watcher: changed_files: {AnchoredSystemPathBuf("apps/gateway/src/index.ts")}
+2026-03-13T04:00:31.564181Z  WARN turborepo_lib::package_changes_watcher: changed_packages: Ok(Some({WorkspacePackage { name: Other("@overbet/gateway"), path: AnchoredSystemPathBuf("apps/gateway") }}))
+2026-03-13T04:01:01.564086Z  WARN turborepo_lib::package_changes_watcher: changed_files: {AnchoredSystemPathBuf("apps/gateway/src/index.ts")}
+2026-03-13T04:01:01.564194Z  WARN turborepo_lib::package_changes_watcher: changed_packages: Ok(Some({WorkspacePackage { name: Other("@overbet/gateway"), path: AnchoredSystemPathBuf("apps/gateway") }}))
+2026-03-13T04:01:07.362221Z  WARN turborepo_lib::package_changes_watcher: changed_files: {AnchoredSystemPathBuf("apps/gateway/src/index.ts")}
+2026-03-13T04:01:07.362243Z  WARN turborepo_lib::package_changes_watcher: changed_packages: Ok(Some({WorkspacePackage { name: Other("@overbet/gateway"), path: AnchoredSystemPathBuf("apps/gateway") }}))
+2026-03-13T04:01:16.262440Z  WARN turborepo_lib::package_changes_watcher: changed_files: {AnchoredSystemPathBuf("apps/gateway/src/index.ts")}
+2026-03-13T04:01:16.262475Z  WARN turborepo_lib::package_changes_watcher: changed_packages: Ok(Some({WorkspacePackage { name: Other("@overbet/gateway"), path: AnchoredSystemPathBuf("apps/gateway") }}))
+2026-03-13T04:03:03.372322Z  WARN turborepo_lib::package_changes_watcher: changed_files: {AnchoredSystemPathBuf("apps/web/src/app/room/[slug]/RoomClient.tsx")}
+2026-03-13T04:03:03.372481Z  WARN turborepo_lib::package_changes_watcher: changed_packages: Ok(Some({WorkspacePackage { name: Other("web"), path: AnchoredSystemPathBuf("apps/web") }}))
+2026-03-13T04:03:06.366629Z  WARN turborepo_lib::package_changes_watcher: changed_files: {AnchoredSystemPathBuf("apps/web/src/app/room/[slug]/RoomClient.tsx")}
+2026-03-13T04:03:06.366649Z  WARN turborepo_lib::package_changes_watcher: changed_packages: Ok(Some({WorkspacePackage { name: Other("web"), path: AnchoredSystemPathBuf("apps/web") }}))
+2026-03-13T04:03:09.062778Z  WARN turborepo_lib::package_changes_watcher: changed_files: {AnchoredSystemPathBuf("apps/web/src/app/room/[slug]/RoomClient.tsx")}
+2026-03-13T04:03:09.062797Z  WARN turborepo_lib::package_changes_watcher: changed_packages: Ok(Some({WorkspacePackage { name: Other("web"), path: AnchoredSystemPathBuf("apps/web") }}))
+2026-03-13T04:03:27.062833Z  WARN turborepo_lib::package_changes_watcher: changed_files: {AnchoredSystemPathBuf("apps/web/src/lib/overbet-to-player-view.ts")}
+2026-03-13T04:03:27.062890Z  WARN turborepo_lib::package_changes_watcher: changed_packages: Ok(Some({WorkspacePackage { name: Other("web"), path: AnchoredSystemPathBuf("apps/web") }}))
+2026-03-13T04:03:29.662777Z  WARN turborepo_lib::package_changes_watcher: changed_files: {AnchoredSystemPathBuf("apps/web/src/lib/overbet-to-player-view.ts")}
+2026-03-13T04:03:29.662802Z  WARN turborepo_lib::package_changes_watcher: changed_packages: Ok(Some({WorkspacePackage { name: Other("web"), path: AnchoredSystemPathBuf("apps/web") }}))
+2026-03-13T04:03:34.063332Z  WARN turborepo_lib::package_changes_watcher: changed_files: {AnchoredSystemPathBuf("apps/web/src/lib/overbet-to-player-view.ts")}
+2026-03-13T04:03:34.063342Z  WARN turborepo_lib::package_changes_watcher: changed_packages: Ok(Some({WorkspacePackage { name: Other("web"), path: AnchoredSystemPathBuf("apps/web") }}))
+2026-03-13T04:03:42.362504Z  WARN turborepo_lib::package_changes_watcher: changed_files: {AnchoredSystemPathBuf("apps/web/src/app/room/[slug]/RoomClient.tsx")}
+2026-03-13T04:03:42.362520Z  WARN turborepo_lib::package_changes_watcher: changed_packages: Ok(Some({WorkspacePackage { name: Other("web"), path: AnchoredSystemPathBuf("apps/web") }}))
+2026-03-13T04:03:52.763494Z  WARN turborepo_lib::package_changes_watcher: changed_files: {AnchoredSystemPathBuf("apps/web/src/app/room/[slug]/RoomClient.tsx")}
+2026-03-13T04:03:52.763574Z  WARN turborepo_lib::package_changes_watcher: changed_packages: Ok(Some({WorkspacePackage { name: Other("web"), path: AnchoredSystemPathBuf("apps/web") }}))
+2026-03-13T04:04:01.063907Z  WARN turborepo_lib::package_changes_watcher: changed_files: {AnchoredSystemPathBuf("apps/web/src/app/room/[slug]/RoomClient.tsx")}
+2026-03-13T04:04:01.063955Z  WARN turborepo_lib::package_changes_watcher: changed_packages: Ok(Some({WorkspacePackage { name: Other("web"), path: AnchoredSystemPathBuf("apps/web") }}))
+2026-03-13T04:04:04.963485Z  WARN turborepo_lib::package_changes_watcher: changed_files: {AnchoredSystemPathBuf("apps/web/src/components/poker/PlayerPerspectiveView.tsx")}
+2026-03-13T04:04:04.963494Z  WARN turborepo_lib::package_changes_watcher: changed_packages: Ok(Some({WorkspacePackage { name: Other("web"), path: AnchoredSystemPathBuf("apps/web") }}))
+2026-03-13T04:04:57.063175Z  WARN turborepo_lib::package_changes_watcher: changed_files: {AnchoredSystemPathBuf("packages/engine/test/engine.test.ts")}
+2026-03-13T04:04:57.063223Z  WARN turborepo_lib::package_changes_watcher: changed_packages: Ok(Some({WorkspacePackage { name: Other("@overbet/engine"), path: AnchoredSystemPathBuf("packages/engine") }}))
+2026-03-13T04:05:33.364334Z  WARN turborepo_lib::package_changes_watcher: changed_files: {AnchoredSystemPathBuf("packages/engine/test/engine.test.ts")}
+2026-03-13T04:05:33.364351Z  WARN turborepo_lib::package_changes_watcher: changed_packages: Ok(Some({WorkspacePackage { name: Other("@overbet/engine"), path: AnchoredSystemPathBuf("packages/engine") }}))
+2026-03-13T04:06:05.863320Z  WARN turborepo_lib::package_changes_watcher: changed_files: {AnchoredSystemPathBuf("apps/web/test/overbet-to-player-view.test.ts")}
+2026-03-13T04:06:05.863346Z  WARN turborepo_lib::package_changes_watcher: changed_packages: Ok(Some({WorkspacePackage { name: Other("web"), path: AnchoredSystemPathBuf("apps/web") }}))
+2026-03-13T04:06:20.764368Z  WARN turborepo_lib::package_changes_watcher: changed_files: {AnchoredSystemPathBuf("apps/gateway/src/index.ts")}
+2026-03-13T04:06:20.764411Z  WARN turborepo_lib::package_changes_watcher: changed_packages: Ok(Some({WorkspacePackage { name: Other("@overbet/gateway"), path: AnchoredSystemPathBuf("apps/gateway") }}))
+2026-03-13T04:09:21.765344Z  WARN turborepo_lib::package_changes_watcher: changed_files: {AnchoredSystemPathBuf("packages/engine/test/utils/invariants.ts"), AnchoredSystemPathBuf("packages/engine/test/utils")}
+2026-03-13T04:09:21.765429Z  WARN turborepo_lib::package_changes_watcher: changed_packages: Ok(Some({WorkspacePackage { name: Other("@overbet/engine"), path: AnchoredSystemPathBuf("packages/engine") }}))
+2026-03-13T04:09:44.464199Z  WARN turborepo_lib::package_changes_watcher: changed_files: {AnchoredSystemPathBuf("packages/engine/test/utils/simulation-harness.ts")}
+2026-03-13T04:09:44.464246Z  WARN turborepo_lib::package_changes_watcher: changed_packages: Ok(Some({WorkspacePackage { name: Other("@overbet/engine"), path: AnchoredSystemPathBuf("packages/engine") }}))
+2026-03-13T04:09:59.964851Z  WARN turborepo_lib::package_changes_watcher: changed_files: {AnchoredSystemPathBuf("packages/engine/test/utils/simulation-harness.ts")}
+2026-03-13T04:09:59.964922Z  WARN turborepo_lib::package_changes_watcher: changed_packages: Ok(Some({WorkspacePackage { name: Other("@overbet/engine"), path: AnchoredSystemPathBuf("packages/engine") }}))
+2026-03-13T04:10:05.164103Z  WARN turborepo_lib::package_changes_watcher: changed_files: {AnchoredSystemPathBuf("packages/engine/test/utils/simulation-harness.ts")}
+2026-03-13T04:10:05.164117Z  WARN turborepo_lib::package_changes_watcher: changed_packages: Ok(Some({WorkspacePackage { name: Other("@overbet/engine"), path: AnchoredSystemPathBuf("packages/engine") }}))
+2026-03-13T04:10:26.665165Z  WARN turborepo_lib::package_changes_watcher: changed_files: {AnchoredSystemPathBuf("packages/engine/test/simulation.test.ts")}
+2026-03-13T04:10:26.665185Z  WARN turborepo_lib::package_changes_watcher: changed_packages: Ok(Some({WorkspacePackage { name: Other("@overbet/engine"), path: AnchoredSystemPathBuf("packages/engine") }}))
+2026-03-13T04:10:34.966169Z  WARN turborepo_lib::package_changes_watcher: changed_files: {AnchoredSystemPathBuf("packages/engine/test/simulation.test.ts")}
+2026-03-13T04:10:34.966190Z  WARN turborepo_lib::package_changes_watcher: changed_packages: Ok(Some({WorkspacePackage { name: Other("@overbet/engine"), path: AnchoredSystemPathBuf("packages/engine") }}))
+2026-03-13T04:11:23.866314Z  WARN turborepo_lib::package_changes_watcher: changed_files: {AnchoredSystemPathBuf("packages/engine/test/utils/invariants.ts")}
+2026-03-13T04:11:23.866334Z  WARN turborepo_lib::package_changes_watcher: changed_packages: Ok(Some({WorkspacePackage { name: Other("@overbet/engine"), path: AnchoredSystemPathBuf("packages/engine") }}))
+2026-03-13T04:12:02.466125Z  WARN turborepo_lib::package_changes_watcher: changed_files: {AnchoredSystemPathBuf("packages/engine/test/utils/invariants.ts")}
+2026-03-13T04:12:02.466153Z  WARN turborepo_lib::package_changes_watcher: changed_packages: Ok(Some({WorkspacePackage { name: Other("@overbet/engine"), path: AnchoredSystemPathBuf("packages/engine") }}))
+2026-03-13T04:12:36.864828Z  WARN turborepo_lib::package_changes_watcher: changed_files: {AnchoredSystemPathBuf("packages/engine/src/variants/NLH.ts")}
+2026-03-13T04:12:36.864844Z  WARN turborepo_lib::package_changes_watcher: changed_packages: Ok(Some({WorkspacePackage { name: Other("@overbet/engine"), path: AnchoredSystemPathBuf("packages/engine") }}))
+2026-03-13T04:13:31.465279Z  WARN turborepo_lib::package_changes_watcher: changed_files: {AnchoredSystemPathBuf("packages/engine/src/variants/NLH.ts")}
+2026-03-13T04:13:31.465318Z  WARN turborepo_lib::package_changes_watcher: changed_packages: Ok(Some({WorkspacePackage { name: Other("@overbet/engine"), path: AnchoredSystemPathBuf("packages/engine") }}))
+2026-03-13T04:13:38.864809Z  WARN turborepo_lib::package_changes_watcher: changed_files: {AnchoredSystemPathBuf("packages/engine/test/utils/invariants.ts")}
+2026-03-13T04:13:38.864826Z  WARN turborepo_lib::package_changes_watcher: changed_packages: Ok(Some({WorkspacePackage { name: Other("@overbet/engine"), path: AnchoredSystemPathBuf("packages/engine") }}))
+2026-03-13T04:13:43.765057Z  WARN turborepo_lib::package_changes_watcher: changed_files: {AnchoredSystemPathBuf("packages/engine/test/utils/simulation-harness.ts")}
+2026-03-13T04:13:43.765065Z  WARN turborepo_lib::package_changes_watcher: changed_packages: Ok(Some({WorkspacePackage { name: Other("@overbet/engine"), path: AnchoredSystemPathBuf("packages/engine") }}))
+2026-03-13T04:15:16.665325Z  WARN turborepo_lib::package_changes_watcher: changed_files: {AnchoredSystemPathBuf("packages/engine/src/variants/NLH.ts")}
+2026-03-13T04:15:16.665384Z  WARN turborepo_lib::package_changes_watcher: changed_packages: Ok(Some({WorkspacePackage { name: Other("@overbet/engine"), path: AnchoredSystemPathBuf("packages/engine") }}))
+2026-03-13T04:15:26.966236Z  WARN turborepo_lib::package_changes_watcher: changed_files: {AnchoredSystemPathBuf("packages/engine/test/simulation.test.ts")}
+2026-03-13T04:15:26.966262Z  WARN turborepo_lib::package_changes_watcher: changed_packages: Ok(Some({WorkspacePackage { name: Other("@overbet/engine"), path: AnchoredSystemPathBuf("packages/engine") }}))
+2026-03-13T04:15:44.267200Z  WARN turborepo_lib::package_changes_watcher: changed_files: {AnchoredSystemPathBuf("packages/engine/test/simulation.test.ts")}
+2026-03-13T04:15:44.267224Z  WARN turborepo_lib::package_changes_watcher: changed_packages: Ok(Some({WorkspacePackage { name: Other("@overbet/engine"), path: AnchoredSystemPathBuf("packages/engine") }}))
+2026-03-13T04:15:48.466633Z  WARN turborepo_lib::package_changes_watcher: changed_files: {AnchoredSystemPathBuf("packages/engine/test/utils/simulation-harness.ts")}
+2026-03-13T04:15:48.466642Z  WARN turborepo_lib::package_changes_watcher: changed_packages: Ok(Some({WorkspacePackage { name: Other("@overbet/engine"), path: AnchoredSystemPathBuf("packages/engine") }}))
+2026-03-13T04:15:54.965650Z  WARN turborepo_lib::package_changes_watcher: changed_files: {AnchoredSystemPathBuf("packages/engine/test/simulation.test.ts")}
+2026-03-13T04:15:54.965658Z  WARN turborepo_lib::package_changes_watcher: changed_packages: Ok(Some({WorkspacePackage { name: Other("@overbet/engine"), path: AnchoredSystemPathBuf("packages/engine") }}))
+2026-03-13T04:16:15.666218Z  WARN turborepo_lib::package_changes_watcher: changed_files: {AnchoredSystemPathBuf("packages/engine/test/utils/simulation-harness.ts")}
+2026-03-13T04:16:15.666270Z  WARN turborepo_lib::package_changes_watcher: changed_packages: Ok(Some({WorkspacePackage { name: Other("@overbet/engine"), path: AnchoredSystemPathBuf("packages/engine") }}))
+2026-03-13T04:16:23.067201Z  WARN turborepo_lib::package_changes_watcher: changed_files: {AnchoredSystemPathBuf("packages/engine/test/utils/simulation-harness.ts")}
+2026-03-13T04:16:23.067222Z  WARN turborepo_lib::package_changes_watcher: changed_packages: Ok(Some({WorkspacePackage { name: Other("@overbet/engine"), path: AnchoredSystemPathBuf("packages/engine") }}))
+2026-03-13T04:16:43.466595Z  WARN turborepo_lib::package_changes_watcher: changed_files: {AnchoredSystemPathBuf("packages/engine/test/simulation.test.ts")}
+2026-03-13T04:16:43.466613Z  WARN turborepo_lib::package_changes_watcher: changed_packages: Ok(Some({WorkspacePackage { name: Other("@overbet/engine"), path: AnchoredSystemPathBuf("packages/engine") }}))
+2026-03-13T04:17:33.368141Z  WARN turborepo_lib::package_changes_watcher: changed_files: {AnchoredSystemPathBuf("packages/engine/test/utils/simulation-harness.ts")}
+2026-03-13T04:17:33.368175Z  WARN turborepo_lib::package_changes_watcher: changed_packages: Ok(Some({WorkspacePackage { name: Other("@overbet/engine"), path: AnchoredSystemPathBuf("packages/engine") }}))
+2026-03-13T04:17:33.467653Z  WARN turborepo_lib::package_changes_watcher: changed_files: {AnchoredSystemPathBuf("packages/engine/test/utils/simulation-harness.ts")}
+2026-03-13T04:17:33.467662Z  WARN turborepo_lib::package_changes_watcher: changed_packages: Ok(Some({WorkspacePackage { name: Other("@overbet/engine"), path: AnchoredSystemPathBuf("packages/engine") }}))
+2026-03-13T04:17:33.467683Z  WARN turborepo_lib::package_changes_watcher: hashes are the same, no need to rerun
+2026-03-13T04:17:40.865929Z  WARN turborepo_lib::package_changes_watcher: changed_files: {AnchoredSystemPathBuf("packages/engine/test/utils/simulation-harness.ts")}
+2026-03-13T04:17:40.865938Z  WARN turborepo_lib::package_changes_watcher: changed_packages: Ok(Some({WorkspacePackage { name: Other("@overbet/engine"), path: AnchoredSystemPathBuf("packages/engine") }}))
+2026-03-13T04:17:46.667144Z  WARN turborepo_lib::package_changes_watcher: changed_files: {AnchoredSystemPathBuf("packages/engine/test/utils/simulation-harness.ts")}
+2026-03-13T04:17:46.667167Z  WARN turborepo_lib::package_changes_watcher: changed_packages: Ok(Some({WorkspacePackage { name: Other("@overbet/engine"), path: AnchoredSystemPathBuf("packages/engine") }}))
+2026-03-13T04:17:51.468720Z  WARN turborepo_lib::package_changes_watcher: changed_files: {AnchoredSystemPathBuf("packages/engine/test/utils/simulation-harness.ts")}
+2026-03-13T04:17:51.468779Z  WARN turborepo_lib::package_changes_watcher: changed_packages: Ok(Some({WorkspacePackage { name: Other("@overbet/engine"), path: AnchoredSystemPathBuf("packages/engine") }}))
+2026-03-13T04:17:55.267687Z  WARN turborepo_lib::package_changes_watcher: changed_files: {AnchoredSystemPathBuf("packages/engine/test/utils/simulation-harness.ts")}
+2026-03-13T04:17:55.267697Z  WARN turborepo_lib::package_changes_watcher: changed_packages: Ok(Some({WorkspacePackage { name: Other("@overbet/engine"), path: AnchoredSystemPathBuf("packages/engine") }}))
+2026-03-13T04:17:59.366577Z  WARN turborepo_lib::package_changes_watcher: changed_files: {AnchoredSystemPathBuf("packages/engine/test/utils/simulation-harness.ts")}
+2026-03-13T04:17:59.366597Z  WARN turborepo_lib::package_changes_watcher: changed_packages: Ok(Some({WorkspacePackage { name: Other("@overbet/engine"), path: AnchoredSystemPathBuf("packages/engine") }}))
+2026-03-13T04:18:02.966578Z  WARN turborepo_lib::package_changes_watcher: changed_files: {AnchoredSystemPathBuf("packages/engine/test/utils/simulation-harness.ts")}
+2026-03-13T04:18:02.966586Z  WARN turborepo_lib::package_changes_watcher: changed_packages: Ok(Some({WorkspacePackage { name: Other("@overbet/engine"), path: AnchoredSystemPathBuf("packages/engine") }}))
+2026-03-13T04:18:14.968033Z  WARN turborepo_lib::package_changes_watcher: changed_files: {AnchoredSystemPathBuf("packages/engine/test/utils/simulation-harness.ts")}
+2026-03-13T04:18:14.968067Z  WARN turborepo_lib::package_changes_watcher: changed_packages: Ok(Some({WorkspacePackage { name: Other("@overbet/engine"), path: AnchoredSystemPathBuf("packages/engine") }}))
+2026-03-13T04:18:18.767936Z  WARN turborepo_lib::package_changes_watcher: changed_files: {AnchoredSystemPathBuf("packages/engine/test/utils/simulation-harness.ts")}
+2026-03-13T04:18:18.767948Z  WARN turborepo_lib::package_changes_watcher: changed_packages: Ok(Some({WorkspacePackage { name: Other("@overbet/engine"), path: AnchoredSystemPathBuf("packages/engine") }}))
+2026-03-13T04:18:24.467621Z  WARN turborepo_lib::package_changes_watcher: changed_files: {AnchoredSystemPathBuf("packages/engine/test/utils/simulation-harness.ts")}
+2026-03-13T04:18:24.467629Z  WARN turborepo_lib::package_changes_watcher: changed_packages: Ok(Some({WorkspacePackage { name: Other("@overbet/engine"), path: AnchoredSystemPathBuf("packages/engine") }}))
+2026-03-13T04:18:59.968715Z  WARN turborepo_lib::package_changes_watcher: changed_files: {AnchoredSystemPathBuf("packages/engine/test/simulation.test.ts")}
+2026-03-13T04:18:59.968780Z  WARN turborepo_lib::package_changes_watcher: changed_packages: Ok(Some({WorkspacePackage { name: Other("@overbet/engine"), path: AnchoredSystemPathBuf("packages/engine") }}))
+2026-03-13T04:19:28.468433Z  WARN turborepo_lib::package_changes_watcher: changed_files: {AnchoredSystemPathBuf("packages/engine/test/utils/simulation-harness.ts")}
+2026-03-13T04:19:28.468457Z  WARN turborepo_lib::package_changes_watcher: changed_packages: Ok(Some({WorkspacePackage { name: Other("@overbet/engine"), path: AnchoredSystemPathBuf("packages/engine") }}))
+2026-03-13T04:20:10.568112Z  WARN turborepo_lib::package_changes_watcher: changed_files: {AnchoredSystemPathBuf("packages/engine/test/utils/simulation-harness.ts")}
+2026-03-13T04:20:10.568141Z  WARN turborepo_lib::package_changes_watcher: changed_packages: Ok(Some({WorkspacePackage { name: Other("@overbet/engine"), path: AnchoredSystemPathBuf("packages/engine") }}))
+2026-03-13T04:20:31.967296Z  WARN turborepo_lib::package_changes_watcher: changed_files: {AnchoredSystemPathBuf("packages/engine/test/utils/simulation-harness.ts")}
+2026-03-13T04:20:31.967306Z  WARN turborepo_lib::package_changes_watcher: changed_packages: Ok(Some({WorkspacePackage { name: Other("@overbet/engine"), path: AnchoredSystemPathBuf("packages/engine") }}))
+2026-03-13T04:20:46.668324Z  WARN turborepo_lib::package_changes_watcher: changed_files: {AnchoredSystemPathBuf("packages/engine/test/engine.test.ts")}
+2026-03-13T04:20:46.668344Z  WARN turborepo_lib::package_changes_watcher: changed_packages: Ok(Some({WorkspacePackage { name: Other("@overbet/engine"), path: AnchoredSystemPathBuf("packages/engine") }}))
+2026-03-13T04:20:56.069489Z  WARN turborepo_lib::package_changes_watcher: changed_files: {AnchoredSystemPathBuf("packages/engine/test/simulation.test.ts")}
+2026-03-13T04:20:56.069550Z  WARN turborepo_lib::package_changes_watcher: changed_packages: Ok(Some({WorkspacePackage { name: Other("@overbet/engine"), path: AnchoredSystemPathBuf("packages/engine") }}))
+2026-03-13T04:21:10.167501Z  WARN turborepo_lib::package_changes_watcher: changed_files: {AnchoredSystemPathBuf("packages/engine/test/SIMULATION_SUMMARY.md")}
+2026-03-13T04:21:10.167528Z  WARN turborepo_lib::package_changes_watcher: changed_packages: Ok(Some({WorkspacePackage { name: Other("@overbet/engine"), path: AnchoredSystemPathBuf("packages/engine") }}))
+2026-03-13T04:21:23.068440Z  WARN turborepo_lib::package_changes_watcher: changed_files: {AnchoredSystemPathBuf("packages/engine/test/engine.test.ts")}
+2026-03-13T04:21:23.068459Z  WARN turborepo_lib::package_changes_watcher: changed_packages: Ok(Some({WorkspacePackage { name: Other("@overbet/engine"), path: AnchoredSystemPathBuf("packages/engine") }}))
+2026-03-13T04:30:16.064255Z  WARN turborepo_lib::package_changes_watcher: changed_files: {AnchoredSystemPathBuf("projects/engine-verification/verification-pass"), AnchoredSystemPathBuf("projects"), AnchoredSystemPathBuf("projects/engine-verification"), AnchoredSystemPathBuf("projects/engine-verification/verification-pass/outputs"), AnchoredSystemPathBuf("projects/engine-verification/verification-pass/outputs/test_report.md")}
+2026-03-13T04:30:16.064899Z  WARN turborepo_lib::package_changes_watcher: changed_packages: Ok(Some({WorkspacePackage { name: Root, path: AnchoredSystemPathBuf("") }}))
+2026-03-13T04:30:18.351435Z  WARN turborepo_lib::package_changes_watcher: changed_files: {AnchoredSystemPathBuf("projects/engine-verification/verification-pass/outputs/command_log.txt")}
+2026-03-13T04:30:18.351453Z  WARN turborepo_lib::package_changes_watcher: changed_packages: Ok(Some({WorkspacePackage { name: Root, path: AnchoredSystemPathBuf("") }}))
+2026-03-13T04:30:20.251241Z  WARN turborepo_lib::package_changes_watcher: changed_files: {AnchoredSystemPathBuf("projects/engine-verification/verification-pass/notes.md")}
+2026-03-13T04:30:20.251257Z  WARN turborepo_lib::package_changes_watcher: changed_packages: Ok(Some({WorkspacePackage { name: Root, path: AnchoredSystemPathBuf("") }}))
+2026-03-13T04:30:32.852277Z  WARN turborepo_lib::package_changes_watcher: changed_files: {AnchoredSystemPathBuf("projects/engine-verification/verification-pass/outputs/stdout_full.txt")}
+2026-03-13T04:30:32.852372Z  WARN turborepo_lib::package_changes_watcher: changed_packages: Ok(Some({WorkspacePackage { name: Root, path: AnchoredSystemPathBuf("") }}))

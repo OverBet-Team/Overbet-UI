@@ -282,12 +282,14 @@ export class NLHMachine implements PokerEngine {
 
         // If everyone folded but one
         if (activeOrAllIn.length === 1) {
-            events.push(this.createEvent("EARLY_WIN", { winnerId: activeOrAllIn[0].id, amount: this.state.pot }));
+            const winAmount = this.state.pot;
+            events.push(this.createEvent("EARLY_WIN", { winnerId: activeOrAllIn[0].id, amount: winAmount }));
             this.state.players.forEach(p => {
                 if (p.id === activeOrAllIn[0].id) {
-                    p.stack += this.state.pot;
+                    p.stack += winAmount;
                 }
             });
+            this.state.pot = 0; // Conserve chips: pot awarded to winner
             this.endHand(events);
             return;
         }
@@ -343,19 +345,19 @@ export class NLHMachine implements PokerEngine {
                     const refundedPlayer = this.state.players.find(p => p.id === eligiblePlayers[0]);
                     if (refundedPlayer) {
                         refundedPlayer.stack += slice;
+                        this.state.pot -= slice; // Conserve chips: refund comes from pot
                         events.push(this.createEvent("UNCALLED_BET_RETURNED", {
                             playerId: refundedPlayer.id,
                             amount: slice
                         }));
                     }
                 } else {
-                    // Check if a side pot with these exact eligible players already exists
-                    // If so, just add to its amount. This prevents duplicate side pots.
-                    const existingSidePot = this.state.sidePots.find(sp => 
+                    // Move chips from pot to side pot (conserve total chips)
+                    this.state.pot -= slicePot;
+                    const existingSidePot = this.state.sidePots.find(sp =>
                         sp.eligiblePlayers.length === eligiblePlayers.length &&
                         sp.eligiblePlayers.every(id => eligiblePlayers.includes(id))
                     );
-
                     if (existingSidePot) {
                         existingSidePot.amount += slicePot;
                     } else {

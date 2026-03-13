@@ -106,6 +106,7 @@ export default function RoomClient({ slug, initialRoom }: RoomProps) {
   const [isPaused, setIsPaused] = useState(false);
   const [isSeatPanelOpen, setIsSeatPanelOpen] = useState(false);
   const [approvedSeatOverride, setApprovedSeatOverride] = useState<PlayerData | null>(null);
+  const [cleanupShowAllRevealed, setCleanupShowAllRevealed] = useState(false);
   const justApprovedRef = useRef(false);
 
   // ── Socket setup ────────────────────────────────────────────────────────────
@@ -243,6 +244,9 @@ export default function RoomClient({ slug, initialRoom }: RoomProps) {
         console.log("[EVENT_STATE_UPDATE] phase=", state?.phase, "board.length=", board.length, "board=", board.slice(0, 5));
       }
       setGameState(state);
+      if (state.phase === "LOBBY") {
+        setCleanupShowAllRevealed(false);
+      }
       if (state.phase !== "LOBBY") {
         setRoom((prev) => (prev.status !== "INGAME" ? { ...prev, status: "INGAME" } : prev));
       }
@@ -279,8 +283,9 @@ export default function RoomClient({ slug, initialRoom }: RoomProps) {
           });
         }
       } else if (state.phase === "PRE_FLOP" || state.phase === "PREFLOP" || state.phase === "PRE_FLOP_BETTING") {
-        // New hand started — clear winner toast
+        // New hand started — clear winner toast and reset cleanup Show All
         setWinner(null);
+        setCleanupShowAllRevealed(false);
       }
     });
 
@@ -1017,9 +1022,37 @@ export default function RoomClient({ slug, initialRoom }: RoomProps) {
         {(() => {
           const viewState = toPlayerViewState(mappedPlayers, gameState, userId);
           if (viewState) {
+            const isCleanup = gameState?.phase === "CLEANUP";
+            const board = gameState?.board ?? [];
+            const hasBoard = board.some((c: string) => !!c);
+            const showShowAllButton = isCleanup && !cleanupShowAllRevealed && hasBoard;
             return (
-              <div style={{ flex: 1, minHeight: 0, display: "flex", width: "100%" }}>
-                <PlayerPerspectiveView viewState={viewState} />
+              <div style={{ flex: 1, minHeight: 0, display: "flex", width: "100%", position: "relative" }}>
+                <PlayerPerspectiveView viewState={viewState} cleanupShowAllRevealed={cleanupShowAllRevealed} />
+                {showShowAllButton && (
+                  <button
+                    onClick={() => setCleanupShowAllRevealed(true)}
+                    style={{
+                      position: "absolute",
+                      left: "50%",
+                      bottom: 180,
+                      transform: "translateX(-50%)",
+                      zIndex: 15,
+                      padding: "8px 16px",
+                      borderRadius: 999,
+                      border: "1px solid rgba(167,139,250,0.4)",
+                      background: "rgba(167,139,250,0.15)",
+                      color: "#c4b5fd",
+                      fontSize: 12,
+                      fontWeight: 700,
+                      fontFamily: "Outfit, sans-serif",
+                      cursor: "pointer",
+                      backdropFilter: "blur(8px)",
+                    }}
+                  >
+                    Show All
+                  </button>
+                )}
               </div>
             );
           }

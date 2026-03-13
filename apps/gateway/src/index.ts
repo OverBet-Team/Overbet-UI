@@ -88,21 +88,32 @@ async function hydrateRoom(roomId: string) {
             return false;
         }
         seenIds.add(m.userId);
-        const seatIndex = m.seatIndex ?? -1;
-        if (seatIndex < 0 || seatIndex > 9) {
-            console.warn(`[hydrateRoom] Invalid seatIndex ${seatIndex} for userId ${m.userId}, skipping`);
-            return false;
-        }
         return true;
     });
+    if (validMembers.length < 2) {
+        console.warn(`[hydrateRoom] room=${roomId} only ${validMembers.length} valid members; may block auto-start`);
+    }
     console.log(`[hydrateRoom] room=${roomId} hydrating ${validMembers.length} players: ${validMembers.map((m: any) => m.userId).join(', ')}`);
+    const usedSeats = new Set<number>();
+    const nextFreeSeat = () => {
+        for (let s = 0; s <= 9; s++) if (!usedSeats.has(s)) { usedSeats.add(s); return s; }
+        return 0;
+    };
     validMembers.forEach((m: any) => {
+        let seatIndex: number;
+        const raw = m.seatIndex;
+        if (typeof raw === 'number' && raw >= 0 && raw <= 9 && !usedSeats.has(raw)) {
+            usedSeats.add(raw);
+            seatIndex = raw;
+        } else {
+            seatIndex = nextFreeSeat();
+        }
         engine.addPlayer({
             id: m.userId,
             displayName: m.user?.username,
             stack: m.stack ?? 0,
             status: 'ACTIVE',
-            seatIndex: m.seatIndex ?? 0,
+            seatIndex,
             holeCards: [],
             bet: 0,
             hasActed: false
@@ -141,7 +152,7 @@ function emitErrorToRoom(roomId: string, code: string, message: string) {
     io.to(roomId).emit('EVENT_ERROR', err);
 }
 
-function sanitizeState(state: any, targetUserId: string) {
+function sanitizeState(state: any, targetUserId: string | null) {
     const sanitized = JSON.parse(JSON.stringify(state));
 
     // Add helper IDs for the frontend
@@ -293,7 +304,30 @@ async function autoAct(roomId: string, playerId: string, currentBet: number) {
         const message = err?.message ?? String(err);
         console.error(`Failed auto-action for player ${playerId} in room ${roomId}:`, message);
         emitErrorToRoom(roomId, 'ERR_AUTO_ACTION', `Timer expired: ${message}`);
+        const rd = roomStates[roomId];
+        if (rd?.currentHandId) {
+            const state = rd.engine.getState();
+            const sockets = await io.in(roomId).fetchSockets();
+            for (const s of sockets) {
+                const uId = s.handshake.query.userId as string;
+                s.emit('EVENT_STATE_UPDATE', {
+                    type: 'EVENT_STATE_UPDATE',
+                    schema_version: 1,
+                    room_id: roomId,
+                    hand_id: rd.currentHandId,
+                    server_seq: rd.seq,
+                    state: sanitizeState(state, uId)
+                });
+            }
+            if (state.phase?.endsWith('BETTING')) startTurnTimer(roomId);
+        }
     }
+}
+
+/** Matches engine startHand eligibility: at least 2 ACTIVE or ALL_IN players */
+function canStartHand(state: { players: { status: string }[] }): boolean {
+    const active = state.players.filter((p: any) => ['ACTIVE', 'ALL_IN'].includes(p.status));
+    return active.length >= 2;
 }
 
 async function startHand(roomId: string, schema_version: number = 1) {
@@ -306,6 +340,9 @@ async function startHand(roomId: string, schema_version: number = 1) {
     const state = roomData.engine.getState();
     if (state.phase !== 'LOBBY' && state.phase !== 'CLEANUP') {
         throw new Error(`Game already in progress (Phase: ${state.phase})`);
+    }
+    if (!canStartHand(state)) {
+        throw new Error('Not enough active players to start a hand (need 2+ ACTIVE or ALL_IN)');
     }
 
     const room = await prisma.room.findUnique({ where: { slug: roomId } });
@@ -483,14 +520,18 @@ async function performPlayerAction(roomId: string, userId: string, action: any, 
                     return;
                 }
                 const currentState = roomData.engine.getState();
-                const activePlayers = currentState.players.filter((p: any) => p.stack > 0);
-                if (activePlayers.length >= 2) {
+                if (canStartHand(currentState)) {
                     await startHand(roomId, schema_version);
                 } else {
-                    console.log("Not enough players with chips to auto-start next hand.");
+                    console.log("Not enough eligible players (ACTIVE/ALL_IN) to auto-start next hand.");
+                    io.to(roomId).emit('EVENT_STATE_UPDATE', { room_id: roomId, state: sanitizeState(currentState, null), server_ts: Date.now() });
                 }
             } catch (err) {
                 console.error("Failed to auto-start hand:", err);
+                const state = roomData?.engine?.getState?.();
+                if (state) {
+                    io.to(roomId).emit('EVENT_STATE_UPDATE', { room_id: roomId, state: sanitizeState(state, null), server_ts: Date.now() });
+                }
             }
         }, autoStartDelay);
     } else {
@@ -809,6 +850,23 @@ io.on('connection', (socket) => {
         } catch (err: any) {
             console.error(`[INTENT_PLAYER_ACTION] failed room=${data.room_id} userId=${userId}:`, err.message);
             emitError(socket, 'ERR_PLAYER_ACTION', err.message);
+            const roomData = roomStates[data.room_id];
+            if (roomData?.currentHandId) {
+                const state = roomData.engine.getState();
+                const sockets = await io.in(data.room_id).fetchSockets();
+                for (const s of sockets) {
+                    const uId = s.handshake.query.userId as string;
+                    s.emit('EVENT_STATE_UPDATE', {
+                        type: 'EVENT_STATE_UPDATE',
+                        schema_version: data.schema_version ?? 1,
+                        room_id: data.room_id,
+                        hand_id: roomData.currentHandId,
+                        server_seq: roomData.seq,
+                        state: sanitizeState(state, uId)
+                    });
+                }
+                if (state.phase?.endsWith('BETTING')) startTurnTimer(data.room_id);
+            }
         }
     });
 

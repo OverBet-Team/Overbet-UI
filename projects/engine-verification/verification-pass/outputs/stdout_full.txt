@@ -1,0 +1,89 @@
+=== Simulation suite × 10 runs (stdout) ===
+
+=== Simulation Run 1 ===
+> @overbet/engine@0.1.0 test
+> vitest run "test/simulation.test.ts"
+ RUN  v4.0.18
+ ✓ test/simulation.test.ts (8 tests) 44ms
+ Test Files  1 passed (1)
+      Tests  8 passed (8)
+   Duration  385ms
+
+=== Simulation Run 2 ===
+ ✓ test/simulation.test.ts (8 tests) 94ms
+ Test Files  1 passed (1)
+      Tests  8 passed (8)
+
+=== Simulation Run 3 ===
+ ✓ test/simulation.test.ts (8 tests) 112ms
+ Test Files  1 passed (1)
+      Tests  8 passed (8)
+
+=== Simulation Run 4 ===
+ ✓ test/simulation.test.ts (8 tests) 41ms
+ Test Files  1 passed (1)
+      Tests  8 passed (8)
+
+=== Simulation Run 5 ===
+ ✓ test/simulation.test.ts (8 tests) 46ms
+ Test Files  1 passed (1)
+      Tests  8 passed (8)
+
+=== Simulation Run 6 ===
+ ✓ test/simulation.test.ts (8 tests) 41ms
+ Test Files  1 passed (1)
+      Tests  8 passed (8)
+
+=== Simulation Run 7 ===
+ ✓ test/simulation.test.ts (8 tests) 42ms
+ Test Files  1 passed (1)
+      Tests  8 passed (8)
+
+=== Simulation Run 8 ===
+ ✓ test/simulation.test.ts (8 tests) 42ms
+ Test Files  1 passed (1)
+      Tests  8 passed (8)
+
+=== Simulation Run 9 ===
+ ✓ test/simulation.test.ts (8 tests) 42ms
+ Test Files  1 passed (1)
+      Tests  8 passed (8)
+
+=== Simulation Run 10 ===
+ ✓ test/simulation.test.ts (8 tests) 42ms
+ Test Files  1 passed (1)
+      Tests  8 passed (8)
+
+--- stderr: (empty) ---
+
+
+=== Full engine suite × 3 runs (stdout) ===
+
+=== Full Engine Suite Run 1 ===
+ ✓ test/ledger.test.ts (1 test) 2ms
+ ✓ test/engine.test.ts (7 tests) 11ms
+ ✓ test/randomness.test.ts (1 test) 3ms
+ ✓ test/simulation.test.ts (8 tests) 41ms
+ Test Files  4 passed (4)
+      Tests  17 passed (17)
+   Duration  350ms
+
+=== Full Engine Suite Run 2 ===
+ ✓ test/ledger.test.ts (1 test) 2ms
+ ✓ test/randomness.test.ts (1 test) 4ms
+ ✓ test/engine.test.ts (7 tests) 8ms
+ ✓ test/simulation.test.ts (8 tests) 43ms
+ Test Files  4 passed (4)
+      Tests  17 passed (17)
+   Duration  342ms
+
+=== Full Engine Suite Run 3 ===
+ ✓ test/ledger.test.ts (1 test) 2ms
+ ✓ test/randomness.test.ts (1 test) 3ms
+ ✓ test/engine.test.ts (7 tests) 7ms
+ ✓ test/simulation.test.ts (8 tests) 41ms
+ Test Files  4 passed (4)
+      Tests  17 passed (17)
+   Duration  288ms
+
+--- stderr: (empty) ---
