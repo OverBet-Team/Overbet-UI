@@ -1351,6 +1351,8 @@ export default function RoomClient({ slug, initialRoom }: RoomProps) {
       {isPortraitMobile ? (
         <div style={{
           flexShrink: 0,
+          position: "relative",
+          zIndex: 24,
           display: "flex",
           flexDirection: "column",
           gap: 8,

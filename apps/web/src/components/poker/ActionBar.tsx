@@ -5,6 +5,7 @@
 // Keyboard shortcuts: F=fold, C=call/check, R=raise, A=all-in
 
 import React, { useState, useEffect, useCallback } from "react";
+import { createPortal } from "react-dom";
 
 interface ActionBarProps {
   isActive: boolean;
@@ -65,6 +66,10 @@ export function ActionBar({
     setShowRaisePanel(false);
   }, [onAction, clampedRaise]);
 
+  const closeRaisePanel = useCallback(() => {
+    setShowRaisePanel(false);
+  }, []);
+
   // Keyboard shortcuts
   useEffect(() => {
     if (!isActive) return;
@@ -76,6 +81,7 @@ export function ActionBar({
         case "c": onAction(toCall > 0 ? "CALL" : "CHECK"); break;
         case "r": setShowRaisePanel(v => !v); break;
         case "a": onAction("ALL_IN"); break;
+        case "escape": setShowRaisePanel(false); break;
         case "enter": if (showRaisePanel) handleRaise(); break;
       }
     };
@@ -103,29 +109,61 @@ export function ActionBar({
     );
   }
 
-  // ── Active state ──────────────────────────────────────────────────────────
-  return (
-    <div style={{ display: "flex", flexDirection: "column", width: "100%", gap: 8, fontFamily: "Outfit, sans-serif" }}>
-
-      {/* Raise panel (shown when raise button clicked) */}
-      {showRaisePanel && canRaise && (
-        <div style={{
-          ...(compact
-            ? {
-                position: "fixed",
-                left: 10,
-                right: 10,
-                bottom: "calc(86px + env(safe-area-inset-bottom, 0px))",
-                zIndex: 75,
-                borderRadius: 18,
-                maxHeight: "66dvh",
-                overflowY: "auto",
-              }
-            : {}),
-          background: "rgba(16,13,28,0.97)", border: "1px solid rgba(255,255,255,0.1)",
-          padding: compact ? "14px 14px" : "16px 18px", display: "flex", flexDirection: "column", gap: 12,
-          boxShadow: "0 -8px 40px rgba(0,0,0,0.5)",
-        }}>
+  const raisePanelNode = showRaisePanel && canRaise ? (
+    <>
+      {compact && (
+        <div
+          onClick={closeRaisePanel}
+          style={{
+            position: "fixed",
+            inset: 0,
+            zIndex: 999,
+            background: "rgba(0,0,0,0.45)",
+            backdropFilter: "blur(2px)",
+          }}
+        />
+      )}
+      <div style={{
+        ...(compact
+          ? {
+              position: "fixed",
+              left: 10,
+              right: 10,
+              bottom: "calc(86px + env(safe-area-inset-bottom, 0px))",
+              zIndex: 1000,
+              borderRadius: 18,
+              maxHeight: "66dvh",
+              overflowY: "auto",
+            }
+          : {}),
+        background: "rgba(16,13,28,0.97)", border: "1px solid rgba(255,255,255,0.1)",
+        padding: compact ? "14px 14px" : "16px 18px", display: "flex", flexDirection: "column", gap: 12,
+        boxShadow: "0 -8px 40px rgba(0,0,0,0.5)",
+      }}>
+          {compact && (
+            <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center" }}>
+              <span style={{ color: "rgba(255,255,255,0.68)", fontSize: 11, fontWeight: 700, letterSpacing: "0.06em", textTransform: "uppercase" }}>
+                Raise Amount
+              </span>
+              <button
+                onClick={closeRaisePanel}
+                aria-label="Close raise panel"
+                style={{
+                  width: 28,
+                  height: 28,
+                  borderRadius: 999,
+                  border: "1px solid rgba(255,255,255,0.14)",
+                  background: "rgba(255,255,255,0.05)",
+                  color: "rgba(255,255,255,0.75)",
+                  fontSize: 16,
+                  lineHeight: "1",
+                  cursor: "pointer",
+                }}
+              >
+                ×
+              </button>
+            </div>
+          )}
           {/* Amount display */}
           <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between" }}>
             <span style={{ color: "rgba(255,255,255,0.4)", fontSize: 11, fontWeight: 600, textTransform: "uppercase", letterSpacing: "0.08em" }}>
@@ -213,8 +251,18 @@ export function ActionBar({
           >
             Raise to {clampedRaise.toLocaleString()} ↵
           </button>
-        </div>
-      )}
+      </div>
+    </>
+  ) : null;
+
+  // ── Active state ──────────────────────────────────────────────────────────
+  return (
+    <div style={{ display: "flex", flexDirection: "column", width: "100%", gap: 8, fontFamily: "Outfit, sans-serif" }}>
+
+      {/* Raise panel (shown when raise button clicked) */}
+      {compact
+        ? (typeof document !== "undefined" ? createPortal(raisePanelNode, document.body) : null)
+        : raisePanelNode}
 
       {/* Main action row — Moon Poker pill buttons */}
       <div style={{
@@ -234,7 +282,7 @@ export function ActionBar({
           color="#f87171"
           hoverBg="rgba(248,113,113,0.1)"
           compact={compact}
-          onClick={() => onAction("FOLD")}
+          onClick={() => { setShowRaisePanel(false); onAction("FOLD"); }}
         />
 
         <div style={{ width: 1, height: 28, background: "rgba(255,255,255,0.07)" }} />
@@ -246,7 +294,7 @@ export function ActionBar({
           color={toCall > 0 ? "#93c5fd" : "rgba(255,255,255,0.7)"}
           hoverBg={toCall > 0 ? "rgba(147,197,253,0.1)" : "rgba(255,255,255,0.07)"}
           compact={compact}
-          onClick={() => onAction(toCall > 0 ? "CALL" : "CHECK")}
+          onClick={() => { setShowRaisePanel(false); onAction(toCall > 0 ? "CALL" : "CHECK"); }}
         />
 
         {canRaise && (
@@ -275,7 +323,7 @@ export function ActionBar({
           color="#a78bfa"
           hoverBg="rgba(167,139,250,0.12)"
           compact={compact}
-          onClick={() => onAction("ALL_IN")}
+          onClick={() => { setShowRaisePanel(false); onAction("ALL_IN"); }}
         />
       </div>
     </div>
