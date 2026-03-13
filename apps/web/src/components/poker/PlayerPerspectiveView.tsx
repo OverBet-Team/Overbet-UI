@@ -113,13 +113,46 @@ function DealerChip({ size = 18 }: { size?: number }) {
   );
 }
 
-function OpponentSeat({ player, size }: { player: OpponentForView; size: "lg" | "md" | "sm" }) {
+function OpponentSeat({
+  player,
+  size,
+  isWinner,
+  showCards,
+}: {
+  player: OpponentForView;
+  size: "lg" | "md" | "sm";
+  isWinner?: boolean;
+  showCards?: boolean;
+}) {
   const isFolded = player.status === "FOLDED" || player.status === "folded";
   const avSize = size === "lg" ? 88 : size === "md" ? 72 : 56;
+  const cards = Array.isArray(player.cards) ? player.cards : [];
+  const hasRevealedCards = showCards && cards.length > 0;
+  const cardSize = size === "lg" ? "md" : "sm";
 
   return (
     <div style={{ display: "flex", flexDirection: "column", alignItems: "center", gap: 0 }}>
       <div style={{ position: "relative", flexShrink: 0 }}>
+        {hasRevealedCards ? (
+          <div style={{ display: "flex", alignItems: "flex-end", gap: 6 }}>
+            <div
+              style={{
+                position: "relative",
+                flexShrink: 0,
+                border: isWinner ? "2.5px solid rgba(234,179,8,0.7)" : undefined,
+                borderRadius: "50%",
+                boxShadow: isWinner ? "0 0 12px rgba(234,179,8,0.4)" : undefined,
+                padding: 2,
+              }}
+            >
+              <AvatarPlaceholder name={player.username} size={Math.round(avSize * 0.7)} />
+            </div>
+            {cards.map((card, i) => (
+              <PlayingCard key={i} card={card} size={cardSize} winning={isWinner} />
+            ))}
+          </div>
+        ) : (
+          <>
         <AvatarPlaceholder name={player.username} size={avSize} />
         {player.isDealer && (
           <div style={{ position: "absolute", bottom: -4, left: -4, zIndex: 10 }}>
@@ -158,6 +191,8 @@ function OpponentSeat({ player, size }: { player: OpponentForView; size: "lg" | 
             rotate={8}
           />
         </div>
+      </>
+        )}
       </div>
       <div style={{ display: "flex", flexDirection: "column", alignItems: "center", gap: 3, marginTop: 6 }}>
         <span
@@ -268,11 +303,41 @@ const arcCY_pct = 0.44;
 const arcRX_pct = 0.38;
 const arcRY_pct = 0.38;
 
-export function PlayerPerspectiveView({ viewState, cleanupShowAllRevealed }: { viewState: PlayerViewState; cleanupShowAllRevealed?: boolean }) {
-  const { hero, opponents, board, pot } = viewState;
+export function PlayerPerspectiveView({
+  viewState,
+  cleanupShowAllRevealed,
+  winnerId,
+  winnerCards,
+  compactMode,
+}: {
+  viewState: PlayerViewState;
+  cleanupShowAllRevealed?: boolean;
+  winnerId?: string;
+  winnerCards?: string[];
+  compactMode?: boolean;
+}) {
+  const { hero, opponents, board, pot, phase } = viewState;
+  const isCleanup = phase === "CLEANUP" || phase === "SHOWDOWN";
   const total = opponents.length + 1;
-  const seatSize: "lg" | "md" | "sm" = total <= 4 ? "lg" : total <= 6 ? "md" : "sm";
+  const seatSize: "lg" | "md" | "sm" = compactMode
+    ? total <= 4
+      ? "md"
+      : "sm"
+    : total <= 4
+      ? "lg"
+      : total <= 6
+        ? "md"
+        : "sm";
   const seatAngles = ARC_ANGLES_BY_COUNT[Math.min(opponents.length, 9)] ?? [];
+  const arcRX = compactMode ? 0.34 : arcRX_pct;
+  const arcRY = compactMode ? 0.32 : arcRY_pct;
+  const arcCY = compactMode ? 0.39 : arcCY_pct;
+  const boardCardSize = compactMode ? "sm" : "md";
+  const heroCardSize = compactMode ? "lg" : "xl";
+  const heroBottom = compactMode ? 6 : -50;
+  const heroGap = compactMode ? 4 : 6;
+  const potTop = compactMode ? "40%" : "44%";
+  const highlightHero = winnerId === hero.id && hero.cards.some((c) => winnerCards?.includes(c));
 
   const seatFootprintW = seatSize === "lg" ? 96 : seatSize === "md" ? 80 : 64;
   const seatFootprintH = seatSize === "lg" ? 140 : seatSize === "md" ? 115 : 90;
@@ -298,8 +363,8 @@ export function PlayerPerspectiveView({ viewState, cleanupShowAllRevealed }: { v
       {opponents.map((opp, i) => {
         const angleDeg = seatAngles[i] ?? 90;
         const angleRad = (angleDeg * Math.PI) / 180;
-        const px_pct = 0.5 + arcRX_pct * Math.cos(angleRad);
-        const py_pct = arcCY_pct - arcRY_pct * Math.sin(angleRad);
+        const px_pct = 0.5 + arcRX * Math.cos(angleRad);
+        const py_pct = arcCY - arcRY * Math.sin(angleRad);
         return (
           <div
             key={opp.id}
@@ -313,7 +378,12 @@ export function PlayerPerspectiveView({ viewState, cleanupShowAllRevealed }: { v
               opacity: 0,
             }}
           >
-            <OpponentSeat player={opp} size={seatSize} />
+            <OpponentSeat
+              player={opp}
+              size={seatSize}
+              isWinner={winnerId === opp.id}
+              showCards={isCleanup}
+            />
           </div>
         );
       })}
@@ -323,7 +393,7 @@ export function PlayerPerspectiveView({ viewState, cleanupShowAllRevealed }: { v
         style={{
           position: "absolute",
           left: "50%",
-          top: "44%",
+          top: potTop,
           transform: "translateX(-50%)",
           zIndex: 5,
           display: "flex",
@@ -352,12 +422,12 @@ export function PlayerPerspectiveView({ viewState, cleanupShowAllRevealed }: { v
             {pot > 0 ? pot.toLocaleString() : "0"}
           </span>
         </div>
-        <div style={{ display: "flex", gap: 6, alignItems: "center" }}>
+        <div style={{ display: "flex", gap: compactMode ? 4 : 6, alignItems: "center" }}>
           {board.map((card, i) =>
             card ? (
-              <PlayingCard key={i} card={card} size="md" />
+              <PlayingCard key={i} card={card} size={boardCardSize} />
             ) : (
-              <PlayingCard key={i} dashed size="md" />
+              <PlayingCard key={i} dashed size={boardCardSize} />
             )
           )}
         </div>
@@ -367,14 +437,14 @@ export function PlayerPerspectiveView({ viewState, cleanupShowAllRevealed }: { v
       <div
         style={{
           position: "absolute",
-          bottom: -50,
+          bottom: heroBottom,
           left: "50%",
           transform: "translateX(-50%)",
           zIndex: 7,
           display: "flex",
           flexDirection: "column",
           alignItems: "center",
-          gap: 6,
+          gap: heroGap,
         }}
       >
         <div style={{ display: "flex", alignItems: "flex-end", justifyContent: "center", gap: 0 }}>
@@ -383,9 +453,10 @@ export function PlayerPerspectiveView({ viewState, cleanupShowAllRevealed }: { v
               <PlayingCard
                 key={i}
                 card={card}
-                size="xl"
+                size={heroCardSize}
                 rotate={i === 0 ? -10 : 6}
-                style={{ marginLeft: i > 0 ? -44 : 0, zIndex: i + 1 }}
+                style={{ marginLeft: i > 0 ? (compactMode ? -34 : -44) : 0, zIndex: i + 1 }}
+                winning={highlightHero}
               />
             ) : (
               <PlayingCard
@@ -393,18 +464,18 @@ export function PlayerPerspectiveView({ viewState, cleanupShowAllRevealed }: { v
                 dashed
                 size="lg"
                 rotate={i === 0 ? -10 : 6}
-                style={{ marginLeft: i > 0 ? -36 : 0, zIndex: i + 1 }}
+                style={{ marginLeft: i > 0 ? (compactMode ? -28 : -36) : 0, zIndex: i + 1 }}
               />
             )
           )}
         </div>
         <div style={{ display: "flex", alignItems: "center", gap: 6 }}>
-          <span style={{ color: "rgba(255,255,255,0.92)", fontSize: 14, fontWeight: 700, fontFamily: "Outfit, sans-serif" }}>
+          <span style={{ color: "rgba(255,255,255,0.92)", fontSize: compactMode ? 12 : 14, fontWeight: 700, fontFamily: "Outfit, sans-serif" }}>
             {hero.username}
           </span>
           <div style={{ display: "flex", alignItems: "center", gap: 3 }}>
-            <ChipIcon size={11} />
-            <span style={{ color: "#a78bfa", fontSize: 13, fontWeight: 700 }}>
+            <ChipIcon size={compactMode ? 9 : 11} />
+            <span style={{ color: "#a78bfa", fontSize: compactMode ? 11 : 13, fontWeight: 700 }}>
               {hero.chips.toLocaleString()}
             </span>
           </div>

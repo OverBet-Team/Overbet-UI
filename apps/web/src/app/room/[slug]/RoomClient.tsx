@@ -97,7 +97,13 @@ export default function RoomClient({ slug, initialRoom }: RoomProps) {
   const [logs, setLogs] = useState<any[]>([]);
   const [showSettingsModal, setShowSettingsModal] = useState(false);
   const [settingsDraft, setSettingsDraft] = useState<RoomSettings | null>(null);
-  const [winner, setWinner] = useState<{ name: string; pot: number; handName?: string } | null>(null);
+  const [winner, setWinner] = useState<{
+    name: string;
+    pot: number;
+    handName?: string;
+    winnerId?: string;
+    winnerCards?: string[];
+  } | null>(null);
   const [isRebuyOpen, setIsRebuyOpen] = useState(false);
   const [isBusted, setIsBusted] = useState(false);
   const [myDisplayName, setMyDisplayName] = useState("");
@@ -105,9 +111,26 @@ export default function RoomClient({ slug, initialRoom }: RoomProps) {
   const [showHelpOverlay, setShowHelpOverlay] = useState(false);
   const [isPaused, setIsPaused] = useState(false);
   const [isSeatPanelOpen, setIsSeatPanelOpen] = useState(false);
+  const [showHostOverlay, setShowHostOverlay] = useState(false);
   const [approvedSeatOverride, setApprovedSeatOverride] = useState<PlayerData | null>(null);
   const [cleanupShowAllRevealed, setCleanupShowAllRevealed] = useState(false);
   const justApprovedRef = useRef(false);
+  const logsRef = useRef<any[]>([]);
+  const [isPortraitMobile, setIsPortraitMobile] = useState(false);
+
+  useEffect(() => {
+    const updateViewport = () => {
+      if (typeof window === "undefined") return;
+      setIsPortraitMobile(window.innerWidth <= 640 && window.innerHeight >= window.innerWidth);
+    };
+    updateViewport();
+    window.addEventListener("resize", updateViewport);
+    window.addEventListener("orientationchange", updateViewport);
+    return () => {
+      window.removeEventListener("resize", updateViewport);
+      window.removeEventListener("orientationchange", updateViewport);
+    };
+  }, []);
 
   // ── Socket setup ────────────────────────────────────────────────────────────
   useEffect(() => {
@@ -148,7 +171,11 @@ export default function RoomClient({ slug, initialRoom }: RoomProps) {
             : prev
         );
       }
-      setLogs((prev) => [...prev, { ...data, timestamp: Date.now() }]);
+      setLogs((prev) => {
+        const next = [...prev, { ...data, timestamp: Date.now() }];
+        logsRef.current = next;
+        return next;
+      });
     });
 
     // EVENT_HAND_REVEAL is a direct socket event (emitted by gateway when it detects
@@ -250,7 +277,10 @@ export default function RoomClient({ slug, initialRoom }: RoomProps) {
       if (state.phase !== "LOBBY") {
         setRoom((prev) => (prev.status !== "INGAME" ? { ...prev, status: "INGAME" } : prev));
       }
-      setTurnTimer((prev) => (prev && state.activePlayerId === prev.playerId ? prev : null));
+      setTurnTimer((prev) => {
+        if (!state.phase?.endsWith("BETTING")) return null;
+        return prev && state.activePlayerId === prev.playerId ? prev : null;
+      });
 
       // Detect if local player is busted (stack === 0) after CLEANUP
       if (state.phase === "CLEANUP") {
@@ -272,16 +302,44 @@ export default function RoomClient({ slug, initialRoom }: RoomProps) {
 
       // Detect winner from CLEANUP/SHOWDOWN
       if (state.phase === "CLEANUP" || state.phase === "SHOWDOWN") {
+        let winnerInfo: { name: string; pot: number; handName?: string; winnerId?: string; winnerCards?: string[] } | null = null;
         const winnerPlayer = state.players?.find(
           (p: any) => p.status === "WINNER" || p.status === "WIN"
         );
         if (winnerPlayer) {
-          setWinner({
+          winnerInfo = {
             name: winnerPlayer.displayName || winnerPlayer.username || winnerPlayer.id,
             pot: state.pot || 0,
             handName: winnerPlayer.handName,
-          });
+            winnerId: winnerPlayer.id,
+            winnerCards: Array.isArray(winnerPlayer.holeCards) ? winnerPlayer.holeCards : winnerPlayer.cards,
+          };
+        } else {
+          // Engine does not set WINNER status; derive from logs (most recent WIN/EARLY_WIN)
+          const latestLogs = logsRef.current;
+          for (let i = latestLogs.length - 1; i >= 0; i--) {
+            const entry = latestLogs[i];
+            const t = entry?.type;
+            if (t === "WIN" || t === "EARLY_WIN") {
+              const p = entry?.payload ?? entry;
+              const wid = p.playerId ?? p.winnerId;
+              if (wid) {
+                const wp = state.players?.find((x: any) => x.id === wid);
+                const displayName = wp?.displayName || wp?.username || wp?.id || wid;
+                winnerInfo = {
+                  name: displayName,
+                  pot: p.amount ?? 0,
+                  handName: t === "WIN" ? p.handName : "(uncontested)",
+                  winnerId: wid,
+                  winnerCards: wp ? (Array.isArray(wp.holeCards) ? wp.holeCards : wp.cards) : undefined,
+                };
+                break;
+              }
+            }
+            if (entry?.type === "HAND_INIT") break;
+          }
         }
+        if (winnerInfo) setWinner(winnerInfo);
       } else if (state.phase === "PRE_FLOP" || state.phase === "PREFLOP" || state.phase === "PRE_FLOP_BETTING") {
         // New hand started — clear winner toast and reset cleanup Show All
         setWinner(null);
@@ -299,9 +357,10 @@ export default function RoomClient({ slug, initialRoom }: RoomProps) {
       if (snapshot.state.phase !== "LOBBY") {
         setRoom((prev) => (prev.status !== "INGAME" ? { ...prev, status: "INGAME" } : prev));
       }
-      setTurnTimer((prev) =>
-        prev && snapshot.state.activePlayerId === prev.playerId ? prev : null
-      );
+      setTurnTimer((prev) => {
+        if (!snapshot.state.phase?.endsWith("BETTING")) return null;
+        return prev && snapshot.state.activePlayerId === prev.playerId ? prev : null;
+      });
     });
 
     socketInstance.on("EVENT_TURN_TIMER", (data: any) => {
@@ -453,14 +512,18 @@ export default function RoomClient({ slug, initialRoom }: RoomProps) {
   const SettingsModal = () => (
     <div style={{
       position: "fixed", inset: 0, zIndex: 50, display: "flex",
-      alignItems: "center", justifyContent: "center", padding: 16,
+      alignItems: isPortraitMobile ? "flex-end" : "center",
+      justifyContent: "center",
+      padding: isPortraitMobile ? 0 : 16,
       background: "rgba(0,0,0,0.75)", backdropFilter: "blur(12px)",
     }}>
       <div style={{
-        width: "100%", maxWidth: 420, padding: 28, position: "relative",
+        width: "100%", maxWidth: isPortraitMobile ? "100%" : 420, padding: isPortraitMobile ? "18px 16px 22px" : 28, position: "relative",
         background: "rgba(16,13,28,0.98)", border: "1px solid rgba(255,255,255,0.1)",
-        borderRadius: 24, boxShadow: "0 24px 80px rgba(0,0,0,0.7)",
+        borderRadius: isPortraitMobile ? "18px 18px 0 0" : 24, boxShadow: "0 24px 80px rgba(0,0,0,0.7)",
         fontFamily: "Outfit, sans-serif",
+        maxHeight: isPortraitMobile ? "82dvh" : "none",
+        overflowY: isPortraitMobile ? "auto" : "visible",
       }}>
         <button onClick={() => setShowSettingsModal(false)} style={{
           position: "absolute", top: 16, right: 16, background: "none", border: "none",
@@ -528,14 +591,18 @@ export default function RoomClient({ slug, initialRoom }: RoomProps) {
   const FairnessModal = () => (
     <div style={{
       position: "fixed", inset: 0, zIndex: 50, display: "flex",
-      alignItems: "center", justifyContent: "center", padding: 16,
+      alignItems: isPortraitMobile ? "flex-end" : "center",
+      justifyContent: "center",
+      padding: isPortraitMobile ? 0 : 16,
       background: "rgba(0,0,0,0.75)", backdropFilter: "blur(12px)",
     }}>
       <div style={{
-        width: "100%", maxWidth: 420, padding: 28, position: "relative",
+        width: "100%", maxWidth: isPortraitMobile ? "100%" : 420, padding: isPortraitMobile ? "18px 16px 22px" : 28, position: "relative",
         background: "rgba(16,13,28,0.98)", border: "1px solid rgba(255,255,255,0.1)",
-        borderRadius: 24, boxShadow: "0 24px 80px rgba(0,0,0,0.7)",
+        borderRadius: isPortraitMobile ? "18px 18px 0 0" : 24, boxShadow: "0 24px 80px rgba(0,0,0,0.7)",
         fontFamily: "Outfit, sans-serif",
+        maxHeight: isPortraitMobile ? "82dvh" : "none",
+        overflowY: isPortraitMobile ? "auto" : "visible",
       }}>
         <button onClick={() => setShowFairnessModal(false)} style={{
           position: "absolute", top: 16, right: 16, background: "none", border: "none",
@@ -627,7 +694,7 @@ export default function RoomClient({ slug, initialRoom }: RoomProps) {
         style={{
           ...(floating ? { position: "absolute", top: 8, left: 8, zIndex: 24 } : {}),
           width: floating ? 260 : "100%",
-          maxWidth: 320,
+          maxWidth: floating ? 320 : "100%",
           fontFamily: "Outfit, sans-serif",
         }}
       >
@@ -999,14 +1066,14 @@ export default function RoomClient({ slug, initialRoom }: RoomProps) {
         display: "flex",
         flexDirection: "column",
         width: "100%",
-        height: "calc(100dvh - 5rem)",
+        height: isPortraitMobile ? "calc(100dvh - 56px)" : "calc(100dvh - 5rem)",
         minHeight: 0,
         fontFamily: "Outfit, sans-serif",
         overflow: "hidden",
       }}
     >
       {/* ── Game canvas (flex-fill) ────────────────────────────────────────── */}
-      <div style={{ flex: 1, minHeight: 0, display: "flex", flexDirection: "column", position: "relative" }}>
+      <div style={{ flex: 1, minHeight: 0, display: "flex", flexDirection: "column", position: "relative", paddingTop: isPortraitMobile ? 36 : 0 }}>
         <BuyInModal
           isOpen={isBuyInOpen}
           onClose={() => setIsBuyInOpen(false)}
@@ -1023,33 +1090,55 @@ export default function RoomClient({ slug, initialRoom }: RoomProps) {
           const viewState = toPlayerViewState(mappedPlayers, gameState, userId);
           if (viewState) {
             const isCleanup = gameState?.phase === "CLEANUP";
-            const board = gameState?.board ?? [];
-            const hasBoard = board.some((c: string) => !!c);
-            const showShowAllButton = isCleanup && !cleanupShowAllRevealed && hasBoard;
+            const board5 = Array.from({ length: 5 }, (_, i) => (gameState?.board ?? [])[i] ?? null);
+            const hasUnrevealedCards = board5.some((c: string | null) => !c);
+            const showShowAllButton = isCleanup && !cleanupShowAllRevealed && hasUnrevealedCards;
             return (
               <div style={{ flex: 1, minHeight: 0, display: "flex", width: "100%", position: "relative" }}>
-                <PlayerPerspectiveView viewState={viewState} cleanupShowAllRevealed={cleanupShowAllRevealed} />
+                <PlayerPerspectiveView
+                  viewState={viewState}
+                  cleanupShowAllRevealed={cleanupShowAllRevealed}
+                  winnerId={winner?.winnerId}
+                  winnerCards={winner?.winnerCards}
+                  compactMode={isPortraitMobile}
+                />
                 {showShowAllButton && (
                   <button
                     onClick={() => setCleanupShowAllRevealed(true)}
                     style={{
-                      position: "absolute",
-                      left: "50%",
-                      bottom: 180,
-                      transform: "translateX(-50%)",
-                      zIndex: 15,
-                      padding: "8px 16px",
+                      position: "fixed",
+                      left: 20,
+                      bottom: isPortraitMobile ? "calc(148px + env(safe-area-inset-bottom, 0px))" : 88,
+                      zIndex: 60,
+                      display: "flex",
+                      alignItems: "center",
+                      gap: 7,
+                      padding: "10px 18px",
                       borderRadius: 999,
-                      border: "1px solid rgba(167,139,250,0.4)",
-                      background: "rgba(167,139,250,0.15)",
-                      color: "#c4b5fd",
-                      fontSize: 12,
-                      fontWeight: 700,
+                      background: "rgba(18, 15, 32, 0.94)",
+                      border: "1px solid rgba(124, 58, 237, 0.45)",
+                      color: "rgba(255,255,255,0.85)",
+                      fontSize: 13,
+                      fontWeight: 600,
                       fontFamily: "Outfit, sans-serif",
                       cursor: "pointer",
-                      backdropFilter: "blur(8px)",
+                      boxShadow: "0 4px 24px rgba(0,0,0,0.6), 0 0 0 1px rgba(255,255,255,0.04)",
+                      backdropFilter: "blur(16px)",
+                      letterSpacing: "0.01em",
+                    }}
+                    onMouseEnter={(e) => {
+                      e.currentTarget.style.background = "rgba(124,58,237,0.25)";
+                      e.currentTarget.style.borderColor = "rgba(167,139,250,0.65)";
+                    }}
+                    onMouseLeave={(e) => {
+                      e.currentTarget.style.background = "rgba(18,15,32,0.94)";
+                      e.currentTarget.style.borderColor = "rgba(124,58,237,0.45)";
                     }}
                   >
+                    <svg width={13} height={13} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" style={{ opacity: 0.7 }}>
+                      <path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z" />
+                      <circle cx="12" cy="12" r="3" />
+                    </svg>
                     Show All
                   </button>
                 )}
@@ -1059,8 +1148,52 @@ export default function RoomClient({ slug, initialRoom }: RoomProps) {
           return null;
         })()}
 
+        {isPortraitMobile && (
+          <div style={{
+            position: "absolute",
+            top: 0,
+            left: 0,
+            right: 0,
+            zIndex: 12,
+            display: "flex",
+            alignItems: "center",
+            justifyContent: "space-between",
+            padding: "6px 10px",
+            background: "linear-gradient(180deg, rgba(11,9,20,0.88) 0%, rgba(11,9,20,0.2) 100%)",
+            borderBottom: "1px solid rgba(255,255,255,0.05)",
+            backdropFilter: "blur(8px)",
+          }}>
+            <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
+              <span style={{ color: "rgba(255,255,255,0.6)", fontSize: 10, fontWeight: 700, letterSpacing: "0.08em", textTransform: "uppercase" }}>
+                {gameState?.phase?.replaceAll("_", " ") || "Waiting"}
+              </span>
+              {isHost && (
+                <button
+                  onClick={() => setShowHostOverlay(true)}
+                  style={{
+                    display: "inline-flex", alignItems: "center", gap: 4,
+                    padding: "3px 8px", borderRadius: 999,
+                    border: "1px solid rgba(255,255,255,0.14)",
+                    background: "rgba(255,255,255,0.04)", color: "rgba(255,255,255,0.72)",
+                    fontSize: 10, fontWeight: 700, cursor: "pointer", fontFamily: "Outfit, sans-serif",
+                  }}
+                >
+                  <Users size={11} />
+                  Host
+                </button>
+              )}
+            </div>
+            <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
+              <span style={{ color: "#fff", fontSize: 12, fontWeight: 700 }}>Pot</span>
+              <span style={{ color: "#fbbf24", fontSize: 12, fontWeight: 700, fontVariantNumeric: "tabular-nums" }}>
+                {gameState?.pot?.toLocaleString?.() || 0}
+              </span>
+            </div>
+          </div>
+        )}
+
         {/* Top-right icon buttons */}
-        <div style={{ position: "absolute", top: 8, right: 8, display: "flex", flexDirection: "column", gap: 6, zIndex: 10 }}>
+        <div style={{ position: "absolute", top: 8, right: 8, display: "flex", flexDirection: isPortraitMobile ? "row" : "column", gap: 6, zIndex: 10 }}>
           {isHost && (
             <button
               onClick={handleOpenSettings}
@@ -1095,7 +1228,7 @@ export default function RoomClient({ slug, initialRoom }: RoomProps) {
         </div>
 
         {/* Host controls (in-game, floating top-left) */}
-        <HostControlPanel floating />
+        {!isPortraitMobile && <HostControlPanel floating />}
 
         {isPaused && (
           <div style={{
@@ -1115,7 +1248,11 @@ export default function RoomClient({ slug, initialRoom }: RoomProps) {
         {/* Pre-hand waiting banner — floating above bottom bar */}
         {!gameState && (
           <div style={{
-            position: "absolute", bottom: 88, left: "50%", transform: "translateX(-50%)",
+            position: "absolute",
+            bottom: isPortraitMobile ? undefined : 88,
+            top: isPortraitMobile ? 50 : undefined,
+            left: "50%",
+            transform: "translateX(-50%)",
             display: "flex", alignItems: "center", gap: 12, padding: "14px 18px",
             borderRadius: 16, background: "rgba(167,139,250,0.06)",
             border: "1px solid rgba(167,139,250,0.15)", zIndex: 20,
@@ -1157,7 +1294,11 @@ export default function RoomClient({ slug, initialRoom }: RoomProps) {
         {/* Re-buy CTA — floating above bottom bar */}
         {isBusted && !pendingRequests.some((r) => r.playerId === userId) && (
           <div style={{
-            position: "absolute", bottom: 88, left: "50%", transform: "translateX(-50%)",
+            position: "absolute",
+            bottom: isPortraitMobile ? undefined : 88,
+            top: isPortraitMobile ? 50 : undefined,
+            left: "50%",
+            transform: "translateX(-50%)",
             display: "flex", alignItems: "center", justifyContent: "space-between",
             padding: "14px 18px", borderRadius: 16, zIndex: 20,
             background: "rgba(239,68,68,0.06)", border: "1px solid rgba(239,68,68,0.2)",
@@ -1184,7 +1325,11 @@ export default function RoomClient({ slug, initialRoom }: RoomProps) {
         {/* Requester waiting banner — floating */}
         {!isHost && !!myPendingRequest && (
           <div style={{
-            position: "absolute", bottom: 88, left: "50%", transform: "translateX(-50%)",
+            position: "absolute",
+            bottom: isPortraitMobile ? undefined : 88,
+            top: isPortraitMobile ? 50 : undefined,
+            left: "50%",
+            transform: "translateX(-50%)",
             display: "flex", alignItems: "center", gap: 10, padding: "12px 16px",
             borderRadius: 12, background: "rgba(167,139,250,0.06)",
             border: "1px solid rgba(167,139,250,0.2)", zIndex: 20,
@@ -1202,120 +1347,216 @@ export default function RoomClient({ slug, initialRoom }: RoomProps) {
         )}
       </div>
 
-      {/* ── Moon-style bottom bar (72px) ───────────────────────────────────── */}
-      <div style={{
-        height: 72,
-        flexShrink: 0,
-        display: "flex",
-        alignItems: "center",
-        justifyContent: "space-between",
-        padding: "0 20px",
-        background: "rgba(10, 8, 20, 0.88)",
-        backdropFilter: "blur(20px)",
-        borderTop: "1px solid rgba(255,255,255,0.05)",
-      }}>
-        {/* Left: Help, Log */}
-        <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
-          <button
-            onClick={() => setShowHelpOverlay((v) => !v)}
-            style={{
-              display: "flex", alignItems: "center", gap: 6, padding: "8px 14px",
-              borderRadius: 999, border: "1px solid rgba(255,255,255,0.1)",
-              background: showHelpOverlay ? "rgba(255,255,255,0.08)" : "transparent",
-              color: "rgba(255,255,255,0.7)", fontSize: 13, fontWeight: 600,
-              cursor: "pointer", fontFamily: "Outfit, sans-serif",
-            }}
-          >
-            <HelpCircle size={16} />
-            Help
-          </button>
-          <button
-            onClick={() => setShowLogOverlay((v) => !v)}
-            style={{
-              display: "flex", alignItems: "center", gap: 6, padding: "8px 14px",
-              borderRadius: 999, border: "1px solid rgba(255,255,255,0.1)",
-              background: showLogOverlay ? "rgba(255,255,255,0.08)" : "transparent",
-              color: "rgba(255,255,255,0.7)", fontSize: 13, fontWeight: 600,
-              cursor: "pointer", fontFamily: "Outfit, sans-serif",
-            }}
-          >
-            <ScrollText size={16} />
-            Log
-          </button>
-        </div>
-
-        {/* Center: ActionBar or waiting text */}
-        <div style={{ flex: 1, display: "flex", justifyContent: "center", alignItems: "center", minWidth: 0, maxWidth: 480 }}>
-          {gameState ? (
-            <ActionBar
-              isActive={isActivePlayer}
-              stack={myPlayerInfo?.stack || 0}
-              currentBet={gameState?.currentBet || 0}
-              playerBet={playerBet}
-              minRaise={gameState?.minRaise || 0}
-              pot={gameState?.pot || 0}
-              onAction={handleAction}
-            />
-          ) : (
-            <span style={{ color: "rgba(255,255,255,0.35)", fontSize: 13, fontWeight: 500 }}>
-              Waiting for hand…
-            </span>
-          )}
-        </div>
-
-        {/* Right: BankDisplay, TimerPill */}
-        <div style={{ display: "flex", alignItems: "center", gap: 12 }}>
-          <div style={{
-            display: "flex", flexDirection: "column", alignItems: "flex-end",
-            padding: "6px 14px", borderRadius: 12,
-            background: "rgba(255,255,255,0.04)", border: "1px solid rgba(255,255,255,0.06)",
-          }}>
-            <div style={{ display: "flex", alignItems: "center", gap: 5, marginBottom: 2 }}>
-              <Lock size={10} style={{ color: "rgba(255,255,255,0.4)" }} />
-              <span style={{ color: "rgba(255,255,255,0.5)", fontSize: 10, fontWeight: 700, textTransform: "uppercase", letterSpacing: "0.06em" }}>
-                Your Bank
-              </span>
-            </div>
+      {/* ── Moon-style bottom tray ──────────────────────────────────────────── */}
+      {isPortraitMobile ? (
+        <div style={{
+          flexShrink: 0,
+          display: "flex",
+          flexDirection: "column",
+          gap: 8,
+          padding: "8px 10px calc(8px + env(safe-area-inset-bottom, 0px))",
+          background: "rgba(10, 8, 20, 0.92)",
+          backdropFilter: "blur(20px)",
+          borderTop: "1px solid rgba(255,255,255,0.05)",
+        }}>
+          <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", gap: 8 }}>
             <div style={{ display: "flex", alignItems: "center", gap: 6 }}>
-              <span style={{ color: "#a78bfa", fontSize: 18, fontWeight: 800, fontVariantNumeric: "tabular-nums" }}>
+              <button
+                onClick={() => setShowHelpOverlay((v) => !v)}
+                style={{
+                  display: "flex", alignItems: "center", gap: 5, padding: "6px 10px",
+                  borderRadius: 999, border: "1px solid rgba(255,255,255,0.12)",
+                  background: showHelpOverlay ? "rgba(255,255,255,0.08)" : "transparent",
+                  color: "rgba(255,255,255,0.7)", fontSize: 12, fontWeight: 600,
+                  cursor: "pointer", fontFamily: "Outfit, sans-serif",
+                }}
+              >
+                <HelpCircle size={14} />
+                Help
+              </button>
+              <button
+                onClick={() => setShowLogOverlay((v) => !v)}
+                style={{
+                  display: "flex", alignItems: "center", gap: 5, padding: "6px 10px",
+                  borderRadius: 999, border: "1px solid rgba(255,255,255,0.12)",
+                  background: showLogOverlay ? "rgba(255,255,255,0.08)" : "transparent",
+                  color: "rgba(255,255,255,0.7)", fontSize: 12, fontWeight: 600,
+                  cursor: "pointer", fontFamily: "Outfit, sans-serif",
+                }}
+              >
+                <ScrollText size={14} />
+                Log
+              </button>
+            </div>
+            <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
+              <span style={{ color: "#a78bfa", fontSize: 14, fontWeight: 800, fontVariantNumeric: "tabular-nums" }}>
                 {myStack != null ? myStack.toLocaleString() : "—"}
               </span>
-              {playerBet > 0 && (
-                <span style={{
-                  padding: "2px 6px", borderRadius: 6,
-                  background: "rgba(167,139,250,0.2)", color: "#a78bfa",
-                  fontSize: 10, fontWeight: 700,
-                }}>
-                  Bet: {playerBet}
-                </span>
-              )}
+              {turnTimer && turnTimer.playerId === userId && <TurnTimerPill timer={turnTimer} />}
             </div>
           </div>
-          {turnTimer && turnTimer.playerId === userId && (
-            <TurnTimerPill timer={turnTimer} />
-          )}
+          <div style={{ width: "100%", display: "flex", justifyContent: "center" }}>
+            {gameState ? (
+              <ActionBar
+                isActive={isActivePlayer}
+                stack={myPlayerInfo?.stack || 0}
+                currentBet={gameState?.currentBet || 0}
+                playerBet={playerBet}
+                minRaise={gameState?.minRaise || 0}
+                pot={gameState?.pot || 0}
+                compact
+                onAction={handleAction}
+              />
+            ) : (
+              <span style={{ color: "rgba(255,255,255,0.35)", fontSize: 12, fontWeight: 500 }}>Waiting for hand…</span>
+            )}
+          </div>
         </div>
-      </div>
+      ) : (
+        <div style={{
+          height: 72,
+          flexShrink: 0,
+          display: "flex",
+          alignItems: "center",
+          justifyContent: "space-between",
+          padding: "0 20px",
+          background: "rgba(10, 8, 20, 0.88)",
+          backdropFilter: "blur(20px)",
+          borderTop: "1px solid rgba(255,255,255,0.05)",
+        }}>
+          <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
+            <button
+              onClick={() => setShowHelpOverlay((v) => !v)}
+              style={{
+                display: "flex", alignItems: "center", gap: 6, padding: "8px 14px",
+                borderRadius: 999, border: "1px solid rgba(255,255,255,0.1)",
+                background: showHelpOverlay ? "rgba(255,255,255,0.08)" : "transparent",
+                color: "rgba(255,255,255,0.7)", fontSize: 13, fontWeight: 600,
+                cursor: "pointer", fontFamily: "Outfit, sans-serif",
+              }}
+            >
+              <HelpCircle size={16} />
+              Help
+            </button>
+            <button
+              onClick={() => setShowLogOverlay((v) => !v)}
+              style={{
+                display: "flex", alignItems: "center", gap: 6, padding: "8px 14px",
+                borderRadius: 999, border: "1px solid rgba(255,255,255,0.1)",
+                background: showLogOverlay ? "rgba(255,255,255,0.08)" : "transparent",
+                color: "rgba(255,255,255,0.7)", fontSize: 13, fontWeight: 600,
+                cursor: "pointer", fontFamily: "Outfit, sans-serif",
+              }}
+            >
+              <ScrollText size={16} />
+              Log
+            </button>
+          </div>
+
+          <div style={{ flex: 1, display: "flex", justifyContent: "center", alignItems: "center", minWidth: 0, maxWidth: 480 }}>
+            {gameState ? (
+              <ActionBar
+                isActive={isActivePlayer}
+                stack={myPlayerInfo?.stack || 0}
+                currentBet={gameState?.currentBet || 0}
+                playerBet={playerBet}
+                minRaise={gameState?.minRaise || 0}
+                pot={gameState?.pot || 0}
+                onAction={handleAction}
+              />
+            ) : (
+              <span style={{ color: "rgba(255,255,255,0.35)", fontSize: 13, fontWeight: 500 }}>
+                Waiting for hand…
+              </span>
+            )}
+          </div>
+
+          <div style={{ display: "flex", alignItems: "center", gap: 12 }}>
+            <div style={{
+              display: "flex", flexDirection: "column", alignItems: "flex-end",
+              padding: "6px 14px", borderRadius: 12,
+              background: "rgba(255,255,255,0.04)", border: "1px solid rgba(255,255,255,0.06)",
+            }}>
+              <div style={{ display: "flex", alignItems: "center", gap: 5, marginBottom: 2 }}>
+                <Lock size={10} style={{ color: "rgba(255,255,255,0.4)" }} />
+                <span style={{ color: "rgba(255,255,255,0.5)", fontSize: 10, fontWeight: 700, textTransform: "uppercase", letterSpacing: "0.06em" }}>
+                  Your Bank
+                </span>
+              </div>
+              <div style={{ display: "flex", alignItems: "center", gap: 6 }}>
+                <span style={{ color: "#a78bfa", fontSize: 18, fontWeight: 800, fontVariantNumeric: "tabular-nums" }}>
+                  {myStack != null ? myStack.toLocaleString() : "—"}
+                </span>
+                {playerBet > 0 && (
+                  <span style={{
+                    padding: "2px 6px", borderRadius: 6,
+                    background: "rgba(167,139,250,0.2)", color: "#a78bfa",
+                    fontSize: 10, fontWeight: 700,
+                  }}>
+                    Bet: {playerBet}
+                  </span>
+                )}
+              </div>
+            </div>
+            {turnTimer && turnTimer.playerId === userId && (
+              <TurnTimerPill timer={turnTimer} />
+            )}
+          </div>
+        </div>
+      )}
 
       {/* Game log overlay — toggle from bottom bar */}
       {showLogOverlay && (
         <div style={{
           position: "fixed", inset: 0, zIndex: 40,
           background: "rgba(0,0,0,0.7)", backdropFilter: "blur(8px)",
-          display: "flex", alignItems: "center", justifyContent: "center", padding: 24,
+          display: "flex",
+          alignItems: isPortraitMobile ? "flex-end" : "center",
+          justifyContent: "center",
+          padding: isPortraitMobile ? 0 : 24,
         }} onClick={() => setShowLogOverlay(false)}>
           <div style={{
-            width: "100%", maxWidth: 420, maxHeight: "70vh", overflow: "hidden",
-            background: "rgba(16,13,28,0.98)", borderRadius: 20,
+            width: "100%", maxWidth: isPortraitMobile ? "100%" : 420, maxHeight: isPortraitMobile ? "78dvh" : "70vh", overflow: "hidden",
+            background: "rgba(16,13,28,0.98)", borderRadius: isPortraitMobile ? "18px 18px 0 0" : 20,
             border: "1px solid rgba(255,255,255,0.1)", boxShadow: "0 24px 80px rgba(0,0,0,0.6)",
           }} onClick={(e) => e.stopPropagation()}>
             <div style={{ padding: 16, borderBottom: "1px solid rgba(255,255,255,0.08)", display: "flex", justifyContent: "space-between", alignItems: "center" }}>
               <span style={{ color: "#fff", fontSize: 16, fontWeight: 700 }}>Hand Log</span>
               <button onClick={() => setShowLogOverlay(false)} style={{ background: "none", border: "none", color: "rgba(255,255,255,0.5)", cursor: "pointer", fontSize: 18 }}>✕</button>
             </div>
-            <div style={{ overflowY: "auto", maxHeight: "calc(70vh - 60px)" }}>
+            <div style={{ overflowY: "auto", maxHeight: isPortraitMobile ? "calc(78dvh - 60px)" : "calc(70vh - 60px)" }}>
               <GameLog logs={logs} players={mappedPlayers} />
             </div>
+          </div>
+        </div>
+      )}
+
+      {/* Host controls mobile sheet */}
+      {showHostOverlay && isPortraitMobile && (
+        <div
+          style={{
+            position: "fixed", inset: 0, zIndex: 42,
+            background: "rgba(0,0,0,0.7)", backdropFilter: "blur(8px)",
+            display: "flex", alignItems: "flex-end", justifyContent: "center", padding: 0,
+          }}
+          onClick={() => setShowHostOverlay(false)}
+        >
+          <div
+            style={{
+              width: "100%", maxHeight: "78dvh", overflowY: "auto",
+              borderRadius: "18px 18px 0 0",
+              background: "rgba(16,13,28,0.98)",
+              border: "1px solid rgba(255,255,255,0.1)",
+              boxShadow: "0 24px 80px rgba(0,0,0,0.6)",
+              padding: "12px 12px calc(12px + env(safe-area-inset-bottom, 0px))",
+            }}
+            onClick={(e) => e.stopPropagation()}
+          >
+            <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", marginBottom: 8 }}>
+              <span style={{ color: "#fff", fontSize: 14, fontWeight: 700 }}>Host Controls</span>
+              <button onClick={() => setShowHostOverlay(false)} style={{ background: "none", border: "none", color: "rgba(255,255,255,0.5)", cursor: "pointer", fontSize: 18 }}>✕</button>
+            </div>
+            <HostControlPanel />
           </div>
         </div>
       )}
@@ -1325,19 +1566,24 @@ export default function RoomClient({ slug, initialRoom }: RoomProps) {
         <div style={{
           position: "fixed", inset: 0, zIndex: 40,
           background: "rgba(0,0,0,0.7)", backdropFilter: "blur(8px)",
-          display: "flex", alignItems: "center", justifyContent: "center", padding: 24,
+          display: "flex",
+          alignItems: isPortraitMobile ? "flex-end" : "center",
+          justifyContent: "center",
+          padding: isPortraitMobile ? 0 : 24,
         }} onClick={() => setShowHelpOverlay(false)}>
           <div style={{
-            width: "100%", maxWidth: 360, padding: 24,
-            background: "rgba(16,13,28,0.98)", borderRadius: 20,
+            width: "100%", maxWidth: isPortraitMobile ? "100%" : 360, padding: isPortraitMobile ? "18px 16px 24px" : 24,
+            background: "rgba(16,13,28,0.98)", borderRadius: isPortraitMobile ? "18px 18px 0 0" : 20,
             border: "1px solid rgba(255,255,255,0.1)", boxShadow: "0 24px 80px rgba(0,0,0,0.6)",
           }} onClick={(e) => e.stopPropagation()}>
-            <h3 style={{ color: "#fff", fontSize: 18, fontWeight: 700, margin: "0 0 16px 0" }}>Keyboard Shortcuts</h3>
+            <h3 style={{ color: "#fff", fontSize: 18, fontWeight: 700, margin: "0 0 16px 0" }}>
+              {isPortraitMobile ? "Quick Actions" : "Keyboard Shortcuts"}
+            </h3>
             <div style={{ display: "flex", flexDirection: "column", gap: 10, color: "rgba(255,255,255,0.8)", fontSize: 13 }}>
-              <div><kbd style={{ background: "rgba(255,255,255,0.1)", padding: "2px 8px", borderRadius: 6 }}>F</kbd> Fold</div>
-              <div><kbd style={{ background: "rgba(255,255,255,0.1)", padding: "2px 8px", borderRadius: 6 }}>C</kbd> Call / Check</div>
-              <div><kbd style={{ background: "rgba(255,255,255,0.1)", padding: "2px 8px", borderRadius: 6 }}>R</kbd> Raise</div>
-              <div><kbd style={{ background: "rgba(255,255,255,0.1)", padding: "2px 8px", borderRadius: 6 }}>A</kbd> All-In</div>
+              <div>{isPortraitMobile ? "Use the bottom action tray for Fold, Check/Call, Raise, and All-In." : <><kbd style={{ background: "rgba(255,255,255,0.1)", padding: "2px 8px", borderRadius: 6 }}>F</kbd> Fold</>}</div>
+              <div>{isPortraitMobile ? "Tap Log to inspect hand history while playing." : <><kbd style={{ background: "rgba(255,255,255,0.1)", padding: "2px 8px", borderRadius: 6 }}>C</kbd> Call / Check</>}</div>
+              {!isPortraitMobile && <div><kbd style={{ background: "rgba(255,255,255,0.1)", padding: "2px 8px", borderRadius: 6 }}>R</kbd> Raise</div>}
+              {!isPortraitMobile && <div><kbd style={{ background: "rgba(255,255,255,0.1)", padding: "2px 8px", borderRadius: 6 }}>A</kbd> All-In</div>}
             </div>
             <button onClick={() => setShowHelpOverlay(false)} style={{ marginTop: 20, padding: "10px 20px", borderRadius: 12, border: "none", background: "#a78bfa", color: "#fff", fontWeight: 600, cursor: "pointer" }}>Close</button>
           </div>

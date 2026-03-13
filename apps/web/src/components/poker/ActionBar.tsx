@@ -13,6 +13,7 @@ interface ActionBarProps {
   playerBet: number;
   minRaise: number;
   pot?: number;
+  compact?: boolean;
   onAction: (actionType: string, amount?: number) => void;
 }
 
@@ -34,6 +35,7 @@ export function ActionBar({
   playerBet,
   minRaise,
   pot = 0,
+  compact = false,
   onAction,
 }: ActionBarProps) {
   const minRaiseTo = Math.max(currentBet + minRaise, currentBet * 2, 1);
@@ -108,8 +110,20 @@ export function ActionBar({
       {/* Raise panel (shown when raise button clicked) */}
       {showRaisePanel && canRaise && (
         <div style={{
+          ...(compact
+            ? {
+                position: "fixed",
+                left: 10,
+                right: 10,
+                bottom: "calc(86px + env(safe-area-inset-bottom, 0px))",
+                zIndex: 75,
+                borderRadius: 18,
+                maxHeight: "66dvh",
+                overflowY: "auto",
+              }
+            : {}),
           background: "rgba(16,13,28,0.97)", border: "1px solid rgba(255,255,255,0.1)",
-          borderRadius: 20, padding: "16px 18px", display: "flex", flexDirection: "column", gap: 12,
+          padding: compact ? "14px 14px" : "16px 18px", display: "flex", flexDirection: "column", gap: 12,
           boxShadow: "0 -8px 40px rgba(0,0,0,0.5)",
         }}>
           {/* Amount display */}
@@ -205,7 +219,9 @@ export function ActionBar({
       {/* Main action row — Moon Poker pill buttons */}
       <div style={{
         display: "flex", alignItems: "center", justifyContent: "center",
-        gap: 6, padding: "6px 12px",
+        flexWrap: compact ? "wrap" : "nowrap",
+        gap: compact ? 4 : 6,
+        padding: compact ? "4px 8px" : "6px 12px",
         background: "rgba(10,8,20,0.85)", border: "1px solid rgba(255,255,255,0.08)",
         borderRadius: 999, backdropFilter: "blur(20px)",
         boxShadow: "0 8px 40px rgba(0,0,0,0.5)",
@@ -217,6 +233,7 @@ export function ActionBar({
           shortcut="F"
           color="#f87171"
           hoverBg="rgba(248,113,113,0.1)"
+          compact={compact}
           onClick={() => onAction("FOLD")}
         />
 
@@ -228,6 +245,7 @@ export function ActionBar({
           shortcut="C"
           color={toCall > 0 ? "#93c5fd" : "rgba(255,255,255,0.7)"}
           hoverBg={toCall > 0 ? "rgba(147,197,253,0.1)" : "rgba(255,255,255,0.07)"}
+          compact={compact}
           onClick={() => onAction(toCall > 0 ? "CALL" : "CHECK")}
         />
 
@@ -242,6 +260,7 @@ export function ActionBar({
               color="#6ee7b7"
               hoverBg="rgba(110,231,183,0.1)"
               active={showRaisePanel}
+              compact={compact}
               onClick={() => setShowRaisePanel(v => !v)}
             />
           </>
@@ -255,6 +274,7 @@ export function ActionBar({
           shortcut="A"
           color="#a78bfa"
           hoverBg="rgba(167,139,250,0.12)"
+          compact={compact}
           onClick={() => onAction("ALL_IN")}
         />
       </div>
@@ -264,10 +284,10 @@ export function ActionBar({
 
 // ── Pill button ───────────────────────────────────────────────────────────────
 function ActionPill({
-  label, shortcut, color, hoverBg, onClick, active = false,
+  label, shortcut, color, hoverBg, onClick, active = false, compact = false,
 }: {
   label: string; shortcut: string; color: string; hoverBg: string;
-  onClick: () => void; active?: boolean;
+  onClick: () => void; active?: boolean; compact?: boolean;
 }) {
   const [hovered, setHovered] = useState(false);
 
@@ -278,9 +298,10 @@ function ActionPill({
       onMouseLeave={() => setHovered(false)}
       style={{
         display: "inline-flex", alignItems: "center", gap: 6,
-        padding: "10px 20px", borderRadius: 999, border: "none",
+        minHeight: compact ? 42 : 40,
+        padding: compact ? "8px 12px" : "10px 20px", borderRadius: 999, border: "none",
         background: active ? hoverBg : hovered ? hoverBg : "transparent",
-        color, fontFamily: "Outfit, sans-serif", fontSize: 14, fontWeight: 600,
+        color, fontFamily: "Outfit, sans-serif", fontSize: compact ? 13 : 14, fontWeight: 600,
         cursor: "pointer", transition: "all 0.15s", whiteSpace: "nowrap",
         letterSpacing: "0.01em",
       }}

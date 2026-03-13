@@ -109,16 +109,18 @@ export default function WinnerToast({ winner, pot, handName }: WinnerToastProps)
           </span>
         </div>
 
-        {/* Hand name */}
+        {/* Hand name — Moon Poker style: "Won with X" */}
         {handName && (
           <div style={{
             display: "flex", alignItems: "center", justifyContent: "center", gap: 6,
-            background: "rgba(234,179,8,0.08)", border: "1px solid rgba(234,179,8,0.2)",
+            background: "rgba(18, 15, 32, 0.92)", border: "1px solid rgba(234,179,8,0.35)",
             borderRadius: 8, padding: "6px 10px",
+            boxShadow: "0 2px 10px rgba(0,0,0,0.5), 0 0 6px rgba(234,179,8,0.1)",
+            backdropFilter: "blur(12px)",
           }}>
             <span style={{ color: "#eab308", fontSize: 10, lineHeight: 1 }}>♦</span>
-            <span style={{ color: "rgba(255,255,255,0.8)", fontSize: 12, fontWeight: 600 }}>
-              {handName}
+            <span style={{ color: "rgba(255,255,255,0.9)", fontFamily: "Outfit, sans-serif", fontSize: 12, fontWeight: 600, letterSpacing: "0.02em", whiteSpace: "nowrap" }}>
+              Won with {handName}
             </span>
             <span style={{ color: "#eab308", fontSize: 10, lineHeight: 1 }}>♦</span>
           </div>

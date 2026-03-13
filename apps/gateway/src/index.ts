@@ -304,6 +304,7 @@ async function autoAct(roomId: string, playerId: string, currentBet: number) {
         const message = err?.message ?? String(err);
         console.error(`Failed auto-action for player ${playerId} in room ${roomId}:`, message);
         emitErrorToRoom(roomId, 'ERR_AUTO_ACTION', `Timer expired: ${message}`);
+        clearTurnTimer(roomId);
         const rd = roomStates[roomId];
         if (rd?.currentHandId) {
             const state = rd.engine.getState();
