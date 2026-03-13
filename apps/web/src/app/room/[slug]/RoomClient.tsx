@@ -128,8 +128,9 @@ export default function RoomClient({ slug, initialRoom }: RoomProps) {
     });
 
     socketInstance.on("EVENT_ERROR", (err: any) => {
-      console.error("Socket error:", err);
-      alert(err.message || "An error occurred");
+      const msg = err?.message ?? err?.code ?? "An error occurred";
+      console.error("Socket error:", err?.code, msg, err);
+      alert(msg);
     });
 
     socketInstance.on("EVENT_HAND_LOG", (data: any) => {

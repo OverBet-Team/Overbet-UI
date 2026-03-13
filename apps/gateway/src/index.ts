@@ -80,6 +80,8 @@ async function hydrateRoom(roomId: string) {
         where: { roomId: room.id, status: 'ACTIVE' },
         include: { user: true }
     });
+    // userId consistency: Engine player IDs must match socket.handshake.query.userId.
+    // Sources: RoomMember.userId (hydrateRoom), data.targetPlayerId (INTENT_SEAT_APPROVE).
     members.forEach((m: any) => {
         engine.addPlayer({
             id: m.userId,
@@ -115,7 +117,14 @@ async function hydrateRoom(roomId: string) {
 
 function emitError(socket: any, code: string, message: string) {
     const err: EventError = { type: 'EVENT_ERROR', schema_version: 1, room_id: '', server_seq: 0, code, message };
+    console.error(`[emitError] ${code}: ${message}`);
     socket.emit('EVENT_ERROR', err);
+}
+
+function emitErrorToRoom(roomId: string, code: string, message: string) {
+    const err: EventError = { type: 'EVENT_ERROR', schema_version: 1, room_id: roomId, server_seq: 0, code, message };
+    console.error(`[emitErrorToRoom] room=${roomId} ${code}: ${message}`);
+    io.to(roomId).emit('EVENT_ERROR', err);
 }
 
 function sanitizeState(state: any, targetUserId: string) {
@@ -232,20 +241,23 @@ async function startTurnTimer(roomId: string) {
                 timeBankMs: currentTimeBankMs,
             });
 
-            // Stage 2: time bank expires → auto-act
+            // Stage 2: time bank expires → auto-act (use fresh engine state for currentBet)
             roomData.timeBankTimer = setTimeout(async () => {
-                // Deplete time bank fully
                 if (playerTimeBanks[roomId]) {
                     playerTimeBanks[roomId][activePlayer.id] = 0;
                 }
                 console.log(`Time bank exhausted for player ${activePlayer.id} in room ${roomId}. Auto-acting.`);
-                await autoAct(roomId, activePlayer.id, state.currentBet);
+                const freshState = roomStates[roomId]?.engine?.getState();
+                const currentBet = freshState?.currentBet ?? 0;
+                await autoAct(roomId, activePlayer.id, currentBet);
             }, currentTimeBankMs);
 
         } else {
-            // No time bank left — auto-act immediately
+            // No time bank left — auto-act immediately (use fresh engine state for currentBet)
             console.log(`Base time expired, no time bank for player ${activePlayer.id} in room ${roomId}. Auto-acting.`);
-            await autoAct(roomId, activePlayer.id, state.currentBet);
+            const freshState = roomStates[roomId]?.engine?.getState();
+            const currentBet = freshState?.currentBet ?? 0;
+            await autoAct(roomId, activePlayer.id, currentBet);
         }
     }, baseMs);
 }
@@ -263,8 +275,10 @@ async function autoAct(roomId: string, playerId: string, currentBet: number) {
 
     try {
         await performPlayerAction(roomId, playerId, action);
-    } catch (err) {
-        console.error(`Failed auto-action for player ${playerId} in room ${roomId}:`, err);
+    } catch (err: any) {
+        const message = err?.message ?? String(err);
+        console.error(`Failed auto-action for player ${playerId} in room ${roomId}:`, message);
+        emitErrorToRoom(roomId, 'ERR_AUTO_ACTION', `Timer expired: ${message}`);
     }
 }
 
@@ -355,7 +369,10 @@ async function startHand(roomId: string, schema_version: number = 1) {
 
 async function performPlayerAction(roomId: string, userId: string, action: any, schema_version: number = 1, client_msg_id?: string, socket?: any) {
     let roomData = roomStates[roomId];
-    if (!roomData || !roomData.currentHandId) throw new Error('Hand has not started');
+    if (!roomData || !roomData.currentHandId) {
+        console.error(`[performPlayerAction] room=${roomId} userId=${userId}: Hand has not started (roomData=${!!roomData})`);
+        throw new Error('Hand has not started');
+    }
     if (roomData.isPaused) throw new Error('Game is paused');
 
     // GAP-03: Deduct time bank usage when player acts during time bank phase
@@ -374,6 +391,16 @@ async function performPlayerAction(roomId: string, userId: string, action: any, 
 
     clearTurnTimer(roomId);
 
+    const stateBefore = roomData.engine.getState();
+    const playerInHand = stateBefore.players.some((p: any) => p.id === userId);
+    if (!playerInHand) {
+        console.error(`[performPlayerAction] userId ${userId} not in hand. Engine player IDs: ${stateBefore.players.map((p: any) => p.id).join(', ')}`);
+        throw new Error('You are not seated in this hand. Try refreshing the page.');
+    }
+    const activePlayerId = stateBefore.players[stateBefore.activePlayerIndex]?.id;
+    if (activePlayerId !== userId) {
+        console.error(`[performPlayerAction] userId mismatch: expected ${activePlayerId}, got ${userId}`);
+    }
     const engineEvents = roomData.engine.handleAction(userId, action as any);
 
     for (const ev of engineEvents) {
@@ -761,9 +788,12 @@ io.on('connection', (socket) => {
     });
 
     socket.on('INTENT_PLAYER_ACTION', async (data: IntentPlayerAction) => {
+        console.log(`[INTENT_PLAYER_ACTION] received room=${data.room_id} userId=${userId} action=${JSON.stringify(data.action)}`);
         try {
             await performPlayerAction(data.room_id, userId, data.action, data.schema_version, data.client_msg_id, socket);
+            console.log(`[INTENT_PLAYER_ACTION] success room=${data.room_id} userId=${userId}`);
         } catch (err: any) {
+            console.error(`[INTENT_PLAYER_ACTION] failed room=${data.room_id} userId=${userId}:`, err.message);
             emitError(socket, 'ERR_PLAYER_ACTION', err.message);
         }
     });
