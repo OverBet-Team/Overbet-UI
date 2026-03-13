@@ -89,7 +89,7 @@ export default function RoomClient({ slug, initialRoom }: RoomProps) {
   const [isBuyInOpen, setIsBuyInOpen] = useState(false);
   const [selectedSeat, setSelectedSeat] = useState<number>(-1);
   const [pendingRequests, setPendingRequests] = useState<
-    { playerId: string; seatIndex: number; stack: number; displayName?: string }[]
+    { playerId: string; seatIndex: number; stack: number; displayName?: string; requestType?: "SEAT" | "REBUY" }[]
   >([]);
   const [showFairnessModal, setShowFairnessModal] = useState(false);
   const [currentCommitment, setCurrentCommitment] = useState<string>("");
@@ -207,7 +207,20 @@ export default function RoomClient({ slug, initialRoom }: RoomProps) {
       }
       setPendingRequests((prev) => prev.filter((r) => r.playerId !== data.playerId));
       setPlayers((prev) => {
-        if (prev.find((p) => p.id === data.playerId)) return prev;
+        const existing = prev.find((p) => p.id === data.playerId);
+        if (existing) {
+          return prev.map((p) =>
+            p.id === data.playerId
+              ? {
+                  ...p,
+                  chips: data.stack,
+                  status: "ACTIVE",
+                  seatIndex: data.seatIndex,
+                  username: data.displayName || p.username,
+                }
+              : p
+          );
+        }
         return [
           ...prev,
           {
@@ -678,7 +691,7 @@ export default function RoomClient({ slug, initialRoom }: RoomProps) {
                         {req.displayName || `Player_${req.playerId.slice(0, 4)}`}
                       </div>
                       <div style={{ color: "rgba(255,255,255,0.5)", fontSize: 11 }}>
-                        Seat {req.seatIndex + 1} · ${req.stack.toLocaleString()}
+                        {req.requestType === "REBUY" ? "Re-buy" : "Seat"} {req.seatIndex + 1} · ${req.stack.toLocaleString()}
                       </div>
                     </div>
                     <div style={{ display: "flex", flexDirection: "column", gap: 4, marginLeft: 10 }}>
@@ -721,6 +734,7 @@ export default function RoomClient({ slug, initialRoom }: RoomProps) {
   // VIEW SWITCH — mySeat is the authoritative trigger
   // Bird's-eye when !mySeat; PlayerPerspectiveView when mySeat exists.
   // ════════════════════════════════════════════════════════════════════════════
+  const myPendingRequest = pendingRequests.find((r) => r.playerId === userId);
   const mySeat =
     players.find((p) => p.id === userId && p.seatIndex !== undefined) ||
     (approvedSeatOverride && approvedSeatOverride.id === userId ? approvedSeatOverride : undefined);
@@ -871,7 +885,7 @@ export default function RoomClient({ slug, initialRoom }: RoomProps) {
           <HostControlPanel />
 
           {/* Waiting banner for non-host pending player */}
-          {!isHost && pendingRequests.some((r) => r.playerId === userId) && (
+          {!isHost && !!myPendingRequest && (
             <div style={{
               display: "flex", alignItems: "center", gap: 10, padding: "12px 16px",
               borderRadius: 12, background: "rgba(167,139,250,0.06)",
@@ -882,7 +896,9 @@ export default function RoomClient({ slug, initialRoom }: RoomProps) {
                 boxShadow: "0 0 8px rgba(167,139,250,0.6)", animation: "pulse 2s infinite",
               }} />
               <span style={{ color: "#a78bfa", fontSize: 12, fontWeight: 600 }}>
-                Waiting for host approval…
+                {myPendingRequest?.requestType === "REBUY"
+                  ? "Waiting for host re-buy approval…"
+                  : "Waiting for host approval…"}
               </span>
             </div>
           )}
@@ -1124,7 +1140,7 @@ export default function RoomClient({ slug, initialRoom }: RoomProps) {
         )}
 
         {/* Requester waiting banner — floating */}
-        {!isHost && pendingRequests.some((r) => r.playerId === userId) && (
+        {!isHost && !!myPendingRequest && (
           <div style={{
             position: "absolute", bottom: 88, left: "50%", transform: "translateX(-50%)",
             display: "flex", alignItems: "center", gap: 10, padding: "12px 16px",
@@ -1136,7 +1152,9 @@ export default function RoomClient({ slug, initialRoom }: RoomProps) {
               boxShadow: "0 0 8px rgba(167,139,250,0.6)",
             }} />
             <span style={{ color: "#a78bfa", fontSize: 12, fontWeight: 600 }}>
-              Waiting for host approval…
+              {myPendingRequest?.requestType === "REBUY"
+                ? "Waiting for host re-buy approval…"
+                : "Waiting for host approval…"}
             </span>
           </div>
         )}

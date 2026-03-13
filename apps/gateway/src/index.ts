@@ -50,7 +50,7 @@ const roomStates: Record<string, {
     seq: number;
     currentHandId?: string;
     dbRoomId?: string;
-    pendingSeats: Record<string, { seatIndex: number, stack: number, displayName?: string }>,
+    pendingSeats: Record<string, { seatIndex: number, stack: number, displayName?: string, requestType?: 'SEAT' | 'REBUY' }>,
     turnTimer?: NodeJS.Timeout;
     timeBankTimer?: NodeJS.Timeout;
     autoStartTimer?: NodeJS.Timeout;
@@ -528,25 +528,39 @@ io.on('connection', (socket) => {
             }
 
             const state = roomData.engine.getState();
-            // Check if user is already seated
-            const alreadySeated = state.players.some((p: any) => p.id === userId);
-            if (alreadySeated) throw new Error('Already seated at the table');
+            const existingPlayer = state.players.find((p: any) => p.id === userId);
+            const alreadySeated = !!existingPlayer;
+            const canRequestRebuy = !!existingPlayer && (existingPlayer.stack ?? 0) <= 0;
+
+            if (alreadySeated && !canRequestRebuy) {
+                throw new Error('Already seated at the table');
+            }
 
             if (data.seatIndex < 0 || data.seatIndex > 9) throw new Error('Invalid seat index');
 
+            if (canRequestRebuy && existingPlayer && existingPlayer.seatIndex !== data.seatIndex) {
+                throw new Error('Re-buy request must use your existing seat');
+            }
+
             const isTaken = state.players.some((p: any) => p.seatIndex === data.seatIndex);
-            if (isTaken) throw new Error('Seat already taken');
+            if (isTaken && (!existingPlayer || existingPlayer.seatIndex !== data.seatIndex)) {
+                throw new Error('Seat already taken');
+            }
+
+            const requestType: 'SEAT' | 'REBUY' = canRequestRebuy ? 'REBUY' : 'SEAT';
 
             roomData.pendingSeats[userId] = {
                 seatIndex: data.seatIndex,
                 stack: data.stack,
-                displayName: data.displayName
+                displayName: data.displayName,
+                requestType
             };
             io.to(data.room_id).emit('EVENT_SEAT_REQUEST_PENDING', {
                 playerId: userId,
                 seatIndex: data.seatIndex,
                 stack: data.stack,
-                displayName: data.displayName
+                displayName: data.displayName,
+                requestType
             });
         } catch (err: any) {
             emitError(socket, 'ERR_SEAT_REQUEST', err.message);
@@ -566,16 +580,30 @@ io.on('connection', (socket) => {
         if (!pending) return emitError(socket, 'ERR_NO_PENDING_REQUEST', 'No pending request found for player');
 
         try {
-            roomData.engine.addPlayer({
-                id: data.targetPlayerId,
-                displayName: pending.displayName,
-                stack: pending.stack,
-                status: 'ACTIVE',
-                seatIndex: pending.seatIndex,
-                holeCards: [],
-                bet: 0,
-                hasActed: false
-            });
+            const state = roomData.engine.getState() as any;
+            const existingEnginePlayer = state.players.find((p: any) => p.id === data.targetPlayerId);
+            const isRebuy = pending.requestType === 'REBUY' && !!existingEnginePlayer;
+
+            if (isRebuy && existingEnginePlayer) {
+                // Re-buy: reactivate busted seat with new stack.
+                existingEnginePlayer.stack = pending.stack;
+                existingEnginePlayer.status = 'ACTIVE';
+                existingEnginePlayer.bet = 0;
+                existingEnginePlayer.hasActed = false;
+                existingEnginePlayer.seatIndex = pending.seatIndex;
+                if (pending.displayName) existingEnginePlayer.displayName = pending.displayName;
+            } else {
+                roomData.engine.addPlayer({
+                    id: data.targetPlayerId,
+                    displayName: pending.displayName,
+                    stack: pending.stack,
+                    status: 'ACTIVE',
+                    seatIndex: pending.seatIndex,
+                    holeCards: [],
+                    bet: 0,
+                    hasActed: false
+                });
+            }
 
             // BUG-06: Persist the approved seat to the database so it survives gateway restarts
             await prisma.user.upsert({
