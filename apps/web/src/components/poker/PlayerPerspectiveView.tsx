@@ -316,12 +316,8 @@ export function PlayerPerspectiveView({
   winnerCards?: string[];
   compactMode?: boolean;
 }) {
-  const { hero, opponents, board, pot, phase } = viewState;
+  const { hero, opponents, board, pot, phase, activePlayerId } = viewState;
   const isCleanup = phase === "CLEANUP" || phase === "SHOWDOWN";
-  const activePlayerId =
-    (hero.isActive ? hero.id : undefined) ??
-    opponents.find((p) => p.isActive)?.id ??
-    "";
   const total = opponents.length + 1;
   const seatSize: "lg" | "md" | "sm" = compactMode
     ? total <= 4
