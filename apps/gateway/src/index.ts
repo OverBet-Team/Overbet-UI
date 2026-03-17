@@ -37,9 +37,13 @@ const io = new Server(httpServer, {
     }
 });
 
-const DEFAULT_TURN_TIMEOUT_MS = 30000;
-const DEFAULT_TIME_BANK_MS = 30000;
-const DEFAULT_AUTO_START_DELAY = 5000;
+const TEST_TIMER_MODE = process.env.TEST_TIMER_MODE === 'short';
+const parsedTurnTimeout = Number(process.env.TURN_TIMEOUT_MS);
+const parsedTimeBank = Number(process.env.TIMEBANK_MS);
+const parsedAutoStartDelay = Number(process.env.AUTO_START_DELAY_SECONDS);
+const DEFAULT_TURN_TIMEOUT_MS = Number.isFinite(parsedTurnTimeout) ? parsedTurnTimeout : (TEST_TIMER_MODE ? 5000 : 30000);
+const DEFAULT_TIME_BANK_MS = Number.isFinite(parsedTimeBank) ? parsedTimeBank : (TEST_TIMER_MODE ? 5000 : 30000);
+const DEFAULT_AUTO_START_DELAY_SECONDS = Number.isFinite(parsedAutoStartDelay) ? parsedAutoStartDelay : (TEST_TIMER_MODE ? 2 : 5);
 
 // Per-player time bank balances for current hand (in-memory)
 const playerTimeBanks: Record<string, Record<string, number>> = {}; // roomId -> playerId -> ms remaining
@@ -57,6 +61,11 @@ const roomStates: Record<string, {
     settings?: { turnTimeoutMs: number; timeBankMs: number; autoStartDelay: number };
     isPaused?: boolean;
 }> = {};
+const roomHydrations: Record<string, Promise<any> | undefined> = {};
+
+if (TEST_TIMER_MODE) {
+    console.log(`[gateway] TEST_TIMER_MODE=short (turn=${DEFAULT_TURN_TIMEOUT_MS}ms, timeBank=${DEFAULT_TIME_BANK_MS}ms, autoStart=${DEFAULT_AUTO_START_DELAY_SECONDS}s)`);
+}
 
 async function hydrateRoom(roomId: string) {
     const room = await prisma.room.findUnique({
@@ -132,12 +141,22 @@ async function hydrateRoom(roomId: string) {
     const settings = {
         turnTimeoutMs: dbSettings?.turnTimeout ? dbSettings.turnTimeout * 1000 : DEFAULT_TURN_TIMEOUT_MS,
         timeBankMs: dbSettings?.timeBank ? dbSettings.timeBank * 1000 : DEFAULT_TIME_BANK_MS,
-        autoStartDelay: dbSettings?.autoStartDelay ?? 5,
+        autoStartDelay: dbSettings?.autoStartDelay ?? DEFAULT_AUTO_START_DELAY_SECONDS,
     };
 
     const roomData = { engine, seq, currentHandId, dbRoomId: room.id, pendingSeats: {}, settings, isPaused: false };
     roomStates[roomId] = roomData;
     return roomData;
+}
+
+async function getOrHydrateRoom(roomId: string) {
+    if (roomStates[roomId]) return roomStates[roomId];
+    if (roomHydrations[roomId]) return roomHydrations[roomId];
+    roomHydrations[roomId] = hydrateRoom(roomId)
+        .finally(() => {
+            delete roomHydrations[roomId];
+        });
+    return roomHydrations[roomId];
 }
 
 function emitError(socket: any, code: string, message: string) {
@@ -224,7 +243,7 @@ async function startTurnTimer(roomId: string) {
     if (!activePlayer || activePlayer.status !== "ACTIVE") return;
 
     // Load settings
-    const settings = roomData.settings || { turnTimeoutMs: DEFAULT_TURN_TIMEOUT_MS, timeBankMs: DEFAULT_TIME_BANK_MS, autoStartDelay: DEFAULT_AUTO_START_DELAY / 1000 };
+    const settings = roomData.settings || { turnTimeoutMs: DEFAULT_TURN_TIMEOUT_MS, timeBankMs: DEFAULT_TIME_BANK_MS, autoStartDelay: DEFAULT_AUTO_START_DELAY_SECONDS };
     const baseMs = settings.turnTimeoutMs;
 
     // Initialize time bank for this player in this room if needed
@@ -295,15 +314,28 @@ async function autoAct(roomId: string, playerId: string, currentBet: number) {
     const player = state.players.find(p => p.id === playerId);
     if (!player) return;
 
-    // Check or fold
-    const action: any = player.bet >= currentBet ? { type: 'CHECK' } : { type: 'FOLD' };
+    // Prefer CHECK when no call is needed; otherwise FOLD.
+    const primaryAction: any = player.bet >= currentBet ? { type: 'CHECK' } : { type: 'FOLD' };
 
     try {
-        await performPlayerAction(roomId, playerId, action);
+        await performPlayerAction(roomId, playerId, primaryAction);
+        return;
     } catch (err: any) {
         const message = err?.message ?? String(err);
-        console.error(`Failed auto-action for player ${playerId} in room ${roomId}:`, message);
-        emitErrorToRoom(roomId, 'ERR_AUTO_ACTION', `Timer expired: ${message}`);
+        // Robust timeout fallback: if CHECK is invalid at execution time, fallback to FOLD.
+        if (primaryAction.type === 'CHECK' && /Cannot check/i.test(message)) {
+            try {
+                await performPlayerAction(roomId, playerId, { type: 'FOLD' });
+                return;
+            } catch (fallbackErr: any) {
+                const fallbackMessage = fallbackErr?.message ?? String(fallbackErr);
+                console.error(`Failed auto-action fallback for player ${playerId} in room ${roomId}:`, fallbackMessage);
+                emitErrorToRoom(roomId, 'ERR_AUTO_ACTION', `Timer expired: ${fallbackMessage}`);
+            }
+        } else {
+            console.error(`Failed auto-action for player ${playerId} in room ${roomId}:`, message);
+            emitErrorToRoom(roomId, 'ERR_AUTO_ACTION', `Timer expired: ${message}`);
+        }
         clearTurnTimer(roomId);
         const rd = roomStates[roomId];
         if (rd?.currentHandId) {
@@ -325,16 +357,21 @@ async function autoAct(roomId: string, playerId: string, currentBet: number) {
     }
 }
 
-/** Matches engine startHand eligibility: at least 2 ACTIVE or ALL_IN players */
-function canStartHand(state: { players: { status: string }[] }): boolean {
-    const active = state.players.filter((p: any) => ['ACTIVE', 'ALL_IN'].includes(p.status));
-    return active.length >= 2;
+/** Matches engine startHand eligibility: at least 2 bankroll-eligible players */
+function canStartHand(state: { players: { status: string; stack: number }[] }): boolean {
+    const eligible = state.players.filter((p: any) => p.stack > 0 && !['SITTING_OUT', 'BUSTED'].includes(p.status));
+    return eligible.length >= 2;
+}
+
+function getNextHandEligiblePlayers(state: { players: { id: string; status: string; stack: number }[] }) {
+    // Players eligible to be reactivated at next hand start.
+    return state.players.filter((p: any) => p.stack > 0 && !['SITTING_OUT', 'BUSTED'].includes(p.status));
 }
 
 async function startHand(roomId: string, schema_version: number = 1) {
     let roomData = roomStates[roomId];
     if (!roomData) {
-        roomData = await hydrateRoom(roomId) as any;
+        roomData = await getOrHydrateRoom(roomId) as any;
     }
     if (!roomData) throw new Error('Room not found');
 
@@ -354,7 +391,7 @@ async function startHand(roomId: string, schema_version: number = 1) {
     roomData.settings = {
         turnTimeoutMs: dbSettings?.turnTimeout ? dbSettings.turnTimeout * 1000 : DEFAULT_TURN_TIMEOUT_MS,
         timeBankMs: dbSettings?.timeBank ? dbSettings.timeBank * 1000 : DEFAULT_TIME_BANK_MS,
-        autoStartDelay: dbSettings?.autoStartDelay ?? 5,
+        autoStartDelay: dbSettings?.autoStartDelay ?? DEFAULT_AUTO_START_DELAY_SECONDS,
     };
 
     // Reset time banks for all players at the start of each hand
@@ -428,7 +465,7 @@ async function performPlayerAction(roomId: string, userId: string, action: any, 
     if (roomData.isPaused) throw new Error('Game is paused');
 
     // GAP-03: Deduct time bank usage when player acts during time bank phase
-    const settings = roomData.settings || { turnTimeoutMs: DEFAULT_TURN_TIMEOUT_MS, timeBankMs: DEFAULT_TIME_BANK_MS, autoStartDelay: 5 };
+    const settings = roomData.settings || { turnTimeoutMs: DEFAULT_TURN_TIMEOUT_MS, timeBankMs: DEFAULT_TIME_BANK_MS, autoStartDelay: DEFAULT_AUTO_START_DELAY_SECONDS };
     if (roomData.timeBankTimer && playerTimeBanks[roomId]?.[userId] !== undefined) {
         // timeBankTimer is active → player is in time bank phase
         // The timer was started at the moment the base time expired.
@@ -512,7 +549,7 @@ async function performPlayerAction(roomId: string, userId: string, action: any, 
     }
 
     if (state.phase === 'CLEANUP') {
-        const autoStartDelay = (roomData.settings?.autoStartDelay ?? 5) * 1000;
+        const autoStartDelay = (roomData.settings?.autoStartDelay ?? DEFAULT_AUTO_START_DELAY_SECONDS) * 1000;
         console.log(`Hand finished. Auto-starting next hand in ${autoStartDelay}ms...`);
         roomData.autoStartTimer = setTimeout(async () => {
             try {
@@ -524,6 +561,18 @@ async function performPlayerAction(roomId: string, userId: string, action: any, 
                 if (canStartHand(currentState)) {
                     await startHand(roomId, schema_version);
                 } else {
+                    const byStatus = currentState.players.reduce((acc: Record<string, number>, p: any) => {
+                        acc[p.status] = (acc[p.status] || 0) + 1;
+                        return acc;
+                    }, {} as Record<string, number>);
+                    const canStartNow = currentState.players.filter((p: any) => ['ACTIVE', 'ALL_IN'].includes(p.status));
+                    const canStartAfterReset = getNextHandEligiblePlayers(currentState as any);
+                    console.log(
+                        `[auto-start-blocked] room=${roomId} phase=${currentState.phase} ` +
+                        `activeOrAllIn=${canStartNow.length} resetEligible=${canStartAfterReset.length} ` +
+                        `players=${JSON.stringify(currentState.players.map((p: any) => ({ id: p.id, status: p.status, stack: p.stack, bet: p.bet, hasActed: p.hasActed })))} ` +
+                        `statusCounts=${JSON.stringify(byStatus)}`
+                    );
                     console.log("Not enough eligible players (ACTIVE/ALL_IN) to auto-start next hand.");
                     io.to(roomId).emit('EVENT_STATE_UPDATE', { room_id: roomId, state: sanitizeState(currentState, null), server_ts: Date.now() });
                 }
@@ -560,7 +609,7 @@ io.on('connection', (socket) => {
         let roomData = roomStates[data.room_id];
 
         if (!roomData) {
-            roomData = await hydrateRoom(data.room_id) as any;
+            roomData = await getOrHydrateRoom(data.room_id) as any;
             if (!roomData) return emitError(socket, 'ERR_ROOM_NOT_FOUND', 'Room not found');
         }
 
@@ -596,9 +645,10 @@ io.on('connection', (socket) => {
     socket.on('INTENT_SEAT_REQUEST', async (data: IntentSeatRequest) => {
         let roomData = roomStates[data.room_id];
         if (!roomData) {
-            roomData = await hydrateRoom(data.room_id) as any;
+            roomData = await getOrHydrateRoom(data.room_id) as any;
             if (!roomData) return emitError(socket, 'ERR_ROOM_NOT_FOUND', 'Room not found');
         }
+        console.log(`[INTENT_SEAT_REQUEST] room=${data.room_id} user=${userId} seat=${data.seatIndex} stack=${data.stack}`);
 
         try {
             // Update the user's display name in the DB if they provided one
@@ -653,6 +703,7 @@ io.on('connection', (socket) => {
     socket.on('INTENT_SEAT_APPROVE', async (data: IntentSeatApprove) => {
         let roomData = roomStates[data.room_id];
         if (!roomData) return emitError(socket, 'ERR_ROOM_NOT_FOUND', 'Room not found');
+        console.log(`[INTENT_SEAT_APPROVE] room=${data.room_id} host=${userId} target=${data.targetPlayerId}`);
 
         // BUG-05: Only the host may approve seat requests
         const room = await prisma.room.findUnique({ where: { slug: data.room_id } });
@@ -701,6 +752,7 @@ io.on('connection', (socket) => {
             });
 
             delete roomData.pendingSeats[data.targetPlayerId];
+            console.log(`[INTENT_SEAT_APPROVE] room=${data.room_id} approved=${data.targetPlayerId} pendingLeft=${Object.keys(roomData.pendingSeats).length}`);
 
             roomData.seq++;
 
@@ -758,7 +810,7 @@ io.on('connection', (socket) => {
         try {
             let roomData = roomStates[data.room_id];
             if (!roomData) {
-                roomData = await hydrateRoom(data.room_id) as any;
+                roomData = await getOrHydrateRoom(data.room_id) as any;
             }
             if (!roomData) return emitError(socket, 'ERR_ROOM_NOT_FOUND', 'Room not found');
 
@@ -784,7 +836,7 @@ io.on('connection', (socket) => {
         try {
             let roomData = roomStates[data.room_id];
             if (!roomData) {
-                roomData = await hydrateRoom(data.room_id) as any;
+                roomData = await getOrHydrateRoom(data.room_id) as any;
             }
             if (!roomData) return emitError(socket, 'ERR_ROOM_NOT_FOUND', 'Room not found');
 
@@ -832,7 +884,7 @@ io.on('connection', (socket) => {
                 roomData.settings = {
                     turnTimeoutMs: newSettings.turnTimeout ? newSettings.turnTimeout * 1000 : DEFAULT_TURN_TIMEOUT_MS,
                     timeBankMs: newSettings.timeBank ? newSettings.timeBank * 1000 : DEFAULT_TIME_BANK_MS,
-                    autoStartDelay: newSettings.autoStartDelay ?? 5,
+                    autoStartDelay: newSettings.autoStartDelay ?? DEFAULT_AUTO_START_DELAY_SECONDS,
                 };
             }
 

@@ -65,7 +65,7 @@ function TurnTimerPill({ timer }: { timer: TurnTimer }) {
   const progress = timer.total > 0 ? timeLeft / timer.total : 0;
   const color = progress < 0.2 ? "#ef4444" : progress < 0.4 ? "#f97316" : "#22c55e";
   return (
-    <div style={{
+    <div data-testid="turn-timer-pill" style={{
       display: "flex", alignItems: "center", gap: 6, padding: "6px 12px",
       borderRadius: 999, background: "rgba(255,255,255,0.06)",
       border: `1px solid ${color}33`,
@@ -112,6 +112,7 @@ export default function RoomClient({ slug, initialRoom }: RoomProps) {
   const [isPaused, setIsPaused] = useState(false);
   const [isSeatPanelOpen, setIsSeatPanelOpen] = useState(false);
   const [showHostOverlay, setShowHostOverlay] = useState(false);
+  const [lastSocketError, setLastSocketError] = useState<string | null>(null);
   const [approvedSeatOverride, setApprovedSeatOverride] = useState<PlayerData | null>(null);
   const [cleanupShowAllRevealed, setCleanupShowAllRevealed] = useState(false);
   const justApprovedRef = useRef(false);
@@ -131,6 +132,12 @@ export default function RoomClient({ slug, initialRoom }: RoomProps) {
       window.removeEventListener("orientationchange", updateViewport);
     };
   }, []);
+
+  useEffect(() => {
+    if (!lastSocketError) return;
+    const t = setTimeout(() => setLastSocketError(null), 4500);
+    return () => clearTimeout(t);
+  }, [lastSocketError]);
 
   // ── Socket setup ────────────────────────────────────────────────────────────
   useEffect(() => {
@@ -154,6 +161,7 @@ export default function RoomClient({ slug, initialRoom }: RoomProps) {
     socketInstance.on("EVENT_ERROR", (err: any) => {
       const msg = err?.message ?? err?.code ?? "An error occurred";
       console.error("Socket error:", err?.code, msg, err);
+      setLastSocketError(msg);
       alert(msg);
     });
 
@@ -643,7 +651,7 @@ export default function RoomClient({ slug, initialRoom }: RoomProps) {
                 <span style={{ color: "#6ee7b7", fontSize: 10, fontWeight: 700, textTransform: "uppercase", letterSpacing: "0.1em" }}>
                   Last Hand Revealed
                 </span>
-                <span style={{
+                <span data-testid="room-code" style={{
                   background: "rgba(110,231,183,0.15)", color: "#6ee7b7",
                   fontSize: 9, fontWeight: 700, padding: "2px 8px", borderRadius: 999,
                   border: "1px solid rgba(110,231,183,0.3)",
@@ -699,6 +707,7 @@ export default function RoomClient({ slug, initialRoom }: RoomProps) {
         }}
       >
         <button
+          data-testid="host-seat-requests-toggle"
           onClick={() => setIsSeatPanelOpen((v) => !v)}
           style={{
             display: "flex", alignItems: "center", gap: 6,
@@ -726,6 +735,7 @@ export default function RoomClient({ slug, initialRoom }: RoomProps) {
           >
             <div style={{ display: "flex", gap: 8, marginBottom: 10 }}>
               <button
+                data-testid="host-start-resume-button"
                 onClick={isPaused ? handleResumeGame : handleStartGame}
                 disabled={!isPaused && !canStart}
                 style={{
@@ -742,6 +752,7 @@ export default function RoomClient({ slug, initialRoom }: RoomProps) {
                 {isPaused ? "Resume" : "Start"}
               </button>
               <button
+                data-testid="host-pause-button"
                 onClick={handlePauseGame}
                 disabled={!canPause}
                 style={{
@@ -777,6 +788,7 @@ export default function RoomClient({ slug, initialRoom }: RoomProps) {
                     </div>
                     <div style={{ display: "flex", flexDirection: "column", gap: 4, marginLeft: 10 }}>
                       <button
+                        data-testid={`approve-seat-${req.playerId}`}
                         onClick={() => approveSeat(req.playerId)}
                         style={{
                           padding: "4px 10px", borderRadius: 8, border: "none",
@@ -787,6 +799,7 @@ export default function RoomClient({ slug, initialRoom }: RoomProps) {
                         Approve
                       </button>
                       <button
+                        data-testid={`reject-seat-${req.playerId}`}
                         onClick={() => rejectSeat(req.playerId)}
                         style={{
                           padding: "3px 10px", borderRadius: 8,
@@ -821,7 +834,7 @@ export default function RoomClient({ slug, initialRoom }: RoomProps) {
     (approvedSeatOverride && approvedSeatOverride.id === userId ? approvedSeatOverride : undefined);
   if (!mySeat) {
     return (
-      <div style={{
+      <div data-testid="lobby-view" style={{
         display: "flex", flexDirection: "column", alignItems: "center",
         minHeight: "calc(100vh - 80px)", padding: "24px 16px",
         fontFamily: "Outfit, sans-serif",
@@ -862,6 +875,7 @@ export default function RoomClient({ slug, initialRoom }: RoomProps) {
               </div>
             </div>
             <button
+              data-testid="copy-room-link"
               onClick={copyLink}
               style={{
                 display: "flex", alignItems: "center", gap: 6, padding: "8px 14px",
@@ -886,7 +900,7 @@ export default function RoomClient({ slug, initialRoom }: RoomProps) {
             }}>
               <div style={{ display: "flex", alignItems: "center", gap: 7, marginBottom: 14 }}>
                 <Users size={15} color="rgba(167,139,250,0.8)" />
-                <span style={{ color: "rgba(255,255,255,0.6)", fontSize: 11, fontWeight: 700, textTransform: "uppercase", letterSpacing: "0.08em" }}>
+                <span data-testid="lobby-player-count" style={{ color: "rgba(255,255,255,0.6)", fontSize: 11, fontWeight: 700, textTransform: "uppercase", letterSpacing: "0.08em" }}>
                   Players ({players.length})
                 </span>
               </div>
@@ -988,6 +1002,7 @@ export default function RoomClient({ slug, initialRoom }: RoomProps) {
           <div style={{ marginTop: 24 }}>
             {isHost ? (
               <button
+                data-testid="host-start-game-button"
                 onClick={handleStartGame}
                 disabled={players.length < 2}
                 style={{
@@ -1059,9 +1074,24 @@ export default function RoomClient({ slug, initialRoom }: RoomProps) {
 
   // Moon-style bottom bar helpers
   const playerBet = myPlayerInfo?.bet ?? 0;
+  const revealedBoardCount = (gameState?.board ?? []).filter(Boolean).length;
+  const actionBarInteractable =
+    !!gameState &&
+    gameState.phase !== "LOBBY" &&
+    gameState.phase !== "CLEANUP" &&
+    isActivePlayer;
+  const uiStateSignature = [
+    gameState?.phase ?? "NONE",
+    `board=${revealedBoardCount}`,
+    `active=${gameState?.activePlayerId ?? "none"}`,
+    `actionBar=${actionBarInteractable ? "active" : "inactive"}`,
+    `winner=${winner ? "1" : "0"}`,
+    `error=${lastSocketError ?? ""}`,
+  ].join("|");
 
   return (
     <div
+      data-testid="in-game-view"
       style={{
         display: "flex",
         flexDirection: "column",
@@ -1074,6 +1104,45 @@ export default function RoomClient({ slug, initialRoom }: RoomProps) {
     >
       {/* ── Game canvas (flex-fill) ────────────────────────────────────────── */}
       <div style={{ flex: 1, minHeight: 0, display: "flex", flexDirection: "column", position: "relative", paddingTop: isPortraitMobile ? 36 : 0 }}>
+        <div
+          data-testid="ui-state-signature"
+          style={{ position: "absolute", opacity: 0, pointerEvents: "none", zIndex: -1 }}
+        >
+          {uiStateSignature}
+        </div>
+        <div
+          data-testid="phase-label"
+          style={{ position: "absolute", opacity: 0, pointerEvents: "none", zIndex: -1 }}
+        >
+          {gameState?.phase ?? "NONE"}
+        </div>
+        <div
+          data-testid="active-player-id"
+          style={{ position: "absolute", opacity: 0, pointerEvents: "none", zIndex: -1 }}
+        >
+          {gameState?.activePlayerId ?? ""}
+        </div>
+        {lastSocketError && (
+          <div
+            data-testid="ui-error-banner"
+            style={{
+              position: "absolute",
+              top: isPortraitMobile ? 44 : 12,
+              left: "50%",
+              transform: "translateX(-50%)",
+              zIndex: 26,
+              padding: "6px 10px",
+              borderRadius: 10,
+              background: "rgba(220,38,38,0.15)",
+              border: "1px solid rgba(248,113,113,0.4)",
+              color: "#fecaca",
+              fontSize: 11,
+              fontWeight: 600,
+            }}
+          >
+            {lastSocketError}
+          </div>
+        )}
         <BuyInModal
           isOpen={isBuyInOpen}
           onClose={() => setIsBuyInOpen(false)}
@@ -1165,7 +1234,9 @@ export default function RoomClient({ slug, initialRoom }: RoomProps) {
           }}>
             <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
               <span style={{ color: "rgba(255,255,255,0.6)", fontSize: 10, fontWeight: 700, letterSpacing: "0.08em", textTransform: "uppercase" }}>
+              <span data-testid="phase-label-visual">
                 {gameState?.phase?.replaceAll("_", " ") || "Waiting"}
+              </span>
               </span>
               {isHost && (
                 <button
@@ -1276,6 +1347,7 @@ export default function RoomClient({ slug, initialRoom }: RoomProps) {
             </div>
             {isHost && players.length >= 2 && (
               <button
+                data-testid="floating-start-game-button"
                 onClick={handleStartGame}
                 style={{
                   marginLeft: "auto", padding: "9px 18px", borderRadius: 12, border: "none",
@@ -1293,7 +1365,7 @@ export default function RoomClient({ slug, initialRoom }: RoomProps) {
 
         {/* Re-buy CTA — floating above bottom bar */}
         {isBusted && !pendingRequests.some((r) => r.playerId === userId) && (
-          <div style={{
+          <div data-testid="rebuy-cta" style={{
             position: "absolute",
             bottom: isPortraitMobile ? undefined : 88,
             top: isPortraitMobile ? 50 : undefined,
@@ -1308,6 +1380,7 @@ export default function RoomClient({ slug, initialRoom }: RoomProps) {
               <div style={{ color: "rgba(255,255,255,0.35)", fontSize: 11, marginTop: 2 }}>Re-buy to stay in the game</div>
             </div>
             <button
+              data-testid="rebuy-open-button"
               onClick={() => setIsRebuyOpen(true)}
               style={{
                 marginLeft: 16, padding: "9px 18px", borderRadius: 12, border: "none",
@@ -1324,7 +1397,7 @@ export default function RoomClient({ slug, initialRoom }: RoomProps) {
 
         {/* Requester waiting banner — floating */}
         {!isHost && !!myPendingRequest && (
-          <div style={{
+          <div data-testid="pending-request-banner" style={{
             position: "absolute",
             bottom: isPortraitMobile ? undefined : 88,
             top: isPortraitMobile ? 50 : undefined,
@@ -1398,7 +1471,7 @@ export default function RoomClient({ slug, initialRoom }: RoomProps) {
             </div>
           </div>
           <div style={{ width: "100%", display: "flex", justifyContent: "center" }}>
-            {gameState ? (
+            {gameState && gameState.phase !== "LOBBY" && gameState.phase !== "CLEANUP" ? (
               <ActionBar
                 isActive={isActivePlayer}
                 stack={myPlayerInfo?.stack || 0}
@@ -1418,6 +1491,8 @@ export default function RoomClient({ slug, initialRoom }: RoomProps) {
         <div style={{
           height: 72,
           flexShrink: 0,
+          position: "relative",
+          zIndex: 24,
           display: "flex",
           alignItems: "center",
           justifyContent: "space-between",
@@ -1456,7 +1531,7 @@ export default function RoomClient({ slug, initialRoom }: RoomProps) {
           </div>
 
           <div style={{ flex: 1, display: "flex", justifyContent: "center", alignItems: "center", minWidth: 0, maxWidth: 480 }}>
-            {gameState ? (
+            {gameState && gameState.phase !== "LOBBY" && gameState.phase !== "CLEANUP" ? (
               <ActionBar
                 isActive={isActivePlayer}
                 stack={myPlayerInfo?.stack || 0}

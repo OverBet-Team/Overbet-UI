@@ -216,6 +216,7 @@ export function BuyInModal({
                 {/* Actions */}
                 <div style={{ display: "flex", gap: 10, marginTop: 24 }}>
                     <button
+                        data-testid="buyin-cancel-button"
                         onClick={onClose}
                         style={{
                             flex: 1, padding: "12px 0", borderRadius: 14,
@@ -227,6 +228,7 @@ export function BuyInModal({
                         Cancel
                     </button>
                     <button
+                        data-testid={isRebuy ? "rebuy-submit-button" : "seat-request-submit-button"}
                         onClick={handleConfirm}
                         disabled={!isValid}
                         style={{

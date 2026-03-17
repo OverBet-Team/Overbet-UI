@@ -40,9 +40,12 @@ export class NLHMachine implements PokerEngine {
         const events: HandEvent[] = [];
         this.eventSequence = 0;
 
-        // Ensure we have active players
-        const activePlayers = this.state.players.filter(p => ["ACTIVE", "ALL_IN"].includes(p.status));
-        if (activePlayers.length < 2) {
+        // Determine next-hand eligible players from bankroll/status before per-hand status reset.
+        // Folded players with chips must be allowed back into the next hand.
+        const startEligiblePlayers = this.state.players.filter(
+            p => p.stack > 0 && p.status !== "SITTING_OUT" && p.status !== "BUSTED"
+        );
+        if (startEligiblePlayers.length < 2) {
             throw new Error("Not enough active players to start a hand");
         }
 
@@ -65,7 +68,14 @@ export class NLHMachine implements PokerEngine {
             p.holeCards = [];
             p.bet = 0;
             p.hasActed = false;
-            if (p.status !== "SITTING_OUT" && p.status !== "BUSTED") {
+            if (p.status === "SITTING_OUT") {
+                return;
+            }
+            if (p.stack <= 0) {
+                p.status = "BUSTED";
+                return;
+            }
+            if (p.status !== "BUSTED") {
                 p.status = "ACTIVE";
             }
         });
@@ -89,7 +99,7 @@ export class NLHMachine implements PokerEngine {
         this.state.phase = "POST_BLINDS_ANTES";
         let sbIndex = (this.state.dealerIndex + 1) % this.state.players.length;
         // In heads up, dealer is SB.
-        if (activePlayers.length === 2) {
+        if (startEligiblePlayers.length === 2) {
             sbIndex = this.state.dealerIndex;
         } else {
             while (this.state.players[sbIndex].status !== "ACTIVE") {

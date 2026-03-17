@@ -55,6 +55,7 @@ export default function WinnerToast({ winner, pot, handName }: WinnerToastProps)
   return (
     <div
       className="winner-toast"
+      data-testid="winner-toast"
       style={{
       position: "fixed", bottom: 100, right: 20, zIndex: 60,
       maxWidth: 280, width: "calc(100vw - 40px)",
@@ -111,7 +112,7 @@ export default function WinnerToast({ winner, pot, handName }: WinnerToastProps)
 
         {/* Hand name — Moon Poker style: "Won with X" */}
         {handName && (
-          <div style={{
+          <div data-testid="winner-hand-name" style={{
             display: "flex", alignItems: "center", justifyContent: "center", gap: 6,
             background: "rgba(18, 15, 32, 0.92)", border: "1px solid rgba(234,179,8,0.35)",
             borderRadius: 8, padding: "6px 10px",

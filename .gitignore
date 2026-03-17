@@ -10,3 +10,10 @@ coverage/
 .DS_Store
 .pnpm-store
 .turbo
+test-results/
+playwright-report/
+tests/browser-cli/.gateway.log
+tests/browser-cli/.web.log
+tests/browser-cli/*.png
+tests/browser-cli/artifacts/
+tests/browser-cli/bug-log.jsonl

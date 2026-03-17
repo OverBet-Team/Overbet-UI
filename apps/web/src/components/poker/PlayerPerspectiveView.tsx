@@ -318,6 +318,10 @@ export function PlayerPerspectiveView({
 }) {
   const { hero, opponents, board, pot, phase } = viewState;
   const isCleanup = phase === "CLEANUP" || phase === "SHOWDOWN";
+  const activePlayerId =
+    (hero.isActive ? hero.id : undefined) ??
+    opponents.find((p) => p.isActive)?.id ??
+    "";
   const total = opponents.length + 1;
   const seatSize: "lg" | "md" | "sm" = compactMode
     ? total <= 4
@@ -344,6 +348,9 @@ export function PlayerPerspectiveView({
 
   return (
     <div
+      data-testid="player-perspective"
+      data-phase={phase}
+      data-active-player={activePlayerId}
       style={{
         width: "100%",
         minHeight: 0,
@@ -422,19 +429,22 @@ export function PlayerPerspectiveView({
             {pot > 0 ? pot.toLocaleString() : "0"}
           </span>
         </div>
-        <div style={{ display: "flex", gap: compactMode ? 4 : 6, alignItems: "center" }}>
+        <div data-testid="board-cards" style={{ display: "flex", gap: compactMode ? 4 : 6, alignItems: "center" }}>
           {board.map((card, i) =>
-            card ? (
-              <PlayingCard key={i} card={card} size={boardCardSize} />
-            ) : (
-              <PlayingCard key={i} dashed size={boardCardSize} />
-            )
+            <div key={i} data-testid={`board-card-${i}`} data-revealed={card ? "true" : "false"}>
+              {card ? (
+                <PlayingCard card={card} size={boardCardSize} />
+              ) : (
+                <PlayingCard dashed size={boardCardSize} />
+              )}
+            </div>
           )}
         </div>
       </div>
 
       {/* Hero hand — bottom center, Moon-style bottom: -50 overlaps arc */}
       <div
+        data-testid="hero-zone"
         style={{
           position: "absolute",
           bottom: heroBottom,
@@ -447,7 +457,7 @@ export function PlayerPerspectiveView({
           gap: heroGap,
         }}
       >
-        <div style={{ display: "flex", alignItems: "flex-end", justifyContent: "center", gap: 0 }}>
+        <div data-testid="hero-cards" style={{ display: "flex", alignItems: "flex-end", justifyContent: "center", gap: 0 }}>
           {(hero.cards?.length === 2 ? hero.cards : [null, null]).map((card, i) =>
             card ? (
               <PlayingCard

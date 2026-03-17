@@ -150,10 +150,17 @@ describe('NLHMachine Engine', () => {
         expect(winner).toBeDefined();
     });
 
-    it('startHand throws when not enough ACTIVE/ALL_IN players', () => {
+    it('startHand allows folded players with chips to re-enter next hand', () => {
         const engine = new NLHMachine();
         engine.addPlayer({ id: "p1", stack: 1000, status: "ACTIVE", seatIndex: 0, holeCards: [], bet: 0, hasActed: false });
         engine.addPlayer({ id: "p2", stack: 1000, status: "FOLDED", seatIndex: 1, holeCards: [], bet: 0, hasActed: true });
+        expect(() => engine.startHand()).not.toThrow();
+    });
+
+    it('startHand throws when fewer than 2 bankroll-eligible players remain', () => {
+        const engine = new NLHMachine();
+        engine.addPlayer({ id: "p1", stack: 1000, status: "ACTIVE", seatIndex: 0, holeCards: [], bet: 0, hasActed: false });
+        engine.addPlayer({ id: "p2", stack: 0, status: "BUSTED", seatIndex: 1, holeCards: [], bet: 0, hasActed: true });
         expect(() => engine.startHand()).toThrow(/Not enough active players/);
     });
 

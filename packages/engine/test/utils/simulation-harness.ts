@@ -33,6 +33,17 @@ export interface SimulationConfig {
   baseSeed: number;
   rounds: number;
   maxActionsPerHand: number;
+  /** Max repeated identical state signatures before declaring deadlock. */
+  maxRepeatedStateSignatures?: number;
+  /** Optional deterministic action override for scenario/regression tests. */
+  actionSelector?: (ctx: {
+    state: GameState;
+    actions: PokerAction[];
+    round: number;
+    handStep: number;
+    playerId: string;
+    rng: () => number;
+  }) => PokerAction;
   /** When true, rebuy busted players to startingStack so simulation can complete target rounds */
   rebuyOnBust?: boolean;
 }
@@ -124,6 +135,7 @@ function buildFailureContext(
     pot: state?.pot,
     board: state?.board,
     currentBet: state?.currentBet,
+    deckCount: Array.isArray((state as any)?.deck) ? (state as any).deck.length : undefined,
     players: state?.players?.map(p => ({
       id: p.id,
       stack: p.stack,
@@ -136,8 +148,33 @@ function buildFailureContext(
   };
 }
 
+function buildStateSignature(state: GameState): string {
+  const activePlayer = state.players[state.activePlayerIndex];
+  const board = (state.board || []).join(",");
+  const players = state.players
+    .map((p) => `${p.id}:${p.status}:${p.stack}:${p.bet}:${p.hasActed ? 1 : 0}`)
+    .join("|");
+  return [
+    state.phase,
+    `ap:${state.activePlayerIndex}:${activePlayer?.id ?? "none"}`,
+    `pot:${state.pot}`,
+    `cb:${state.currentBet}`,
+    `board:${board}`,
+    `players:${players}`,
+  ].join(";");
+}
+
 export function runSimulation(config: SimulationConfig): SimulationResult {
-  const { playerCount, startingStack, baseSeed, rounds, maxActionsPerHand, rebuyOnBust = true } = config;
+  const {
+    playerCount,
+    startingStack,
+    baseSeed,
+    rounds,
+    maxActionsPerHand,
+    maxRepeatedStateSignatures = 16,
+    actionSelector,
+    rebuyOnBust = true,
+  } = config;
   const trace: ActionTraceEntry[] = [];
   let handsCompleted = 0;
   let folds = 0;
@@ -224,6 +261,8 @@ export function runSimulation(config: SimulationConfig): SimulationResult {
       (state.sidePots || []).reduce((s, sp) => s + sp.amount, 0);
 
     let handStep = 0;
+    let repeatedSignatureCount = 0;
+    let lastSignature = "";
 
     while (state.phase.endsWith("BETTING")) {
 
@@ -280,7 +319,9 @@ export function runSimulation(config: SimulationConfig): SimulationResult {
 
       const actions = getLegalActions(state, playerCount);
       const rng = mulberry32(handSeed + handStep * 1000 + pid.charCodeAt(1));
-      const action = pickAction(state, actions, rng);
+      const action = actionSelector
+        ? actionSelector({ state, actions, round, handStep, playerId: pid, rng })
+        : pickAction(state, actions, rng);
 
       const toCall = state.currentBet - (state.players[state.activePlayerIndex]?.bet ?? 0);
       trace.push({
@@ -324,6 +365,37 @@ export function runSimulation(config: SimulationConfig): SimulationResult {
 
       state = engine.getState();
       handStep++;
+
+      const signature = buildStateSignature(state);
+      if (signature === lastSignature) {
+        repeatedSignatureCount++;
+      } else {
+        repeatedSignatureCount = 0;
+        lastSignature = signature;
+      }
+
+      if (repeatedSignatureCount >= maxRepeatedStateSignatures) {
+        const err = new Error(
+          `Deadlock: identical state signature repeated ${repeatedSignatureCount + 1} times in round ${round}`
+        ) as Error & { simulationContext?: Record<string, unknown> };
+        err.simulationContext = {
+          ...buildFailureContext(config, round, handStep, state, trace, err),
+          repeatedSignatureCount: repeatedSignatureCount + 1,
+          stateSignature: signature,
+        };
+        return {
+          success: false,
+          roundsCompleted: round,
+          handsCompleted,
+          folds,
+          allIns,
+          showdowns,
+          failures: invariantFailures,
+          lastError: err,
+          actionTrace: trace,
+          summary: `Deadlock at round ${round}, handStep ${handStep}`,
+        };
+      }
 
       const failures = runAllInvariants(state, totalAtHandStart);
       if (failures.length > 0) {

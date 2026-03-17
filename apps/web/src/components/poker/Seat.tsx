@@ -89,6 +89,7 @@ export function Seat({
   if (!player) {
     return (
       <button
+        data-testid={`seat-empty-${seatIndex}`}
         onClick={() => onSeatClick(seatIndex)}
         style={{
           display: "flex",
@@ -131,6 +132,7 @@ export function Seat({
 
   return (
     <div
+      data-testid={`seat-player-${seatIndex}`}
       style={{
         display: "flex",
         flexDirection: "column",

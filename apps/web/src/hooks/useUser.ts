@@ -6,10 +6,16 @@ export function useUser() {
     const [userId, setUserId] = useState<string>("");
 
     useEffect(() => {
-        const storedId = localStorage.getItem("overbet_user_id");
+        if (typeof window === "undefined") return;
+        const storage = window.localStorage;
+        const canUseStorage =
+            storage &&
+            typeof storage.getItem === "function" &&
+            typeof storage.setItem === "function";
+        const storedId = canUseStorage ? storage.getItem("overbet_user_id") : null;
         const id = storedId || "user-" + Math.random().toString(36).substring(2, 9);
-        if (!storedId) {
-            localStorage.setItem("overbet_user_id", id);
+        if (!storedId && canUseStorage) {
+            storage.setItem("overbet_user_id", id);
         }
         setUserId(id);
     }, []);

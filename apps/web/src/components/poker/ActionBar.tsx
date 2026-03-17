@@ -92,7 +92,7 @@ export function ActionBar({
   // ── Inactive state ────────────────────────────────────────────────────────
   if (!isActive) {
     return (
-      <div style={{
+      <div data-testid="action-bar-inactive" style={{
         display: "flex", width: "100%", gap: 12,
         opacity: 0.35, pointerEvents: "none", filter: "grayscale(0.5)",
       }}>
@@ -111,19 +111,18 @@ export function ActionBar({
 
   const raisePanelNode = showRaisePanel && canRaise ? (
     <>
-      {compact && (
-        <div
-          onClick={closeRaisePanel}
-          style={{
-            position: "fixed",
-            inset: 0,
-            zIndex: 999,
-            background: "rgba(0,0,0,0.45)",
-            backdropFilter: "blur(2px)",
-          }}
-        />
-      )}
-      <div style={{
+      <div
+        data-testid="raise-modal-backdrop"
+        onClick={closeRaisePanel}
+        style={{
+          position: "fixed",
+          inset: 0,
+          zIndex: 999,
+          background: compact ? "rgba(0,0,0,0.45)" : "rgba(0,0,0,0.3)",
+          backdropFilter: compact ? "blur(2px)" : "none",
+        }}
+      />
+      <div data-testid="raise-modal" style={{
         ...(compact
           ? {
               position: "fixed",
@@ -135,35 +134,43 @@ export function ActionBar({
               maxHeight: "66dvh",
               overflowY: "auto",
             }
-          : {}),
+          : {
+              position: "fixed",
+              left: "50%",
+              transform: "translateX(-50%)",
+              width: "min(560px, calc(100vw - 24px))",
+              bottom: 84,
+              zIndex: 1000,
+              borderRadius: 18,
+              maxHeight: "60dvh",
+              overflowY: "auto",
+            }),
         background: "rgba(16,13,28,0.97)", border: "1px solid rgba(255,255,255,0.1)",
         padding: compact ? "14px 14px" : "16px 18px", display: "flex", flexDirection: "column", gap: 12,
         boxShadow: "0 -8px 40px rgba(0,0,0,0.5)",
       }}>
-          {compact && (
-            <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center" }}>
-              <span style={{ color: "rgba(255,255,255,0.68)", fontSize: 11, fontWeight: 700, letterSpacing: "0.06em", textTransform: "uppercase" }}>
-                Raise Amount
-              </span>
-              <button
-                onClick={closeRaisePanel}
-                aria-label="Close raise panel"
-                style={{
-                  width: 28,
-                  height: 28,
-                  borderRadius: 999,
-                  border: "1px solid rgba(255,255,255,0.14)",
-                  background: "rgba(255,255,255,0.05)",
-                  color: "rgba(255,255,255,0.75)",
-                  fontSize: 16,
-                  lineHeight: "1",
-                  cursor: "pointer",
-                }}
-              >
-                ×
-              </button>
-            </div>
-          )}
+          <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center" }}>
+            <span style={{ color: "rgba(255,255,255,0.68)", fontSize: 11, fontWeight: 700, letterSpacing: "0.06em", textTransform: "uppercase" }}>
+              Raise Amount
+            </span>
+            <button
+              onClick={closeRaisePanel}
+              aria-label="Close raise panel"
+              style={{
+                width: 28,
+                height: 28,
+                borderRadius: 999,
+                border: "1px solid rgba(255,255,255,0.14)",
+                background: "rgba(255,255,255,0.05)",
+                color: "rgba(255,255,255,0.75)",
+                fontSize: 16,
+                lineHeight: "1",
+                cursor: "pointer",
+              }}
+            >
+              ×
+            </button>
+          </div>
           {/* Amount display */}
           <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between" }}>
             <span style={{ color: "rgba(255,255,255,0.4)", fontSize: 11, fontWeight: 600, textTransform: "uppercase", letterSpacing: "0.08em" }}>
@@ -257,12 +264,10 @@ export function ActionBar({
 
   // ── Active state ──────────────────────────────────────────────────────────
   return (
-    <div style={{ display: "flex", flexDirection: "column", width: "100%", gap: 8, fontFamily: "Outfit, sans-serif" }}>
+    <div data-testid="action-bar" style={{ display: "flex", flexDirection: "column", width: "100%", gap: 8, fontFamily: "Outfit, sans-serif" }}>
 
       {/* Raise panel (shown when raise button clicked) */}
-      {compact
-        ? (typeof document !== "undefined" ? createPortal(raisePanelNode, document.body) : null)
-        : raisePanelNode}
+      {typeof document !== "undefined" ? createPortal(raisePanelNode, document.body) : raisePanelNode}
 
       {/* Main action row — Moon Poker pill buttons */}
       <div style={{
@@ -278,6 +283,7 @@ export function ActionBar({
         {/* Fold */}
         <ActionPill
           label="Fold"
+          testId="action-fold"
           shortcut="F"
           color="#f87171"
           hoverBg="rgba(248,113,113,0.1)"
@@ -290,6 +296,7 @@ export function ActionBar({
         {/* Check / Call */}
         <ActionPill
           label={toCall > 0 ? `Call ${toCall.toLocaleString()}` : "Check"}
+          testId="action-check-call"
           shortcut="C"
           color={toCall > 0 ? "#93c5fd" : "rgba(255,255,255,0.7)"}
           hoverBg={toCall > 0 ? "rgba(147,197,253,0.1)" : "rgba(255,255,255,0.07)"}
@@ -304,6 +311,7 @@ export function ActionBar({
             {/* Raise */}
             <ActionPill
               label={showRaisePanel ? "▲ Raise" : "Raise"}
+              testId="action-raise"
               shortcut="R"
               color="#6ee7b7"
               hoverBg="rgba(110,231,183,0.1)"
@@ -319,6 +327,7 @@ export function ActionBar({
         {/* All-In */}
         <ActionPill
           label="All-In"
+          testId="action-all-in"
           shortcut="A"
           color="#a78bfa"
           hoverBg="rgba(167,139,250,0.12)"
@@ -332,15 +341,16 @@ export function ActionBar({
 
 // ── Pill button ───────────────────────────────────────────────────────────────
 function ActionPill({
-  label, shortcut, color, hoverBg, onClick, active = false, compact = false,
+  label, shortcut, color, hoverBg, onClick, active = false, compact = false, testId,
 }: {
   label: string; shortcut: string; color: string; hoverBg: string;
-  onClick: () => void; active?: boolean; compact?: boolean;
+  onClick: () => void; active?: boolean; compact?: boolean; testId?: string;
 }) {
   const [hovered, setHovered] = useState(false);
 
   return (
     <button
+      data-testid={testId}
       onClick={onClick}
       onMouseEnter={() => setHovered(true)}
       onMouseLeave={() => setHovered(false)}
