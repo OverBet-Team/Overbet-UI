@@ -1,4 +1,5 @@
 import { getRoom } from "@/app/actions/room";
+import { ChipAmount } from "@/components/poker/ChipAmount";
 import { notFound } from "next/navigation";
 import RoomClient from "./RoomClient";
 
@@ -13,6 +14,8 @@ export default async function RoomPage({ params }: PageProps) {
   if (!room) {
     notFound();
   }
+
+  const settings = (room.settings ?? {}) as { smallBlind?: number; bigBlind?: number };
 
   return (
     <div className="min-h-screen">
@@ -37,8 +40,19 @@ export default async function RoomPage({ params }: PageProps) {
           <span className="text-base sm:text-xl font-bold tracking-tight">OverBet</span>     
         </div>
         <div className="flex items-center gap-2 sm:gap-4">
-          <div className="hidden sm:block px-3 py-1.5 rounded-lg bg-white/5 border border-white/10 text-xs font-semibold uppercase tracking-wider text-white/50">
-            NLH $10 / $20
+          <div className="hidden sm:flex items-center gap-2 px-3 py-1.5 rounded-lg bg-white/5 border border-white/10 text-xs font-semibold uppercase tracking-wider text-white/50">
+            <span>NLH</span>
+            <ChipAmount
+              amount={settings.smallBlind ?? 10}
+              iconSize={12}
+              amountStyle={{ color: "rgba(255,255,255,0.85)", fontSize: 12, fontWeight: 700 }}
+            />
+            <span>/</span>
+            <ChipAmount
+              amount={settings.bigBlind ?? 20}
+              iconSize={12}
+              amountStyle={{ color: "rgba(255,255,255,0.85)", fontSize: 12, fontWeight: 700 }}
+            />
           </div>
           <div className="w-8 h-8 sm:w-10 sm:h-10 rounded-full border border-white/10 bg-surface flex items-center justify-center font-bold text-accent-2 text-xs sm:text-sm">
             JD

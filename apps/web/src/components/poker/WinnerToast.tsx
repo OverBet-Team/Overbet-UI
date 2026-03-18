@@ -5,7 +5,7 @@
 // Auto-fades after 6 seconds. NO manual "New Hand" button — OverBet auto-starts.
 
 import { useEffect, useState } from "react";
-
+import { ChipAmount } from "./ChipAmount";
 interface WinnerToastProps {
   winner: string;    // display name of the winner
   pot: number;       // chips won
@@ -24,15 +24,6 @@ function TrophyIcon() {
   );
 }
 
-function ChipIcon({ size = 14 }: { size?: number }) {
-  return (
-    <svg width={size} height={size} viewBox="0 0 20 20" fill="none" style={{ flexShrink: 0 }}>
-      <circle cx="10" cy="10" r="8" stroke="#fbbf24" strokeWidth="1.5" />
-      <circle cx="10" cy="10" r="5" stroke="#fbbf24" strokeWidth="1" strokeDasharray="2 2" />
-      <circle cx="10" cy="10" r="2" fill="#fbbf24" />
-    </svg>
-  );
-}
 
 export default function WinnerToast({ winner, pot, handName }: WinnerToastProps) {
   const [phase, setPhase] = useState<"hidden" | "in" | "visible" | "out">("hidden");
@@ -101,13 +92,15 @@ export default function WinnerToast({ winner, pot, handName }: WinnerToastProps)
           background: "rgba(255,255,255,0.04)", borderRadius: 10, padding: "8px 10px",
           marginBottom: handName ? 8 : 0,
         }}>
-          <ChipIcon size={14} />
-          <span style={{ color: "#fbbf24", fontSize: 16, fontWeight: 700, letterSpacing: "-0.01em" }}>
-            +{pot.toLocaleString()}
-          </span>
-          <span style={{ color: "rgba(255,255,255,0.3)", fontSize: 12, fontWeight: 500 }}>
-            chips
-          </span>
+          <ChipAmount
+            amount={pot}
+            prefix={<span style={{ color: "#fbbf24", fontSize: 16, fontWeight: 700, letterSpacing: "-0.01em" }}>+</span>}
+            iconSize={14}
+            iconColor="#fbbf24"
+            amountStyle={{ color: "#fbbf24", fontSize: 16, fontWeight: 700, letterSpacing: "-0.01em" }}
+            suffix={<span style={{ color: "rgba(255,255,255,0.3)", fontSize: 12, fontWeight: 500 }}>chips</span>}
+            style={{ gap: 7 }}
+          />
         </div>
 
         {/* Hand name — Moon Poker style: "Won with X" */}

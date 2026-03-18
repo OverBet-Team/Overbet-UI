@@ -10,9 +10,11 @@ import { Copy, Users, Play, Settings, Shield, HelpCircle, ScrollText, Lock } fro
 import { PokerTable } from "@/components/poker/PokerTable";
 import { PlayerPerspectiveView } from "@/components/poker/PlayerPerspectiveView";
 import { toPlayerViewState } from "@/lib/overbet-to-player-view";
+import { getPotDisplayAmounts } from "@/lib/pot-display";
 import { ActionBar } from "@/components/poker/ActionBar";
 import { BuyInModal } from "@/components/poker/BuyInModal";
 import { GameLog } from "@/components/poker/GameLog";
+import { ChipAmount } from "@/components/poker/ChipAmount";
 import { PlayerData, TurnTimer } from "@/components/poker/Seat";
 import WinnerToast from "@/components/poker/WinnerToast";
 import { useUser } from "@/hooks/useUser";
@@ -311,41 +313,47 @@ export default function RoomClient({ slug, initialRoom }: RoomProps) {
       // Detect winner from CLEANUP/SHOWDOWN
       if (state.phase === "CLEANUP" || state.phase === "SHOWDOWN") {
         let winnerInfo: { name: string; pot: number; handName?: string; winnerId?: string; winnerCards?: string[] } | null = null;
+        const latestLogs = logsRef.current;
+        let latestWinningEvent: { amount: number; handName?: string; winnerId?: string } | null = null;
+
+        for (let i = latestLogs.length - 1; i >= 0; i--) {
+          const entry = latestLogs[i];
+          const t = entry?.type;
+          if (t === "WIN" || t === "EARLY_WIN") {
+            const payload = entry?.payload ?? entry;
+            latestWinningEvent = {
+              amount: payload.amount ?? 0,
+              handName: t === "WIN" ? payload.handName : "(uncontested)",
+              winnerId: payload.playerId ?? payload.winnerId,
+            };
+            break;
+          }
+          if (entry?.type === "HAND_INIT") break;
+        }
+
         const winnerPlayer = state.players?.find(
           (p: any) => p.status === "WINNER" || p.status === "WIN"
         );
+        const { totalPot: resolvedWinnerPot } = getPotDisplayAmounts(state);
+
         if (winnerPlayer) {
           winnerInfo = {
             name: winnerPlayer.displayName || winnerPlayer.username || winnerPlayer.id,
-            pot: state.pot || 0,
-            handName: winnerPlayer.handName,
+            pot: latestWinningEvent?.amount ?? resolvedWinnerPot,
+            handName: latestWinningEvent?.handName ?? winnerPlayer.handName,
             winnerId: winnerPlayer.id,
             winnerCards: Array.isArray(winnerPlayer.holeCards) ? winnerPlayer.holeCards : winnerPlayer.cards,
           };
-        } else {
-          // Engine does not set WINNER status; derive from logs (most recent WIN/EARLY_WIN)
-          const latestLogs = logsRef.current;
-          for (let i = latestLogs.length - 1; i >= 0; i--) {
-            const entry = latestLogs[i];
-            const t = entry?.type;
-            if (t === "WIN" || t === "EARLY_WIN") {
-              const p = entry?.payload ?? entry;
-              const wid = p.playerId ?? p.winnerId;
-              if (wid) {
-                const wp = state.players?.find((x: any) => x.id === wid);
-                const displayName = wp?.displayName || wp?.username || wp?.id || wid;
-                winnerInfo = {
-                  name: displayName,
-                  pot: p.amount ?? 0,
-                  handName: t === "WIN" ? p.handName : "(uncontested)",
-                  winnerId: wid,
-                  winnerCards: wp ? (Array.isArray(wp.holeCards) ? wp.holeCards : wp.cards) : undefined,
-                };
-                break;
-              }
-            }
-            if (entry?.type === "HAND_INIT") break;
-          }
+        } else if (latestWinningEvent?.winnerId) {
+          const wp = state.players?.find((x: any) => x.id === latestWinningEvent?.winnerId);
+          const displayName = wp?.displayName || wp?.username || wp?.id || latestWinningEvent.winnerId;
+          winnerInfo = {
+            name: displayName,
+            pot: latestWinningEvent.amount,
+            handName: latestWinningEvent.handName,
+            winnerId: latestWinningEvent.winnerId,
+            winnerCards: wp ? (Array.isArray(wp.holeCards) ? wp.holeCards : wp.cards) : undefined,
+          };
         }
         if (winnerInfo) setWinner(winnerInfo);
       } else if (state.phase === "PRE_FLOP" || state.phase === "PREFLOP" || state.phase === "PRE_FLOP_BETTING") {
@@ -782,8 +790,13 @@ export default function RoomClient({ slug, initialRoom }: RoomProps) {
                       <div style={{ color: "#fff", fontSize: 12, fontWeight: 600 }}>
                         {req.displayName || `Player_${req.playerId.slice(0, 4)}`}
                       </div>
-                      <div style={{ color: "rgba(255,255,255,0.5)", fontSize: 11 }}>
-                        {req.requestType === "REBUY" ? "Re-buy" : "Seat"} {req.seatIndex + 1} · ${req.stack.toLocaleString()}
+                      <div style={{ color: "rgba(255,255,255,0.5)", fontSize: 11, display: "flex", alignItems: "center", gap: 6 }}>
+                        <span>{req.requestType === "REBUY" ? "Re-buy" : "Seat"} {req.seatIndex + 1} ·</span>
+                        <ChipAmount
+                          amount={req.stack}
+                          iconSize={11}
+                          amountStyle={{ color: "rgba(255,255,255,0.72)", fontSize: 11, fontWeight: 700 }}
+                        />
                       </div>
                     </div>
                     <div style={{ display: "flex", flexDirection: "column", gap: 4, marginLeft: 10 }}>
@@ -843,8 +856,7 @@ export default function RoomClient({ slug, initialRoom }: RoomProps) {
           isOpen={isBuyInOpen}
           onClose={() => setIsBuyInOpen(false)}
           onSubmit={handleSeatRequest}
-          minAmount={room.settings?.smallBlind * 50 || 1000}
-          maxAmount={room.settings?.bigBlind * 200 || 4000}
+          minAmount={0}
           seatIndex={selectedSeat}
           isGuest={true}
           initialDisplayName=""
@@ -915,9 +927,11 @@ export default function RoomClient({ slug, initialRoom }: RoomProps) {
                     }}>
                       <span style={{ color: "#fff", fontSize: 12, fontWeight: 600 }}>{p.username}</span>
                       <div style={{ display: "flex", alignItems: "center", gap: 6 }}>
-                        <span style={{ color: "#a78bfa", fontFamily: "monospace", fontSize: 11, fontWeight: 700 }}>
-                          ${p.chips.toLocaleString()}
-                        </span>
+                        <ChipAmount
+                          amount={p.chips}
+                          iconSize={11}
+                          amountStyle={{ color: "#a78bfa", fontSize: 11, fontWeight: 700, fontFamily: "monospace" }}
+                        />
                         {room.hostId === p.id && (
                           <span style={{
                             fontSize: 9, padding: "1px 6px", borderRadius: 999,
@@ -961,15 +975,24 @@ export default function RoomClient({ slug, initialRoom }: RoomProps) {
               </div>
               <div style={{ display: "flex", flexDirection: "column", gap: 7 }}>
                 {[
-                  { label: "Variant", value: room.settings?.variant || "NLH" },
-                  { label: "Blinds", value: `${room.settings?.smallBlind || 10} / ${room.settings?.bigBlind || 20}` },
-                  { label: "Turn Time", value: `${room.settings?.turnTimeout || 30}s` },
-                  { label: "Time Bank", value: `${room.settings?.timeBank || 30}s` },
-                  { label: "Auto-Start", value: `${room.settings?.autoStartDelay || 5}s` },
+                  { label: "Variant", value: <span style={{ color: "rgba(255,255,255,0.8)", fontSize: 12, fontWeight: 600 }}>{room.settings?.variant || "NLH"}</span> },
+                  {
+                    label: "Blinds",
+                    value: (
+                      <span style={{ display: "inline-flex", alignItems: "center", gap: 6, color: "rgba(255,255,255,0.8)" }}>
+                        <ChipAmount amount={room.settings?.smallBlind || 10} iconSize={11} amountStyle={{ color: "inherit", fontSize: 12, fontWeight: 600 }} />
+                        <span>/</span>
+                        <ChipAmount amount={room.settings?.bigBlind || 20} iconSize={11} amountStyle={{ color: "inherit", fontSize: 12, fontWeight: 600 }} />
+                      </span>
+                    ),
+                  },
+                  { label: "Turn Time", value: <span style={{ color: "rgba(255,255,255,0.8)", fontSize: 12, fontWeight: 600 }}>{`${room.settings?.turnTimeout || 30}s`}</span> },
+                  { label: "Time Bank", value: <span style={{ color: "rgba(255,255,255,0.8)", fontSize: 12, fontWeight: 600 }}>{`${room.settings?.timeBank || 30}s`}</span> },
+                  { label: "Auto-Start", value: <span style={{ color: "rgba(255,255,255,0.8)", fontSize: 12, fontWeight: 600 }}>{`${room.settings?.autoStartDelay || 5}s`}</span> },
                 ].map(({ label, value }) => (
                   <div key={label} style={{ display: "flex", justifyContent: "space-between", alignItems: "center" }}>
                     <span style={{ color: "rgba(255,255,255,0.35)", fontSize: 12 }}>{label}</span>
-                    <span style={{ color: "rgba(255,255,255,0.8)", fontSize: 12, fontWeight: 600 }}>{value}</span>
+                    {value}
                   </div>
                 ))}
               </div>
@@ -1066,14 +1089,9 @@ export default function RoomClient({ slug, initialRoom }: RoomProps) {
   const myStack = myPlayerInfo?.stack ?? myPlayerInfo?.chips ?? myLobbyPlayer?.chips ?? null;
   const isActivePlayer = gameState?.activePlayerId === userId;
 
-  const displayPots: { amount: number; type: string }[] = [];
-  if (gameState?.pot && gameState.pot > 0) displayPots.push({ amount: gameState.pot, type: "MAIN" });
-  if (gameState?.sidePots) {
-    gameState.sidePots.forEach((sp) => displayPots.push({ amount: sp.amount, type: "SIDE" }));
-  }
-
-  // Moon-style bottom bar helpers
   const playerBet = myPlayerInfo?.bet ?? 0;
+  const { totalPot, currentRoundAmount } = getPotDisplayAmounts(gameState);
+  // Moon-style bottom bar helpers
   const revealedBoardCount = (gameState?.board ?? []).filter(Boolean).length;
   const actionBarInteractable =
     !!gameState &&
@@ -1147,8 +1165,7 @@ export default function RoomClient({ slug, initialRoom }: RoomProps) {
           isOpen={isBuyInOpen}
           onClose={() => setIsBuyInOpen(false)}
           onSubmit={handleSeatRequest}
-          minAmount={room.settings?.smallBlind * 50 || 1000}
-          maxAmount={room.settings?.bigBlind * 200 || 4000}
+          minAmount={0}
           seatIndex={selectedSeat}
           isGuest={true}
           initialDisplayName=""
@@ -1254,11 +1271,15 @@ export default function RoomClient({ slug, initialRoom }: RoomProps) {
                 </button>
               )}
             </div>
-            <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
-              <span style={{ color: "#fff", fontSize: 12, fontWeight: 700 }}>Pot</span>
-              <span style={{ color: "#fbbf24", fontSize: 12, fontWeight: 700, fontVariantNumeric: "tabular-nums" }}>
-                {gameState?.pot?.toLocaleString?.() || 0}
-              </span>
+            <div style={{ display: "flex", alignItems: "center", gap: 10 }}>
+              <div style={{ display: "flex", alignItems: "center", gap: 4 }}>
+                <span style={{ color: "rgba(255,255,255,0.55)", fontSize: 10, fontWeight: 700, textTransform: "uppercase", letterSpacing: "0.08em" }}>Pot</span>
+                <ChipAmount amount={totalPot} iconSize={11} iconColor="#fbbf24" amountStyle={{ color: "#fbbf24", fontSize: 12, fontWeight: 700 }} />
+              </div>
+              <div style={{ display: "flex", alignItems: "center", gap: 4 }}>
+                <span style={{ color: "rgba(255,255,255,0.45)", fontSize: 10, fontWeight: 700, textTransform: "uppercase", letterSpacing: "0.08em" }}>Round</span>
+                <ChipAmount amount={currentRoundAmount} iconSize={10} iconColor="#a78bfa" amountStyle={{ color: "#a78bfa", fontSize: 11, fontWeight: 700 }} />
+              </div>
             </div>
           </div>
         )}
@@ -1464,9 +1485,11 @@ export default function RoomClient({ slug, initialRoom }: RoomProps) {
               </button>
             </div>
             <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
-              <span style={{ color: "#a78bfa", fontSize: 14, fontWeight: 800, fontVariantNumeric: "tabular-nums" }}>
-                {myStack != null ? myStack.toLocaleString() : "—"}
-              </span>
+              {myStack != null ? (
+                <ChipAmount amount={myStack} iconSize={12} amountStyle={{ color: "#a78bfa", fontSize: 14, fontWeight: 800 }} />
+              ) : (
+                <span style={{ color: "#a78bfa", fontSize: 14, fontWeight: 800, fontVariantNumeric: "tabular-nums" }}>—</span>
+              )}
               {turnTimer && turnTimer.playerId === userId && <TurnTimerPill timer={turnTimer} />}
             </div>
           </div>
@@ -1478,7 +1501,7 @@ export default function RoomClient({ slug, initialRoom }: RoomProps) {
                 currentBet={gameState?.currentBet || 0}
                 playerBet={playerBet}
                 minRaise={gameState?.minRaise || 0}
-                pot={gameState?.pot || 0}
+                pot={totalPot}
                 compact
                 onAction={handleAction}
               />
@@ -1538,7 +1561,7 @@ export default function RoomClient({ slug, initialRoom }: RoomProps) {
                 currentBet={gameState?.currentBet || 0}
                 playerBet={playerBet}
                 minRaise={gameState?.minRaise || 0}
-                pot={gameState?.pot || 0}
+                pot={totalPot}
                 onAction={handleAction}
               />
             ) : (
@@ -1561,16 +1584,34 @@ export default function RoomClient({ slug, initialRoom }: RoomProps) {
                 </span>
               </div>
               <div style={{ display: "flex", alignItems: "center", gap: 6 }}>
-                <span style={{ color: "#a78bfa", fontSize: 18, fontWeight: 800, fontVariantNumeric: "tabular-nums" }}>
-                  {myStack != null ? myStack.toLocaleString() : "—"}
-                </span>
+                {myStack != null ? (
+                  <ChipAmount
+                    amount={myStack}
+                    iconSize={16}
+                    amountStyle={{ color: "#a78bfa", fontSize: 18, fontWeight: 800 }}
+                  />
+                ) : (
+                  <span style={{ color: "#a78bfa", fontSize: 18, fontWeight: 800, fontVariantNumeric: "tabular-nums" }}>—</span>
+                )}
                 {playerBet > 0 && (
                   <span style={{
-                    padding: "2px 6px", borderRadius: 6,
-                    background: "rgba(167,139,250,0.2)", color: "#a78bfa",
-                    fontSize: 10, fontWeight: 700,
+                    display: "inline-flex",
+                    alignItems: "center",
+                    gap: 4,
+                    padding: "2px 6px",
+                    borderRadius: 6,
+                    background: "rgba(167,139,250,0.2)",
+                    color: "#a78bfa",
+                    fontSize: 10,
+                    fontWeight: 700,
                   }}>
-                    Bet: {playerBet}
+                    <span>Bet</span>
+                    <ChipAmount
+                      amount={playerBet}
+                      iconSize={10}
+                      iconColor="#a78bfa"
+                      amountStyle={{ color: "inherit", fontSize: 10, fontWeight: 700 }}
+                    />
                   </span>
                 )}
               </div>
@@ -1681,8 +1722,7 @@ export default function RoomClient({ slug, initialRoom }: RoomProps) {
         isOpen={isRebuyOpen}
         onClose={() => setIsRebuyOpen(false)}
         onSubmit={handleRebuy}
-        minAmount={room.settings?.smallBlind * 50 || 1000}
-        maxAmount={room.settings?.bigBlind * 200 || 4000}
+        minAmount={0}
         seatIndex={players.find((p) => p.id === userId)?.seatIndex ?? 0}
         isGuest={true}
         initialDisplayName={myDisplayName || players.find((p) => p.id === userId)?.username || ""}

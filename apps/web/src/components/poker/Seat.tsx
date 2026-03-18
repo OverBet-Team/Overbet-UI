@@ -3,6 +3,7 @@
 import React from "react";
 import { motion, AnimatePresence } from "framer-motion";
 import PlayingCard from "./PlayingCard";
+import { ChipAmount } from "./ChipAmount";
 
 export interface PlayerData {
   id: string;
@@ -166,7 +167,15 @@ export function Seat({
               fontFamily: "Outfit, Inter, sans-serif",
             }}
           >
-            bet ${player.bet}
+            <span style={{ display: "inline-flex", alignItems: "center", gap: 4 }}>
+              <span>Bet</span>
+              <ChipAmount
+                amount={player.bet}
+                iconSize={11}
+                iconColor="#f87171"
+                amountStyle={{ color: "inherit" }}
+              />
+            </span>
           </motion.div>
         ) : null}
       </AnimatePresence>
@@ -476,7 +485,12 @@ export function Seat({
             color: "#a5b4fc",
           }}
         >
-          ${player.chips}
+          <ChipAmount
+            amount={player.chips}
+            iconSize={10}
+            iconColor="#a5b4fc"
+            amountStyle={{ color: "inherit", fontFamily: "monospace" }}
+          />
         </div>
 
         {/* Time bank bar */}

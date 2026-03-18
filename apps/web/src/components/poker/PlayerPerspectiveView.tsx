@@ -8,6 +8,7 @@
 
 import React from "react";
 import PlayingCard from "./PlayingCard";
+import { ChipAmount, ChipIcon } from "./ChipAmount";
 import type { PlayerViewState, OpponentForView } from "@/lib/overbet-to-player-view";
 
 // Default avatar placeholder (initials)
@@ -35,15 +36,6 @@ function AvatarPlaceholder({ name, size }: { name: string; size: number }) {
   );
 }
 
-function ChipIcon({ size = 12 }: { size?: number }) {
-  return (
-    <svg width={size} height={size} viewBox="0 0 20 20" fill="none" style={{ flexShrink: 0 }}>
-      <circle cx="10" cy="10" r="9" stroke="rgba(255,255,255,0.5)" strokeWidth="1.5" />
-      <circle cx="10" cy="10" r="6" stroke="rgba(255,255,255,0.4)" strokeWidth="1" />
-      <circle cx="10" cy="10" r="2.5" fill="rgba(255,255,255,0.5)" />
-    </svg>
-  );
-}
 
 // Moon-style face-down card with concentric circles
 function FaceDownCard({ w, h, r, rotate = 0 }: { w: number; h: number; r: number; rotate?: number }) {
@@ -206,12 +198,11 @@ function OpponentSeat({
         >
           {player.username}
         </span>
-        <div style={{ display: "flex", alignItems: "center", gap: 3 }}>
-          <ChipIcon size={10} />
-          <span style={{ color: "rgba(255,255,255,0.5)", fontSize: 11, fontWeight: 500 }}>
-            {player.chips.toLocaleString()}
-          </span>
-        </div>
+        <ChipAmount
+          amount={player.chips}
+          iconSize={10}
+          amountStyle={{ color: "rgba(255,255,255,0.5)", fontSize: 11, fontWeight: 500 }}
+        />
         {player.bet > 0 && (
           <div
             style={{
@@ -227,7 +218,12 @@ function OpponentSeat({
               color: "#a78bfa",
             }}
           >
-            {player.bet}
+            <ChipAmount
+              amount={player.bet}
+              iconSize={9}
+              iconColor="#a78bfa"
+              amountStyle={{ color: "inherit", fontSize: 10, fontWeight: 600 }}
+            />
           </div>
         )}
         {/* Status badges — Moon-style */}
@@ -316,7 +312,7 @@ export function PlayerPerspectiveView({
   winnerCards?: string[];
   compactMode?: boolean;
 }) {
-  const { hero, opponents, board, pot, phase, activePlayerId } = viewState;
+  const { hero, opponents, board, totalPot, currentRoundAmount, phase, activePlayerId } = viewState;
   const isCleanup = phase === "CLEANUP" || phase === "SHOWDOWN";
   const total = opponents.length + 1;
   const seatSize: "lg" | "md" | "sm" = compactMode
@@ -406,24 +402,53 @@ export function PlayerPerspectiveView({
           pointerEvents: "none",
         }}
       >
-        <div style={{ display: "flex", flexDirection: "column", alignItems: "center", gap: 2 }}>
+        <div data-testid="total-pot-indicator" style={{ display: "flex", flexDirection: "column", alignItems: "center", gap: 8 }}>
           <div style={{ display: "flex", alignItems: "center", gap: 5, color: "rgba(255,255,255,0.4)" }}>
             <ChipIcon size={11} />
             <span style={{ fontSize: 10, fontWeight: 600, letterSpacing: "0.08em", textTransform: "uppercase" }}>
-              Pot
+              Total Pot
             </span>
           </div>
-          <span
+          <div data-testid="total-pot-amount">
+            <ChipAmount
+              amount={totalPot}
+              iconSize={compactMode ? 20 : 24}
+              amountStyle={{
+                color: "#ffffff",
+                fontSize: "clamp(2.8rem, 5vw, 4.5rem)",
+                fontWeight: 800,
+                fontFamily: "Outfit, sans-serif",
+                lineHeight: 1,
+              }}
+              style={{ gap: compactMode ? 8 : 10 }}
+            />
+          </div>
+          <div
+            data-testid="current-round-indicator"
             style={{
-              color: "#ffffff",
-              fontSize: "clamp(2.8rem, 5vw, 4.5rem)",
-              fontWeight: 800,
-              fontFamily: "Outfit, sans-serif",
-              lineHeight: 1,
+              display: "inline-flex",
+              alignItems: "center",
+              gap: 8,
+              padding: compactMode ? "5px 10px" : "6px 12px",
+              borderRadius: 999,
+              background: "rgba(0,0,0,0.45)",
+              border: "1px solid rgba(167,139,250,0.24)",
+              color: "rgba(255,255,255,0.78)",
+              boxShadow: "0 2px 10px rgba(0,0,0,0.35)",
             }}
           >
-            {pot > 0 ? pot.toLocaleString() : "0"}
-          </span>
+            <span style={{ fontSize: 10, fontWeight: 700, letterSpacing: "0.08em", textTransform: "uppercase", color: "rgba(255,255,255,0.42)" }}>
+              Round
+            </span>
+            <span data-testid="current-round-amount">
+              <ChipAmount
+                amount={currentRoundAmount}
+                iconSize={compactMode ? 10 : 11}
+                iconColor="#a78bfa"
+                amountStyle={{ color: "#a78bfa", fontSize: compactMode ? 11 : 12, fontWeight: 700 }}
+              />
+            </span>
+          </div>
         </div>
         <div data-testid="board-cards" style={{ display: "flex", gap: compactMode ? 4 : 6, alignItems: "center" }}>
           {board.map((card, i) =>
@@ -479,12 +504,11 @@ export function PlayerPerspectiveView({
           <span style={{ color: "rgba(255,255,255,0.92)", fontSize: compactMode ? 12 : 14, fontWeight: 700, fontFamily: "Outfit, sans-serif" }}>
             {hero.username}
           </span>
-          <div style={{ display: "flex", alignItems: "center", gap: 3 }}>
-            <ChipIcon size={compactMode ? 9 : 11} />
-            <span style={{ color: "#a78bfa", fontSize: compactMode ? 11 : 13, fontWeight: 700 }}>
-              {hero.chips.toLocaleString()}
-            </span>
-          </div>
+          <ChipAmount
+            amount={hero.chips}
+            iconSize={compactMode ? 9 : 11}
+            amountStyle={{ color: "#a78bfa", fontSize: compactMode ? 11 : 13, fontWeight: 700 }}
+          />
         </div>
       </div>
     </div>

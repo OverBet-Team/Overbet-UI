@@ -12,7 +12,7 @@ import React from "react";
 import { motion, AnimatePresence } from "framer-motion";
 import { Seat, PlayerData, TurnTimer } from "./Seat";
 import PlayingCard from "./PlayingCard";
-
+import { ChipAmount } from "./ChipAmount";
 interface PokerTableProps {
   players: (PlayerData | undefined)[];
   dealerId: string;
@@ -43,7 +43,7 @@ interface PokerTableProps {
  */
 // 10 seats distributed around an ellipse, clockwise from bottom-center.
 // Positions match Moon Poker's table layout (hero = seat 0 at bottom).
-const SEAT_POSITIONS: { top: string; left: string }[] = [
+const PLAYER_SEAT_POSITIONS: { top: string; left: string }[] = [
   { top: "90%",  left: "50%" },   // 0 — bottom center (hero)
   { top: "80%",  left: "74%" },   // 1 — bottom right
   { top: "58%",  left: "93%" },   // 2 — right
@@ -54,6 +54,21 @@ const SEAT_POSITIONS: { top: string; left: string }[] = [
   { top: "58%",  left: "7%" },    // 7 — left
   { top: "80%",  left: "26%" },   // 8 — bottom left
   { top: "90%",  left: "30%" },   // 9 — bottom center-left
+];
+
+// Empty-seat request markers sit on the felt's inner rail instead of using the
+// larger occupied-seat footprint coordinates.
+const EMPTY_SEAT_POSITIONS: { top: string; left: string }[] = [
+  { top: "79%", left: "50%" },
+  { top: "72%", left: "68%" },
+  { top: "55%", left: "81%" },
+  { top: "33%", left: "76%" },
+  { top: "18%", left: "61%" },
+  { top: "18%", left: "39%" },
+  { top: "33%", left: "24%" },
+  { top: "55%", left: "19%" },
+  { top: "72%", left: "32%" },
+  { top: "79%", left: "38%" },
 ];
 
 // Approximate offset from seat toward table center for card deal animation
@@ -98,13 +113,14 @@ export function PokerTable({
         width: "100%",
         overflowX: "auto",
         WebkitOverflowScrolling: "touch",
-        // Hide scrollbar on mobile but keep scroll functionality
         scrollbarWidth: "none",
+        display: "flex",
+        justifyContent: "center",
       }}
     >
     <div
-      className="relative w-full max-w-5xl my-10"
-      style={{ aspectRatio: "2.1 / 1", minWidth: 480 }}
+      className="relative w-full max-w-5xl"
+      style={{ aspectRatio: "2.1 / 1", minWidth: 480, margin: "40px auto" }}
     >
       {/* ── Moon Poker dark velvet table ─────────────────────────────── */}
       {/* Outer shadow ring */}
@@ -227,7 +243,15 @@ export function PokerTable({
                     boxShadow: "0 2px 12px rgba(0,0,0,0.4)",
                   }}
                 >
-                  {pot.type === "MAIN" ? "POT" : "SIDE"}: ${pot.amount}
+                  <span style={{ display: "inline-flex", alignItems: "center", gap: 6 }}>
+                    <span>{pot.type === "MAIN" ? "POT" : "SIDE"}:</span>
+                    <ChipAmount
+                      amount={pot.amount}
+                      iconSize={12}
+                      iconColor={pot.type === "MAIN" ? "#f87171" : "#a5b4fc"}
+                      amountStyle={{ color: "inherit" }}
+                    />
+                  </span>
                 </motion.div>
               ))}
           </AnimatePresence>
@@ -235,28 +259,32 @@ export function PokerTable({
       </div>
 
       {/* ── Seats ───────────────────────────────────────────────────────── */}
-      {SEAT_POSITIONS.map((pos, i) => (
-        <div
-          key={i}
-          className="absolute z-10"
-          style={{
-            top: pos.top,
-            left: pos.left,
-            transform: "translate(-50%, -50%)",
-          }}
-        >
-          <Seat
-            player={tableSeats[i]}
-            seatIndex={i}
-            isDealer={tableSeats[i]?.id === dealerId}
-            isActive={tableSeats[i]?.id === activePlayerId}
-            isSelf={tableSeats[i]?.id === userId}
-            onSeatClick={handleSeatClick}
-            timer={turnTimer}
-            centerOffset={CENTER_OFFSETS[i]}
-          />
-        </div>
-      ))}
+      {PLAYER_SEAT_POSITIONS.map((playerPos, i) => {
+        const seatPosition = tableSeats[i] ? playerPos : EMPTY_SEAT_POSITIONS[i];
+
+        return (
+          <div
+            key={i}
+            className="absolute z-10"
+            style={{
+              top: seatPosition.top,
+              left: seatPosition.left,
+              transform: "translate(-50%, -50%)",
+            }}
+          >
+            <Seat
+              player={tableSeats[i]}
+              seatIndex={i}
+              isDealer={tableSeats[i]?.id === dealerId}
+              isActive={tableSeats[i]?.id === activePlayerId}
+              isSelf={tableSeats[i]?.id === userId}
+              onSeatClick={handleSeatClick}
+              timer={turnTimer}
+              centerOffset={CENTER_OFFSETS[i]}
+            />
+          </div>
+        );
+      })}
     </div>
     </div>
   );

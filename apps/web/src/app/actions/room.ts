@@ -3,7 +3,19 @@
 import { prisma } from "@overbet/db";
 import { v4 as uuidv4 } from "uuid";
 
-export async function createRoom(hostId: string, roomName: string) {
+type CreateRoomSettings = {
+    smallBlind: number;
+    bigBlind: number;
+};
+
+export async function createRoom(
+    hostId: string,
+    roomName: string,
+    settings: CreateRoomSettings,
+ ) {
+    const smallBlind = Number.isFinite(settings.smallBlind) ? Math.max(1, Math.trunc(settings.smallBlind)) : 10;
+    const bigBlind = Number.isFinite(settings.bigBlind) ? Math.max(1, Math.trunc(settings.bigBlind)) : 20;
+
     // Generate a short 6-character slug for the URL
     const slug = uuidv4().substring(0, 6).toUpperCase();
 
@@ -25,8 +37,8 @@ export async function createRoom(hostId: string, roomName: string) {
             hostId: host.id,
             settings: {
                 variant: "NLH",
-                smallBlind: 10,
-                bigBlind: 20
+                smallBlind,
+                bigBlind
             }
         }
     });

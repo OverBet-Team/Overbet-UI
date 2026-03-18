@@ -4,7 +4,7 @@
 // Scrollable hand history with visual hierarchy: phase headers, action rows, win highlights.
 
 import React, { useEffect, useRef } from "react";
-
+import { ChipAmount } from "./ChipAmount";
 interface GameLogEntry {
   type: string;
   payload: any;
@@ -275,12 +275,16 @@ function Name({ children }: { children: React.ReactNode }) {
 
 function Chip({ children, color = "rgba(167,139,250,0.9)" }: { children: React.ReactNode; color?: string }) {
   return (
-    <span style={{
-      display: "inline-flex", alignItems: "center", gap: 3,
-      background: "rgba(255,255,255,0.06)", borderRadius: 4, padding: "1px 6px",
-      color, fontSize: 11, fontWeight: 700, fontVariantNumeric: "tabular-nums",
-    }}>
-      {children}
-    </span>
+    <ChipAmount
+      amount={children as number | string}
+      iconSize={10}
+      iconColor={color}
+      amountStyle={{ color, fontSize: 11, fontWeight: 700 }}
+      style={{
+        background: "rgba(255,255,255,0.06)",
+        borderRadius: 4,
+        padding: "1px 6px",
+      }}
+    />
   );
 }

@@ -405,7 +405,11 @@ async function startHand(roomId: string, schema_version: number = 1) {
     });
     roomData.currentHandId = hand.id;
 
-    const engineEvents = roomData.engine.startHand();
+    const engineEvents = roomData.engine.startHand({
+        smallBlind: dbSettings?.smallBlind ?? 10,
+        bigBlind: dbSettings?.bigBlind ?? 20,
+        ante: dbSettings?.ante ?? 0,
+    });
 
     for (const ev of engineEvents) {
         roomData.seq++;

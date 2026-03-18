@@ -5,6 +5,7 @@ import { useRouter } from "next/navigation";
 import { useState } from "react";
 import { useUser } from "../hooks/useUser";
 import { Plus, Minus, Play } from "lucide-react";
+import { ChipIcon } from "@/components/poker/ChipAmount";
 
 // ── Moon Poker logo mark ──────────────────────────────────────────────────────
 function MoonLogo({ size = 32 }: { size?: number }) {
@@ -25,16 +26,6 @@ function MoonLogo({ size = 32 }: { size?: number }) {
   );
 }
 
-// ── Chip icon ─────────────────────────────────────────────────────────────────
-function ChipIcon({ size = 16, color = "rgba(255,255,255,0.5)" }: { size?: number; color?: string }) {
-  return (
-    <svg width={size} height={size} viewBox="0 0 20 20" fill="none" style={{ flexShrink: 0 }}>
-      <circle cx="10" cy="10" r="8" stroke={color} strokeWidth="1.5" />
-      <circle cx="10" cy="10" r="5" stroke={color} strokeWidth="1" strokeDasharray="2 2" />
-      <circle cx="10" cy="10" r="2" fill={color} />
-    </svg>
-  );
-}
 
 // ── Number stepper input ──────────────────────────────────────────────────────
 function NumberInput({
@@ -113,7 +104,10 @@ export default function HomeClient() {
     setLoading(true);
     setError(null);
     try {
-      const res = await createRoom(userId, tableName || "Home Game");
+      const res = await createRoom(userId, tableName || "Home Game", {
+        smallBlind,
+        bigBlind,
+      });
       if (res.success) {
         router.push(`/room/${res.roomSlug}`);
       } else {

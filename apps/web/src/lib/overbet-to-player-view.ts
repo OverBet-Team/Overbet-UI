@@ -5,7 +5,7 @@
  */
 
 import type { PlayerData } from "@/components/poker/Seat";
-
+import { getPotDisplayAmounts } from "@/lib/pot-display";
 export interface OpponentForView {
   id: string;
   username: string;
@@ -31,18 +31,28 @@ export interface PlayerViewState {
   hero: HeroForView;
   opponents: OpponentForView[];
   board: (string | null)[];
-  pot: number;
+  totalPot: number;
+  currentRoundAmount: number;
   dealerId: string;
   activePlayerId: string;
   /** When true (cleanup phase), UI may reveal full board on Show All click */
   phase?: string;
 }
 
+
 export function toPlayerViewState(
   players: PlayerData[],
-  gameState: { board?: string[]; pot?: number; phase?: string; dealerId?: string; activePlayerId?: string; players?: any[] } | null,
+  gameState: {
+    board?: string[];
+    pot?: number;
+    sidePots?: { amount?: number }[];
+    phase?: string;
+    dealerId?: string;
+    activePlayerId?: string;
+    players?: any[];
+  } | null,
   userId: string
-): PlayerViewState | null {
+ ): PlayerViewState | null {
   const mySeat = players.find((p) => p.id === userId && p.seatIndex !== undefined);
   if (!mySeat) return null;
 
@@ -70,6 +80,8 @@ export function toPlayerViewState(
 
   const board = Array.from({ length: 5 }, (_, i) => (gameState?.board ?? [])[i] ?? null);
 
+  const { totalPot, currentRoundAmount } = getPotDisplayAmounts(gameState);
+
   return {
     hero: {
       id: mySeat.id,
@@ -81,7 +93,8 @@ export function toPlayerViewState(
     },
     opponents,
     board,
-    pot: gameState?.pot ?? 0,
+    totalPot,
+    currentRoundAmount,
     dealerId: gameState?.dealerId ?? "",
     activePlayerId: gameState?.activePlayerId ?? "",
     phase: gameState?.phase,

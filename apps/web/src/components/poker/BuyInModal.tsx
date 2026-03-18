@@ -1,11 +1,12 @@
-import React, { useState, useEffect } from 'react';
+import React, { useEffect, useState } from "react";
+import { ChipAmount, ChipIcon } from "./ChipAmount";
 
 interface BuyInModalProps {
     isOpen: boolean;
     onClose: () => void;
     onSubmit: (amount: number, displayName: string) => void;
     minAmount: number;
-    maxAmount: number;
+    maxAmount?: number;
     seatIndex: number;
     isGuest: boolean;
     initialDisplayName?: string;
@@ -32,34 +33,28 @@ export function BuyInModal({
             setAmountStr(minAmount.toString());
             setDisplayName(initialDisplayName);
         }
-    }, [isOpen, minAmount, initialDisplayName]);
+    }, [initialDisplayName, isOpen, minAmount]);
 
     if (!isOpen) return null;
 
     const isRebuy = mode === "rebuy";
+    const isUnlimited = maxAmount == null;
 
     const handleAmountChange = (val: string) => {
-        const clean = val.replace(/[^0-9]/g, '');
-        const final = clean.replace(/^0+(?!$)/, '');
+        const clean = val.replace(/[^0-9]/g, "");
+        const final = clean.replace(/^0+(?!$)/, "");
         setAmountStr(final);
     };
 
+    const currentAmount = amountStr === "" ? Number.NaN : parseInt(amountStr, 10);
+    const isAmountValid = !Number.isNaN(currentAmount) && currentAmount >= minAmount && (isUnlimited || currentAmount <= maxAmount);
+    const hasRequiredName = isRebuy || !isGuest || displayName.trim().length > 0;
+    const isValid = isAmountValid && hasRequiredName;
+
     const handleConfirm = () => {
-        const amount = parseInt(amountStr, 10);
-        if (isNaN(amount) || amount < minAmount || amount > maxAmount) return;
-        if (isGuest && !isRebuy && !displayName.trim()) return;
-        onSubmit(amount, isRebuy ? initialDisplayName : displayName.trim());
+        if (!isValid || Number.isNaN(currentAmount)) return;
+        onSubmit(currentAmount, isRebuy ? initialDisplayName : displayName.trim());
     };
-
-    // Quick amount presets
-    const presets = [
-        { label: "Min", value: minAmount },
-        { label: "Mid", value: Math.round((minAmount + maxAmount) / 2 / 100) * 100 },
-        { label: "Max", value: maxAmount },
-    ];
-
-    const currentAmount = parseInt(amountStr, 10) || 0;
-    const isValid = currentAmount >= minAmount && currentAmount <= maxAmount && (isRebuy || !isGuest || displayName.trim().length > 0);
 
     return (
         <div style={{
@@ -77,7 +72,6 @@ export function BuyInModal({
                     : "0 24px 80px rgba(0,0,0,0.7)",
                 fontFamily: "Outfit, sans-serif",
             }}>
-                {/* Close */}
                 <button
                     onClick={onClose}
                     style={{
@@ -89,7 +83,6 @@ export function BuyInModal({
                     ✕
                 </button>
 
-                {/* Header */}
                 <div style={{ marginBottom: 24 }}>
                     {isRebuy && (
                         <div style={{
@@ -113,7 +106,6 @@ export function BuyInModal({
                 </div>
 
                 <div style={{ display: "flex", flexDirection: "column", gap: 18 }}>
-                    {/* Display name — only for initial buy-in */}
                     {isGuest && !isRebuy && (
                         <div>
                             <label style={{ display: "block", color: "rgba(255,255,255,0.6)", fontSize: 11, fontWeight: 700, textTransform: "uppercase", letterSpacing: "0.08em", marginBottom: 8 }}>
@@ -137,7 +129,6 @@ export function BuyInModal({
                         </div>
                     )}
 
-                    {/* Re-buy shows the player name as a read-only pill */}
                     {isRebuy && initialDisplayName && (
                         <div style={{ display: "flex", alignItems: "center", gap: 10 }}>
                             <div style={{
@@ -155,7 +146,6 @@ export function BuyInModal({
                         </div>
                     )}
 
-                    {/* Amount */}
                     <div>
                         <label style={{ display: "block", color: "rgba(255,255,255,0.6)", fontSize: 11, fontWeight: 700, textTransform: "uppercase", letterSpacing: "0.08em", marginBottom: 8 }}>
                             {isRebuy ? "Re-buy Amount" : "Buy-In Amount"}
@@ -163,15 +153,17 @@ export function BuyInModal({
                         <div style={{ position: "relative" }}>
                             <span style={{
                                 position: "absolute", left: 14, top: "50%", transform: "translateY(-50%)",
-                                color: "rgba(255,255,255,0.4)", fontWeight: 700, fontSize: 16,
-                            }}>$</span>
+                                display: "inline-flex", alignItems: "center", justifyContent: "center",
+                            }}>
+                                <ChipIcon size={16} color="rgba(255,255,255,0.4)" />
+                            </span>
                             <input
                                 type="text"
                                 inputMode="numeric"
                                 value={amountStr}
                                 onChange={(e) => handleAmountChange(e.target.value)}
                                 style={{
-                                    width: "100%", height: 48, paddingLeft: 28, paddingRight: 14,
+                                    width: "100%", height: 48, paddingLeft: 38, paddingRight: 14,
                                     background: "rgba(255,255,255,0.04)", border: "1px solid rgba(255,255,255,0.1)",
                                     borderRadius: 12, color: "#fff", fontSize: 18, fontWeight: 700,
                                     fontFamily: "monospace", outline: "none", boxSizing: "border-box",
@@ -181,39 +173,17 @@ export function BuyInModal({
                             />
                         </div>
 
-                        {/* Quick presets */}
-                        <div style={{ display: "flex", gap: 6, marginTop: 8 }}>
-                            {presets.map(({ label, value }) => (
-                                <button
-                                    key={label}
-                                    onClick={() => setAmountStr(value.toString())}
-                                    style={{
-                                        flex: 1, padding: "5px 0", borderRadius: 8,
-                                        border: currentAmount === value
-                                            ? "1px solid rgba(167,139,250,0.5)"
-                                            : "1px solid rgba(255,255,255,0.08)",
-                                        background: currentAmount === value
-                                            ? "rgba(167,139,250,0.12)"
-                                            : "rgba(255,255,255,0.03)",
-                                        color: currentAmount === value ? "#a78bfa" : "rgba(255,255,255,0.4)",
-                                        fontSize: 11, fontWeight: 700, cursor: "pointer",
-                                        fontFamily: "Outfit, sans-serif",
-                                        transition: "all 0.15s",
-                                    }}
-                                >
-                                    {label}
-                                </button>
-                            ))}
-                        </div>
-
                         <div style={{ display: "flex", justifyContent: "space-between", marginTop: 6 }}>
-                            <span style={{ color: "rgba(255,255,255,0.25)", fontSize: 10 }}>Min ${minAmount.toLocaleString()}</span>
-                            <span style={{ color: "rgba(255,255,255,0.25)", fontSize: 10 }}>Max ${maxAmount.toLocaleString()}</span>
+                            <span style={{ color: "rgba(255,255,255,0.25)", fontSize: 10, display: "inline-flex", alignItems: "center" }}>
+                                Min <ChipAmount amount={minAmount} iconSize={10} amountStyle={{ color: "inherit", fontSize: 10 }} style={{ gap: 3, marginLeft: 4 }} />
+                            </span>
+                            <span style={{ color: "rgba(255,255,255,0.25)", fontSize: 10, display: "inline-flex", alignItems: "center" }}>
+                                Max {isUnlimited ? "Unlimited" : <ChipAmount amount={maxAmount} iconSize={10} amountStyle={{ color: "inherit", fontSize: 10 }} style={{ gap: 3, marginLeft: 4 }} />}
+                            </span>
                         </div>
                     </div>
                 </div>
 
-                {/* Actions */}
                 <div style={{ display: "flex", gap: 10, marginTop: 24 }}>
                     <button
                         data-testid="buyin-cancel-button"

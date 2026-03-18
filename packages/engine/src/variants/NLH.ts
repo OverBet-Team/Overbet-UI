@@ -40,6 +40,16 @@ export class NLHMachine implements PokerEngine {
         const events: HandEvent[] = [];
         this.eventSequence = 0;
 
+        if (Number.isFinite(settings?.smallBlind)) {
+            this.state.smallBlind = Math.max(0, Math.trunc(settings.smallBlind));
+        }
+        if (Number.isFinite(settings?.bigBlind)) {
+            this.state.bigBlind = Math.max(0, Math.trunc(settings.bigBlind));
+        }
+        if (Number.isFinite(settings?.ante)) {
+            this.state.ante = Math.max(0, Math.trunc(settings.ante));
+        }
+
         // Determine next-hand eligible players from bankroll/status before per-hand status reset.
         // Folded players with chips must be allowed back into the next hand.
         const startEligiblePlayers = this.state.players.filter(

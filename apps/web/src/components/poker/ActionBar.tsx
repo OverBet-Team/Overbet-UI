@@ -6,7 +6,7 @@
 
 import React, { useState, useEffect, useCallback } from "react";
 import { createPortal } from "react-dom";
-
+import { ChipAmount, ChipIcon } from "./ChipAmount";
 interface ActionBarProps {
   isActive: boolean;
   stack: number;
@@ -18,16 +18,6 @@ interface ActionBarProps {
   onAction: (actionType: string, amount?: number) => void;
 }
 
-// ── Chip icon ─────────────────────────────────────────────────────────────────
-function ChipIcon({ size = 12, color = "rgba(255,255,255,0.5)" }: { size?: number; color?: string }) {
-  return (
-    <svg width={size} height={size} viewBox="0 0 20 20" fill="none" style={{ flexShrink: 0 }}>
-      <circle cx="10" cy="10" r="8" stroke={color} strokeWidth="1.5" />
-      <circle cx="10" cy="10" r="5" stroke={color} strokeWidth="1" strokeDasharray="2 2" />
-      <circle cx="10" cy="10" r="2" fill={color} />
-    </svg>
-  );
-}
 
 export function ActionBar({
   isActive,
@@ -256,7 +246,16 @@ export function ActionBar({
             onMouseEnter={e => { e.currentTarget.style.boxShadow = "0 4px 28px rgba(124,58,237,0.5)"; }}
             onMouseLeave={e => { e.currentTarget.style.boxShadow = "0 4px 20px rgba(124,58,237,0.35)"; }}
           >
-            Raise to {clampedRaise.toLocaleString()} ↵
+            <span style={{ display: "inline-flex", alignItems: "center", gap: 6 }}>
+              <span>Raise to</span>
+              <ChipAmount
+                amount={clampedRaise}
+                iconSize={12}
+                iconColor="#ffffff"
+                amountStyle={{ color: "inherit", fontSize: 14, fontWeight: 700 }}
+              />
+              <span>↵</span>
+            </span>
           </button>
       </div>
     </>
@@ -295,7 +294,17 @@ export function ActionBar({
 
         {/* Check / Call */}
         <ActionPill
-          label={toCall > 0 ? `Call ${toCall.toLocaleString()}` : "Check"}
+          label={toCall > 0 ? (
+            <>
+              <span>Call</span>
+              <ChipAmount
+                amount={toCall}
+                iconSize={10}
+                iconColor="#93c5fd"
+                amountStyle={{ color: "inherit", fontSize: compact ? 12 : 13, fontWeight: 600 }}
+              />
+            </>
+          ) : "Check"}
           testId="action-check-call"
           shortcut="C"
           color={toCall > 0 ? "#93c5fd" : "rgba(255,255,255,0.7)"}
@@ -343,7 +352,7 @@ export function ActionBar({
 function ActionPill({
   label, shortcut, color, hoverBg, onClick, active = false, compact = false, testId,
 }: {
-  label: string; shortcut: string; color: string; hoverBg: string;
+  label: React.ReactNode; shortcut: string; color: string; hoverBg: string;
   onClick: () => void; active?: boolean; compact?: boolean; testId?: string;
 }) {
   const [hovered, setHovered] = useState(false);

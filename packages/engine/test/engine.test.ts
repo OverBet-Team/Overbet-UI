@@ -72,6 +72,22 @@ describe('NLHMachine Engine', () => {
         expect(winEvents.length).toBeGreaterThan(0);
     });
 
+    it('applies configured blinds when a hand starts', () => {
+        const engine = new NLHMachine();
+        engine.addPlayer({ id: "p1", stack: 1000, status: "ACTIVE", seatIndex: 0, holeCards: [], bet: 0, hasActed: false });
+        engine.addPlayer({ id: "p2", stack: 1000, status: "ACTIVE", seatIndex: 1, holeCards: [], bet: 0, hasActed: false });
+
+        const events = engine.startHand({ seed: 99, smallBlind: 5, bigBlind: 10 });
+        const blindsEvent = events.find((event) => event.type === "POST_BLINDS_ANTES");
+        const state = engine.getState();
+
+        expect(state.smallBlind).toBe(5);
+        expect(state.bigBlind).toBe(10);
+        expect(state.currentBet).toBe(10);
+        expect(blindsEvent?.payload.smallBlind.amount).toBe(5);
+        expect(blindsEvent?.payload.bigBlind.amount).toBe(10);
+    });
+
     it('should have board length 3 after pre-flop, 4 after flop, 5 after turn (heads-up)', () => {
         const engine = new NLHMachine();
         engine.addPlayer({ id: "p1", stack: 1000, status: "ACTIVE", seatIndex: 0, holeCards: [], bet: 0, hasActed: false });
