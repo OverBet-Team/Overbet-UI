@@ -45,8 +45,13 @@ const DEFAULT_TURN_TIMEOUT_MS = Number.isFinite(parsedTurnTimeout) ? parsedTurnT
 const DEFAULT_TIME_BANK_MS = Number.isFinite(parsedTimeBank) ? parsedTimeBank : (TEST_TIMER_MODE ? 5000 : 30000);
 const DEFAULT_AUTO_START_DELAY_SECONDS = Number.isFinite(parsedAutoStartDelay) ? parsedAutoStartDelay : (TEST_TIMER_MODE ? 2 : 5);
 
-// Per-player time bank balances for current hand (in-memory)
-const playerTimeBanks: Record<string, Record<string, number>> = {}; // roomId -> playerId -> ms remaining
+type ApprovedRebuy = {
+    seatIndex: number;
+    stack: number;
+    displayName?: string;
+};
+
+const playerTimeBanks: Record<string, Record<string, number>> = {};
 
 // Room store mapping room_id to Engine instances
 const roomStates: Record<string, {
@@ -55,8 +60,10 @@ const roomStates: Record<string, {
     currentHandId?: string;
     dbRoomId?: string;
     pendingSeats: Record<string, { seatIndex: number, stack: number, displayName?: string, requestType?: 'SEAT' | 'REBUY' }>,
+    approvedRebuys: Record<string, ApprovedRebuy>;
     turnTimer?: NodeJS.Timeout;
     timeBankTimer?: NodeJS.Timeout;
+    turnTimerToken: number;
     autoStartTimer?: NodeJS.Timeout;
     settings?: { turnTimeoutMs: number; timeBankMs: number; autoStartDelay: number };
     isPaused?: boolean;
@@ -139,12 +146,22 @@ async function hydrateRoom(roomId: string) {
     // Parse settings from DB
     const dbSettings = room.settings as any;
     const settings = {
-        turnTimeoutMs: dbSettings?.turnTimeout ? dbSettings.turnTimeout * 1000 : DEFAULT_TURN_TIMEOUT_MS,
-        timeBankMs: dbSettings?.timeBank ? dbSettings.timeBank * 1000 : DEFAULT_TIME_BANK_MS,
-        autoStartDelay: dbSettings?.autoStartDelay ?? DEFAULT_AUTO_START_DELAY_SECONDS,
+        turnTimeoutMs: Number.isFinite(dbSettings?.turnTimeout) ? dbSettings.turnTimeout * 1000 : DEFAULT_TURN_TIMEOUT_MS,
+        timeBankMs: Number.isFinite(dbSettings?.timeBank) ? dbSettings.timeBank * 1000 : DEFAULT_TIME_BANK_MS,
+        autoStartDelay: Number.isFinite(dbSettings?.autoStartDelay) ? dbSettings.autoStartDelay : DEFAULT_AUTO_START_DELAY_SECONDS,
     };
 
-    const roomData = { engine, seq, currentHandId, dbRoomId: room.id, pendingSeats: {}, settings, isPaused: false };
+    const roomData = {
+        engine,
+        seq,
+        currentHandId,
+        dbRoomId: room.id,
+        pendingSeats: {},
+        approvedRebuys: {},
+        turnTimerToken: 0,
+        settings,
+        isPaused: false
+    };
     roomStates[roomId] = roomData;
     return roomData;
 }
@@ -219,6 +236,7 @@ function sanitizeEvent(event: any, targetUserId: string) {
 function clearTurnTimer(roomId: string) {
     const roomData = roomStates[roomId];
     if (roomData) {
+        roomData.turnTimerToken += 1;
         if (roomData.turnTimer) {
             clearTimeout(roomData.turnTimer);
             roomData.turnTimer = undefined;
@@ -227,7 +245,55 @@ function clearTurnTimer(roomId: string) {
             clearTimeout(roomData.timeBankTimer);
             roomData.timeBankTimer = undefined;
         }
+        delete (roomData as any).timeBankStartedAt;
     }
+}
+
+function getEnginePlayersForNextHand(roomData: NonNullable<typeof roomStates[string]>) {
+    const state = roomData.engine.getState();
+    return state.players.map((player: any) => {
+        const approvedRebuy = roomData.approvedRebuys[player.id];
+        if (!approvedRebuy) {
+            return player;
+        }
+        return {
+            ...player,
+            stack: approvedRebuy.stack,
+            seatIndex: approvedRebuy.seatIndex,
+            displayName: approvedRebuy.displayName ?? player.displayName,
+            status: 'ACTIVE',
+            bet: 0,
+            hasActed: false,
+            holeCards: [],
+        };
+    });
+}
+
+function canStartHand(roomData: NonNullable<typeof roomStates[string]>) {
+    const eligible = getEnginePlayersForNextHand(roomData).filter((p: any) => p.stack > 0 && !['SITTING_OUT', 'BUSTED'].includes(p.status));
+    return eligible.length >= 2;
+}
+
+function getNextHandEligiblePlayers(roomData: NonNullable<typeof roomStates[string]>) {
+    return getEnginePlayersForNextHand(roomData).filter((p: any) => p.stack > 0 && !['SITTING_OUT', 'BUSTED'].includes(p.status));
+}
+
+function applyApprovedRebuys(roomData: NonNullable<typeof roomStates[string]>) {
+    const state = roomData.engine.getState();
+    for (const [playerId, approvedRebuy] of Object.entries(roomData.approvedRebuys)) {
+        const existingPlayer = state.players.find((p: any) => p.id === playerId);
+        if (!existingPlayer) {
+            continue;
+        }
+        existingPlayer.stack = approvedRebuy.stack;
+        existingPlayer.status = 'ACTIVE';
+        existingPlayer.bet = 0;
+        existingPlayer.hasActed = false;
+        existingPlayer.seatIndex = approvedRebuy.seatIndex;
+        existingPlayer.holeCards = [];
+        if (approvedRebuy.displayName) existingPlayer.displayName = approvedRebuy.displayName;
+    }
+    roomData.approvedRebuys = {};
 }
 
 async function startTurnTimer(roomId: string) {
@@ -242,20 +308,16 @@ async function startTurnTimer(roomId: string) {
     const activePlayer = state.players[state.activePlayerIndex];
     if (!activePlayer || activePlayer.status !== "ACTIVE") return;
 
-    // Load settings
     const settings = roomData.settings || { turnTimeoutMs: DEFAULT_TURN_TIMEOUT_MS, timeBankMs: DEFAULT_TIME_BANK_MS, autoStartDelay: DEFAULT_AUTO_START_DELAY_SECONDS };
     const baseMs = settings.turnTimeoutMs;
-
-    // Initialize time bank for this player in this room if needed
+    const baseExpiresAt = Date.now() + baseMs;
+    const turnToken = roomData.turnTimerToken;
     if (!playerTimeBanks[roomId]) playerTimeBanks[roomId] = {};
     if (playerTimeBanks[roomId][activePlayer.id] === undefined) {
         playerTimeBanks[roomId][activePlayer.id] = settings.timeBankMs;
     }
     const timeBankMs = playerTimeBanks[roomId][activePlayer.id];
 
-    const baseExpiresAt = Date.now() + baseMs;
-
-    // Emit timer start — base phase
     io.to(roomId).emit('EVENT_TURN_TIMER', {
         room_id: roomId,
         playerId: activePlayer.id,
@@ -265,16 +327,19 @@ async function startTurnTimer(roomId: string) {
         timeBankMs,
     });
 
-    // Stage 1: base time expires → switch to time bank
     roomData.turnTimer = setTimeout(async () => {
+        const currentRoomData = roomStates[roomId];
+        if (!currentRoomData || currentRoomData.isPaused) return;
+        if (currentRoomData.turnTimerToken !== turnToken) return;
+        const freshState = currentRoomData.engine.getState();
+        if (!freshState.phase.endsWith("BETTING")) return;
+        const currentActivePlayer = freshState.players[freshState.activePlayerIndex];
+        if (!currentActivePlayer || currentActivePlayer.status !== "ACTIVE") return;
+        if (currentActivePlayer.id !== activePlayer.id) return;
         const currentTimeBankMs = playerTimeBanks[roomId]?.[activePlayer.id] ?? 0;
-
         if (currentTimeBankMs > 0) {
-            // Enter time bank phase
             const timeBankExpiresAt = Date.now() + currentTimeBankMs;
-            const timeBankStartedAt = Date.now();
-            // Store start time so performPlayerAction can compute exact deduction
-            (roomData as any).timeBankStartedAt = timeBankStartedAt;
+            (currentRoomData as any).timeBankStartedAt = Date.now();
 
             io.to(roomId).emit('EVENT_TURN_TIMER', {
                 room_id: roomId,
@@ -285,24 +350,26 @@ async function startTurnTimer(roomId: string) {
                 timeBankMs: currentTimeBankMs,
             });
 
-            // Stage 2: time bank expires → auto-act (use fresh engine state for currentBet)
-            roomData.timeBankTimer = setTimeout(async () => {
+            currentRoomData.timeBankTimer = setTimeout(async () => {
+                const latestRoomData = roomStates[roomId];
+                if (!latestRoomData || latestRoomData.isPaused) return;
+                if (latestRoomData.turnTimerToken !== turnToken) return;
+                const latestState = latestRoomData.engine.getState();
+                if (!latestState.phase.endsWith("BETTING")) return;
+                const latestActivePlayer = latestState.players[latestState.activePlayerIndex];
+                if (!latestActivePlayer || latestActivePlayer.status !== "ACTIVE") return;
+                if (latestActivePlayer.id !== activePlayer.id) return;
                 if (playerTimeBanks[roomId]) {
                     playerTimeBanks[roomId][activePlayer.id] = 0;
                 }
                 console.log(`Time bank exhausted for player ${activePlayer.id} in room ${roomId}. Auto-acting.`);
-                const freshState = roomStates[roomId]?.engine?.getState();
-                const currentBet = freshState?.currentBet ?? 0;
-                await autoAct(roomId, activePlayer.id, currentBet);
+                await autoAct(roomId, latestActivePlayer.id, latestState.currentBet ?? 0);
             }, currentTimeBankMs);
-
-        } else {
-            // No time bank left — auto-act immediately (use fresh engine state for currentBet)
-            console.log(`Base time expired, no time bank for player ${activePlayer.id} in room ${roomId}. Auto-acting.`);
-            const freshState = roomStates[roomId]?.engine?.getState();
-            const currentBet = freshState?.currentBet ?? 0;
-            await autoAct(roomId, activePlayer.id, currentBet);
+            return;
         }
+
+        console.log(`Base time expired, no time bank for player ${activePlayer.id} in room ${roomId}. Auto-acting.`);
+        await autoAct(roomId, currentActivePlayer.id, freshState.currentBet ?? 0);
     }, baseMs);
 }
 
@@ -313,8 +380,9 @@ async function autoAct(roomId: string, playerId: string, currentBet: number) {
     if (!state) return;
     const player = state.players.find(p => p.id === playerId);
     if (!player) return;
+    const currentActivePlayer = state.players[state.activePlayerIndex];
+    if (!currentActivePlayer || currentActivePlayer.id !== playerId) return;
 
-    // Prefer CHECK when no call is needed; otherwise FOLD.
     const primaryAction: any = player.bet >= currentBet ? { type: 'CHECK' } : { type: 'FOLD' };
 
     try {
@@ -322,7 +390,6 @@ async function autoAct(roomId: string, playerId: string, currentBet: number) {
         return;
     } catch (err: any) {
         const message = err?.message ?? String(err);
-        // Robust timeout fallback: if CHECK is invalid at execution time, fallback to FOLD.
         if (primaryAction.type === 'CHECK' && /Cannot check/i.test(message)) {
             try {
                 await performPlayerAction(roomId, playerId, { type: 'FOLD' });
@@ -339,7 +406,7 @@ async function autoAct(roomId: string, playerId: string, currentBet: number) {
         clearTurnTimer(roomId);
         const rd = roomStates[roomId];
         if (rd?.currentHandId) {
-            const state = rd.engine.getState();
+            const refreshedState = rd.engine.getState();
             const sockets = await io.in(roomId).fetchSockets();
             for (const s of sockets) {
                 const uId = s.handshake.query.userId as string;
@@ -349,23 +416,12 @@ async function autoAct(roomId: string, playerId: string, currentBet: number) {
                     room_id: roomId,
                     hand_id: rd.currentHandId,
                     server_seq: rd.seq,
-                    state: sanitizeState(state, uId)
+                    state: sanitizeState(refreshedState, uId)
                 });
             }
-            if (state.phase?.endsWith('BETTING')) startTurnTimer(roomId);
+            if (refreshedState.phase?.endsWith('BETTING')) startTurnTimer(roomId);
         }
     }
-}
-
-/** Matches engine startHand eligibility: at least 2 bankroll-eligible players */
-function canStartHand(state: { players: { status: string; stack: number }[] }): boolean {
-    const eligible = state.players.filter((p: any) => p.stack > 0 && !['SITTING_OUT', 'BUSTED'].includes(p.status));
-    return eligible.length >= 2;
-}
-
-function getNextHandEligiblePlayers(state: { players: { id: string; status: string; stack: number }[] }) {
-    // Players eligible to be reactivated at next hand start.
-    return state.players.filter((p: any) => p.stack > 0 && !['SITTING_OUT', 'BUSTED'].includes(p.status));
 }
 
 async function startHand(roomId: string, schema_version: number = 1) {
@@ -379,7 +435,7 @@ async function startHand(roomId: string, schema_version: number = 1) {
     if (state.phase !== 'LOBBY' && state.phase !== 'CLEANUP') {
         throw new Error(`Game already in progress (Phase: ${state.phase})`);
     }
-    if (!canStartHand(state)) {
+    if (!canStartHand(roomData)) {
         throw new Error('Not enough active players to start a hand (need 2+ ACTIVE or ALL_IN)');
     }
 
@@ -389,12 +445,11 @@ async function startHand(roomId: string, schema_version: number = 1) {
     // Reload settings in case they changed
     const dbSettings = room.settings as any;
     roomData.settings = {
-        turnTimeoutMs: dbSettings?.turnTimeout ? dbSettings.turnTimeout * 1000 : DEFAULT_TURN_TIMEOUT_MS,
-        timeBankMs: dbSettings?.timeBank ? dbSettings.timeBank * 1000 : DEFAULT_TIME_BANK_MS,
-        autoStartDelay: dbSettings?.autoStartDelay ?? DEFAULT_AUTO_START_DELAY_SECONDS,
+        turnTimeoutMs: Number.isFinite(dbSettings?.turnTimeout) ? dbSettings.turnTimeout * 1000 : DEFAULT_TURN_TIMEOUT_MS,
+        timeBankMs: Number.isFinite(dbSettings?.timeBank) ? dbSettings.timeBank * 1000 : DEFAULT_TIME_BANK_MS,
+        autoStartDelay: Number.isFinite(dbSettings?.autoStartDelay) ? dbSettings.autoStartDelay : DEFAULT_AUTO_START_DELAY_SECONDS,
     };
-
-    // Reset time banks for all players at the start of each hand
+    applyApprovedRebuys(roomData);
     playerTimeBanks[roomId] = {};
 
     const hand = await prisma.hand.create({
@@ -468,12 +523,7 @@ async function performPlayerAction(roomId: string, userId: string, action: any, 
     }
     if (roomData.isPaused) throw new Error('Game is paused');
 
-    // GAP-03: Deduct time bank usage when player acts during time bank phase
-    const settings = roomData.settings || { turnTimeoutMs: DEFAULT_TURN_TIMEOUT_MS, timeBankMs: DEFAULT_TIME_BANK_MS, autoStartDelay: DEFAULT_AUTO_START_DELAY_SECONDS };
     if (roomData.timeBankTimer && playerTimeBanks[roomId]?.[userId] !== undefined) {
-        // timeBankTimer is active → player is in time bank phase
-        // The timer was started at the moment the base time expired.
-        // We store timeBankStartedAt on the roomData when the timer fires.
         const startedAt = (roomData as any).timeBankStartedAt as number | undefined;
         if (startedAt) {
             const elapsed = Date.now() - startedAt;
@@ -562,7 +612,7 @@ async function performPlayerAction(roomId: string, userId: string, action: any, 
                     return;
                 }
                 const currentState = roomData.engine.getState();
-                if (canStartHand(currentState)) {
+                if (canStartHand(roomData)) {
                     await startHand(roomId, schema_version);
                 } else {
                     const byStatus = currentState.players.reduce((acc: Record<string, number>, p: any) => {
@@ -570,7 +620,7 @@ async function performPlayerAction(roomId: string, userId: string, action: any, 
                         return acc;
                     }, {} as Record<string, number>);
                     const canStartNow = currentState.players.filter((p: any) => ['ACTIVE', 'ALL_IN'].includes(p.status));
-                    const canStartAfterReset = getNextHandEligiblePlayers(currentState as any);
+                    const canStartAfterReset = getNextHandEligiblePlayers(roomData);
                     console.log(
                         `[auto-start-blocked] room=${roomId} phase=${currentState.phase} ` +
                         `activeOrAllIn=${canStartNow.length} resetEligible=${canStartAfterReset.length} ` +
@@ -723,13 +773,17 @@ io.on('connection', (socket) => {
             const isRebuy = pending.requestType === 'REBUY' && !!existingEnginePlayer;
 
             if (isRebuy && existingEnginePlayer) {
-                // Re-buy: reactivate busted seat with new stack.
                 existingEnginePlayer.stack = pending.stack;
-                existingEnginePlayer.status = 'ACTIVE';
                 existingEnginePlayer.bet = 0;
                 existingEnginePlayer.hasActed = false;
                 existingEnginePlayer.seatIndex = pending.seatIndex;
+                existingEnginePlayer.holeCards = [];
                 if (pending.displayName) existingEnginePlayer.displayName = pending.displayName;
+                roomData.approvedRebuys[data.targetPlayerId] = {
+                    seatIndex: pending.seatIndex,
+                    stack: pending.stack,
+                    displayName: pending.displayName,
+                };
             } else {
                 roomData.engine.addPlayer({
                     id: data.targetPlayerId,
@@ -886,9 +940,9 @@ io.on('connection', (socket) => {
             const roomData = roomStates[data.room_id];
             if (roomData) {
                 roomData.settings = {
-                    turnTimeoutMs: newSettings.turnTimeout ? newSettings.turnTimeout * 1000 : DEFAULT_TURN_TIMEOUT_MS,
-                    timeBankMs: newSettings.timeBank ? newSettings.timeBank * 1000 : DEFAULT_TIME_BANK_MS,
-                    autoStartDelay: newSettings.autoStartDelay ?? DEFAULT_AUTO_START_DELAY_SECONDS,
+                    turnTimeoutMs: Number.isFinite(newSettings.turnTimeout) ? newSettings.turnTimeout * 1000 : DEFAULT_TURN_TIMEOUT_MS,
+                    timeBankMs: Number.isFinite(newSettings.timeBank) ? newSettings.timeBank * 1000 : DEFAULT_TIME_BANK_MS,
+                    autoStartDelay: Number.isFinite(newSettings.autoStartDelay) ? newSettings.autoStartDelay : DEFAULT_AUTO_START_DELAY_SECONDS,
                 };
             }
 
@@ -936,3 +990,5 @@ const PORT = process.env.PORT || 4000;
 httpServer.listen(PORT, () => {
     console.log(`Gateway realtime server listening on port ${PORT}`);
 });
+
+

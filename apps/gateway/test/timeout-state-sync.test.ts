@@ -1,10 +1,12 @@
 import { afterAll, beforeAll, describe, expect, it } from "vitest";
 import { spawn, ChildProcessWithoutNullStreams } from "node:child_process";
+import { fileURLToPath } from "node:url";
 import { io, Socket } from "socket.io-client";
 import { prisma } from "@overbet/db";
 
 const GATEWAY_PORT = 4100;
 const GATEWAY_URL = `http://127.0.0.1:${GATEWAY_PORT}`;
+const WORKSPACE_ROOT = fileURLToPath(new URL("../../..", import.meta.url));
 
 async function waitForHealth(url: string, timeoutMs = 20_000) {
   const start = Date.now();
@@ -81,7 +83,7 @@ describe("gateway timeout/state-sync regression", () => {
       "pnpm",
       ["--filter", "@overbet/gateway", "dev"],
       {
-        cwd: "/Users/ayan/Desktop/Manus Poker",
+        cwd: WORKSPACE_ROOT,
         env: { ...process.env, PORT: String(GATEWAY_PORT) },
       }
     );
@@ -116,6 +118,7 @@ describe("gateway timeout/state-sync regression", () => {
     const stateSignatures: string[] = [];
     const errors: string[] = [];
     let timeoutEvents = 0;
+    const hostTimerEvents: { playerId?: string; phase?: string }[] = [];
 
     const onState = (evt: any) => {
       const state = evt?.state;
@@ -133,11 +136,9 @@ describe("gateway timeout/state-sync regression", () => {
     host.on("EVENT_ERROR", onError);
     p2.on("EVENT_ERROR", onError);
 
-    host.on("EVENT_TURN_TIMER", () => {
+    host.on("EVENT_TURN_TIMER", (evt: any) => {
       timeoutEvents++;
-    });
-    p2.on("EVENT_TURN_TIMER", () => {
-      timeoutEvents++;
+      hostTimerEvents.push({ playerId: evt?.playerId, phase: evt?.phase });
     });
 
     await new Promise<void>((resolve) => {
@@ -171,6 +172,13 @@ describe("gateway timeout/state-sync regression", () => {
 
     const deckErrors = errors.filter((e) => e.includes("Insufficient deck for DEAL_FLOP"));
     expect(deckErrors.length).toBe(0);
+    expect(hostTimerEvents.some((evt) => evt.phase === "timebank")).toBe(false);
+    const duplicateBaseStarts = hostTimerEvents.some((evt, idx) => {
+      if (idx === 0 || evt.phase !== "base") return false;
+      const prev = hostTimerEvents[idx - 1];
+      return prev.phase === "base" && prev.playerId === evt.playerId;
+    });
+    expect(duplicateBaseStarts).toBe(false);
   }, 90_000);
 });
 

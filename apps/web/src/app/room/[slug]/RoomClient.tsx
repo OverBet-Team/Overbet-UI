@@ -233,32 +233,38 @@ export default function RoomClient({ slug, initialRoom }: RoomProps) {
 
     socketInstance.on("EVENT_SEAT_APPROVED", (data: any) => {
       if (data.playerId === userId) justApprovedRef.current = true;
-      if (data.playerId === userId) {
-        setApprovedSeatOverride({
-          id: data.playerId,
-          username: data.displayName || `Player_${data.playerId.slice(0, 4)}`,
-          chips: data.stack,
-          status: "ACTIVE",
-          seatIndex: data.seatIndex,
-          bet: 0,
-          cards: [],
-        } as PlayerData);
-      }
       setPendingRequests((prev) => prev.filter((r) => r.playerId !== data.playerId));
+      let nextApprovedSeatOverride: PlayerData | null = null;
+      let shouldApplyApprovedSeatOverride = false;
       setPlayers((prev) => {
         const existing = prev.find((p) => p.id === data.playerId);
         if (existing) {
+          if (data.playerId === userId) {
+            nextApprovedSeatOverride = null;
+          }
           return prev.map((p) =>
             p.id === data.playerId
               ? {
                   ...p,
                   chips: data.stack,
-                  status: "ACTIVE",
+                  status: p.status,
                   seatIndex: data.seatIndex,
                   username: data.displayName || p.username,
                 }
               : p
           );
+        }
+        if (data.playerId === userId) {
+          shouldApplyApprovedSeatOverride = true;
+          nextApprovedSeatOverride = {
+            id: data.playerId,
+            username: data.displayName || `Player_${data.playerId.slice(0, 4)}`,
+            chips: data.stack,
+            status: "ACTIVE",
+            seatIndex: data.seatIndex,
+            bet: 0,
+            cards: [],
+          } as PlayerData;
         }
         return [
           ...prev,
@@ -271,6 +277,9 @@ export default function RoomClient({ slug, initialRoom }: RoomProps) {
           },
         ];
       });
+      if (data.playerId === userId) {
+        setApprovedSeatOverride(shouldApplyApprovedSeatOverride ? nextApprovedSeatOverride : null);
+      }
     });
 
     socketInstance.on("EVENT_STATE_UPDATE", (snapshot: { state: any }) => {
