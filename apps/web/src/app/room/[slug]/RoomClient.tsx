@@ -1070,7 +1070,7 @@ export default function RoomClient({ slug, initialRoom }: RoomProps) {
         {showSettingsModal && settingsDraft && <SettingsModal />}
 
         {/* Seat-selection table preview */}
-        <div style={{ marginTop: 48, width: "100%", display: "flex", justifyContent: "center", zoom: 0.78 }}>
+        <div style={{ marginTop: 40, width: "100%", display: "flex", justifyContent: "center" }}>
           <PokerTable
             players={mappedPlayers}
             dealerId=""

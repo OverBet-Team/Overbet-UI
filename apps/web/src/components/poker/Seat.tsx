@@ -85,6 +85,7 @@ export function Seat({
 
   const isTimerActive = isActive && timer?.playerId === player?.id && timeLeft > 0;
   const timeLeftSecs = Math.ceil(timeLeft / 1000);
+  const emptySeatSize = "clamp(44px, 5.5vw, 56px)";
 
   // ── Empty seat ──────────────────────────────────────────────────────────
   if (!player) {
@@ -97,15 +98,17 @@ export function Seat({
           flexDirection: "column",
           alignItems: "center",
           justifyContent: "center",
-          width: 56,
-          height: 56,
+          width: emptySeatSize,
+          height: emptySeatSize,
+          minWidth: 44,
+          minHeight: 44,
           borderRadius: "50%",
           border: "2px dashed rgba(255,255,255,0.18)",
           background: "rgba(0,0,0,0.25)",
           cursor: "pointer",
           transition: "all 0.2s ease",
           color: "rgba(255,255,255,0.2)",
-          fontSize: 22,
+          fontSize: "clamp(18px, 2.2vw, 22px)",
           fontWeight: 700,
         }}
         onMouseEnter={(e) => {

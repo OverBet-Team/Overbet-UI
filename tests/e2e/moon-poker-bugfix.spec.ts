@@ -73,6 +73,54 @@ async function expectPotIndicators(page: Page, totalPot: number, roundAmount: nu
   expect(indicators.roundAmount).toBe(roundAmount);
 }
 
+type LayoutRect = {
+  left: number;
+  right: number;
+  top: number;
+  bottom: number;
+  centerX: number;
+  centerY: number;
+};
+
+function rectsOverlap(a: LayoutRect, b: LayoutRect) {
+  return a.left < b.right && a.right > b.left && a.top < b.bottom && a.bottom > b.top;
+}
+
+async function readLobbyLayout(page: Page) {
+  return page.evaluate(() => {
+    const toRect = (element: Element) => {
+      const rect = (element as HTMLElement).getBoundingClientRect();
+      return {
+        left: rect.left,
+        right: rect.right,
+        top: rect.top,
+        bottom: rect.bottom,
+        centerX: rect.left + rect.width / 2,
+        centerY: rect.top + rect.height / 2,
+      };
+    };
+
+    const seats = Array.from(document.querySelectorAll("[data-testid^='seat-empty-']")).map(toRect);
+    const communitySlots = Array.from(document.querySelectorAll("[data-testid^='community-slot-']")).map(toRect);
+    const averageCenterX = seats.reduce((sum, seat) => sum + seat.centerX, 0) / seats.length;
+
+    return {
+      seats,
+      communitySlots,
+      count: seats.length,
+      slotCount: communitySlots.length,
+      averageCenterX,
+      minLeft: Math.min(...seats.map((seat) => seat.left)),
+      maxRight: Math.max(...seats.map((seat) => seat.right)),
+      minTop: Math.min(...seats.map((seat) => seat.top)),
+      maxBottom: Math.max(...seats.map((seat) => seat.bottom)),
+      viewportCenterX: window.innerWidth / 2,
+      viewportWidth: window.innerWidth,
+      viewportHeight: window.innerHeight,
+    };
+  });
+}
+
 test.describe("moon poker bugfixes", () => {
   test.setTimeout(240_000);
 
@@ -95,37 +143,19 @@ test.describe("moon poker bugfixes", () => {
     expect(blindsRow).toContain("5");
     expect(blindsRow).toContain("10");
 
-    const emptySeatLayout = await hostPage.evaluate(() => {
-      const seats = Array.from(document.querySelectorAll("[data-testid^='seat-empty-']")) as HTMLElement[];
-      const centers = seats.map((seat) => {
-        const rect = seat.getBoundingClientRect();
-        return {
-          centerX: rect.left + rect.width / 2,
-          centerY: rect.top + rect.height / 2,
-          left: rect.left,
-          right: rect.right,
-          top: rect.top,
-          bottom: rect.bottom,
-        };
-      });
-      const averageCenterX = centers.reduce((sum, seat) => sum + seat.centerX, 0) / centers.length;
-      return {
-        count: centers.length,
-        averageCenterX,
-        viewportCenterX: window.innerWidth / 2,
-        minLeft: Math.min(...centers.map((seat) => seat.left)),
-        maxRight: Math.max(...centers.map((seat) => seat.right)),
-        minTop: Math.min(...centers.map((seat) => seat.top)),
-        maxBottom: Math.max(...centers.map((seat) => seat.bottom)),
-        viewportWidth: window.innerWidth,
-      };
-    });
+    const emptySeatLayout = await readLobbyLayout(hostPage);
 
-    expect(emptySeatLayout.count).toBeGreaterThanOrEqual(8);
+    expect(emptySeatLayout.count).toBe(10);
+    expect(emptySeatLayout.slotCount).toBe(5);
     expect(Math.abs(emptySeatLayout.averageCenterX - emptySeatLayout.viewportCenterX)).toBeLessThan(24);
     expect(emptySeatLayout.minLeft).toBeGreaterThan(0);
     expect(emptySeatLayout.maxRight).toBeLessThan(emptySeatLayout.viewportWidth);
     expect(emptySeatLayout.minTop).toBeGreaterThan(0);
+    for (const seat of emptySeatLayout.seats) {
+      for (const slot of emptySeatLayout.communitySlots) {
+        expect(rectsOverlap(seat, slot)).toBe(false);
+      }
+    }
 
     await hostPage.locator("[data-testid^='seat-empty-']").first().click();
     await expect(hostPage.locator('input[inputmode="numeric"]')).toHaveValue("0");
@@ -187,5 +217,38 @@ test.describe("moon poker bugfixes", () => {
     await hostContext.close();
     await joinerOneContext.close();
     await joinerTwoContext.close();
+  });
+
+  test("portrait mobile lobby keeps seat markers evenly distributed and clear of board placeholders", async ({ browser }) => {
+    const mobileContext = await browser.newContext({
+      viewport: { width: 375, height: 812 },
+      isMobile: true,
+      hasTouch: true,
+    });
+    const page = await mobileContext.newPage();
+
+    await page.addInitScript(() => localStorage.setItem("overbet_user_id", "bugfix-mobile-host"));
+    await createRoomAsHost(page);
+
+    const layout = await readLobbyLayout(page);
+
+    expect(layout.count).toBe(10);
+    expect(layout.slotCount).toBe(5);
+    expect(Math.abs(layout.averageCenterX - layout.viewportCenterX)).toBeLessThan(16);
+    expect(layout.minLeft).toBeGreaterThan(0);
+    expect(layout.maxRight).toBeLessThan(layout.viewportWidth);
+    expect(layout.minTop).toBeGreaterThan(0);
+    expect(layout.maxBottom).toBeLessThan(layout.viewportHeight);
+
+    for (let i = 0; i < layout.seats.length; i++) {
+      for (let j = i + 1; j < layout.seats.length; j++) {
+        expect(rectsOverlap(layout.seats[i], layout.seats[j])).toBe(false);
+      }
+      for (const slot of layout.communitySlots) {
+        expect(rectsOverlap(layout.seats[i], slot)).toBe(false);
+      }
+    }
+
+    await mobileContext.close();
   });
 });
