@@ -37,7 +37,7 @@ Memory provider and tool names are configurable via `mcp.json`:
 {
   "memoryConfig": {
     "provider": "serena",
-    "basePath": ".serena/memories",
+    "basePath": ".archive/serena/memories",
     "tools": {
       "read": "read_memory",
       "write": "write_memory",

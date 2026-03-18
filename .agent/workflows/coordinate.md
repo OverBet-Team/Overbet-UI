@@ -9,7 +9,7 @@ description: Coordinate multiple agents for a complex multi-domain project using
 - **You MUST use MCP tools throughout the entire workflow.** This is NOT optional.
   - Use code analysis tools (`get_symbols_overview`, `find_symbol`, `find_referencing_symbols`, `search_for_pattern`) for code exploration.
   - Use memory tools (read/write/edit) for progress tracking.
-  - Memory path: configurable via `memoryConfig.basePath` (default: `.serena/memories`)
+  - Memory path: configurable via `memoryConfig.basePath` (default: `.archive/serena/memories`)
   - Tool names: configurable via `memoryConfig.tools` in `mcp.json`
   - Do NOT use raw file reads or grep as substitutes. MCP tools are the primary interface for code and memory operations.
 - **Read the workflow-guide BEFORE starting.** Read `.agent/skills/workflow-guide/SKILL.md` and follow its Core Rules.

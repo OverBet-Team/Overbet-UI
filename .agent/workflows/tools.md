@@ -89,7 +89,7 @@ Parse natural language commands:
 
 Temporary settings that apply only during the session:
 
-1. Create `.serena/memories/tool-overrides.md` using `write_memory`:
+1. Create `.archive/serena/memories/tool-overrides.md` using `write_memory`:
    ```markdown
    # Tool Overrides (Temporary)
 

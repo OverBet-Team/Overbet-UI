@@ -23,7 +23,7 @@ Because Socket.io typings and the Prisma DB schema were defined in Sprints 2 & 3
 ## 📝 Agent Prompts
 
 ### Sprint 6: Full Backend Integration (Room, Seats, Actions)
-**Context Files:** `pokernow_dev_spec_v0_3.md` (Sections 8, 9, & 10)
+**Context Files:** `../../specs/pokernow_dev_spec_v0_3.md` (Sections 8, 9, & 10)
 **Scope:** `packages/db`, `packages/engine`, `apps/gateway`, `apps/web/src/actions` (Next.js server actions)
 
 **Prompt for Antigravity Agent:**
@@ -35,7 +35,7 @@ Because Socket.io typings and the Prisma DB schema were defined in Sprints 2 & 3
 ---
 
 ### Sprint 7: Full Frontend Room, Lobby, and Table Flow
-**Context Files:** `Overbet Brand System & Design Scheme.md`, `pokernow_dev_spec_v0_3.md` (Section 5)
+**Context Files:** `../../design/Overbet Brand System & Design Scheme.md`, `../../specs/pokernow_dev_spec_v0_3.md` (Section 5)
 **Scope:** `apps/web` (React Components, Tailwind UI, Socket Context)
 
 **Prompt for Antigravity Agent:**

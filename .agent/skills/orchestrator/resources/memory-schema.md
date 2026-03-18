@@ -10,7 +10,7 @@ Memory base path and tool names are configurable via `mcp.json`:
 ```json
 {
   "memoryConfig": {
-    "basePath": ".serena/memories",
+    "basePath": ".archive/serena/memories",
     "tools": {
       "read": "read_memory",
       "write": "write_memory",
@@ -20,7 +20,7 @@ Memory base path and tool names are configurable via `mcp.json`:
 }
 ```
 
-Default base path: `.serena/memories`
+Default base path: `.archive/serena/memories`
 
 ## File Structure
 
