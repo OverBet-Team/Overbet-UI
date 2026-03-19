@@ -3,7 +3,7 @@
 # Promotes validated 2p/3p timer assertions to higher player counts.
 set -euo pipefail
 
-ROOT="/Users/ayan/Desktop/Manus Poker"
+ROOT="${ROOT:-$(cd "$(dirname "${BASH_SOURCE[0]}")/../.." && pwd)}"
 source "$ROOT/tests/browser-cli/agent-browser-env.sh"
 PLAYER_COUNT="${PLAYER_COUNT:-4}"
 BASE_HANDS="${BASE_HANDS:-2}"

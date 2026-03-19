@@ -3,7 +3,7 @@
 # Stop on first failure. Do not promote if lower tier fails.
 set -euo pipefail
 
-ROOT="/Users/ayan/Desktop/Manus Poker"
+ROOT="${ROOT:-$(cd "$(dirname "${BASH_SOURCE[0]}")/../.." && pwd)}"
 source "$ROOT/tests/browser-cli/agent-browser-env.sh"
 cd "$ROOT"
 

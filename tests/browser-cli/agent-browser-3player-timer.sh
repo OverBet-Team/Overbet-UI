@@ -3,7 +3,7 @@
 # Runs all 3p timer-critical scenarios with convergence checks.
 set -euo pipefail
 
-ROOT="/Users/ayan/Desktop/Manus Poker"
+ROOT="${ROOT:-$(cd "$(dirname "${BASH_SOURCE[0]}")/../.." && pwd)}"
 source "$ROOT/tests/browser-cli/agent-browser-env.sh"
 
 run_case() {

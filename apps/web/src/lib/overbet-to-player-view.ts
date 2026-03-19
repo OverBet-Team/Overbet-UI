@@ -1,18 +1,20 @@
 /**
  * Adapter: maps Overbet room/game state to PlayerPerspectiveView props.
- * Hero = local player (always seat 0 / bottom center).
- * Opponents = other seated players, ordered by physical seatIndex for arc placement.
+ * Hero = local player anchored to the bottom-center of the seated table view.
+ * Opponents retain their physical seat index so the renderer can lay them out
+ * in a scalable, hero-relative arrangement.
  */
 
 import type { PlayerData } from "@/components/poker/Seat";
 import { getPotDisplayAmounts } from "@/lib/pot-display";
+
 export interface OpponentForView {
   id: string;
   username: string;
   chips: number;
   bet: number;
   status: string;
-  seatIndex: number; // physical seat for arc ordering
+  seatIndex: number;
   cards?: string[];
   isDealer: boolean;
   isActive: boolean;
@@ -25,6 +27,7 @@ export interface HeroForView {
   bet: number;
   status: string;
   cards: string[];
+  seatIndex?: number;
 }
 
 export interface PlayerViewState {
@@ -35,10 +38,8 @@ export interface PlayerViewState {
   currentRoundAmount: number;
   dealerId: string;
   activePlayerId: string;
-  /** When true (cleanup phase), UI may reveal full board on Show All click */
   phase?: string;
 }
-
 
 export function toPlayerViewState(
   players: PlayerData[],
@@ -51,45 +52,45 @@ export function toPlayerViewState(
     activePlayerId?: string;
     players?: any[];
   } | null,
-  userId: string
- ): PlayerViewState | null {
-  const mySeat = players.find((p) => p.id === userId && p.seatIndex !== undefined);
+  userId: string,
+): PlayerViewState | null {
+  const mySeat = players.find((player) => player.id === userId && player.seatIndex !== undefined);
   if (!mySeat) return null;
 
-  const gPlayers = Array.isArray(gameState?.players) ? gameState.players : [];
+  const gatewayPlayers = Array.isArray(gameState?.players) ? gameState.players : [];
   const opponents = players
-    .filter((p) => p.id !== userId && p.seatIndex !== undefined && p.status !== "PENDING")
-    .sort((a, b) => a.seatIndex - b.seatIndex)
-    .map((p) => {
-      const gp = gPlayers.find((x: any) => x.id === p.id) || {};
+    .filter((player) => player.id !== userId && player.seatIndex !== undefined && player.status !== "PENDING")
+    .sort((left, right) => left.seatIndex - right.seatIndex)
+    .map((player) => {
+      const gatewayPlayer = gatewayPlayers.find((candidate: any) => candidate.id === player.id) || {};
+
       return {
-        id: p.id,
-        username: p.username,
-        chips: gp.chips ?? gp.stack ?? p.chips,
-        bet: gp.bet ?? p.bet ?? 0,
-        status: gp.status ?? p.status ?? "ACTIVE",
-        seatIndex: p.seatIndex,
-        cards: gp.cards ?? gp.holeCards ?? p.cards,
-        isDealer: (gameState?.dealerId ?? "") === p.id,
-        isActive: (gameState?.activePlayerId ?? "") === p.id,
-      } as OpponentForView;
+        id: player.id,
+        username: player.username,
+        chips: gatewayPlayer.chips ?? gatewayPlayer.stack ?? player.chips,
+        bet: gatewayPlayer.bet ?? player.bet ?? 0,
+        status: gatewayPlayer.status ?? player.status ?? "ACTIVE",
+        seatIndex: player.seatIndex,
+        cards: gatewayPlayer.cards ?? gatewayPlayer.holeCards ?? player.cards,
+        isDealer: (gameState?.dealerId ?? "") === player.id,
+        isActive: (gameState?.activePlayerId ?? "") === player.id,
+      } satisfies OpponentForView;
     });
 
-  const myGp = gPlayers.find((x: any) => x.id === userId) || {};
-  const heroCards = myGp.cards ?? myGp.holeCards ?? mySeat.cards ?? [];
-
-  const board = Array.from({ length: 5 }, (_, i) => (gameState?.board ?? [])[i] ?? null);
-
+  const gatewayHero = gatewayPlayers.find((candidate: any) => candidate.id === userId) || {};
+  const heroCards = gatewayHero.cards ?? gatewayHero.holeCards ?? mySeat.cards ?? [];
+  const board = Array.from({ length: 5 }, (_, index) => (gameState?.board ?? [])[index] ?? null);
   const { totalPot, currentRoundAmount } = getPotDisplayAmounts(gameState);
 
   return {
     hero: {
       id: mySeat.id,
       username: mySeat.username,
-      chips: myGp.chips ?? myGp.stack ?? mySeat.chips,
-      bet: myGp.bet ?? mySeat.bet ?? 0,
-      status: myGp.status ?? mySeat.status ?? "ACTIVE",
+      chips: gatewayHero.chips ?? gatewayHero.stack ?? mySeat.chips,
+      bet: gatewayHero.bet ?? mySeat.bet ?? 0,
+      status: gatewayHero.status ?? mySeat.status ?? "ACTIVE",
       cards: Array.isArray(heroCards) ? heroCards : [],
+      seatIndex: mySeat.seatIndex,
     },
     opponents,
     board,

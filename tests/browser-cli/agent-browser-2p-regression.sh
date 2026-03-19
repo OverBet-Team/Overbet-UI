@@ -5,7 +5,7 @@
 # Start Game must NOT reappear, post-timeout stale clicks must be rejected.
 set -euo pipefail
 
-ROOT="/Users/ayan/Desktop/Manus Poker"
+ROOT="${ROOT:-$(cd "$(dirname "${BASH_SOURCE[0]}")/../.." && pwd)}"
 source "$ROOT/tests/browser-cli/agent-browser-env.sh"
 cd "$ROOT"
 

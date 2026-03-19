@@ -25,12 +25,12 @@ export function BuyInModal({
     initialDisplayName = "",
     mode = "buyin",
 }: BuyInModalProps) {
-    const [amountStr, setAmountStr] = useState<string>(minAmount.toString());
+    const [amountStr, setAmountStr] = useState<string>(Math.max(minAmount, 1000).toString());
     const [displayName, setDisplayName] = useState<string>(initialDisplayName);
 
     useEffect(() => {
         if (isOpen) {
-            setAmountStr(minAmount.toString());
+            setAmountStr(Math.max(minAmount, 1000).toString());
             setDisplayName(initialDisplayName);
         }
     }, [initialDisplayName, isOpen, minAmount]);

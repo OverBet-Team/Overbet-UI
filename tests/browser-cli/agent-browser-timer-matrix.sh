@@ -1,7 +1,7 @@
 #!/usr/bin/env bash
 set -euo pipefail
 
-ROOT="/Users/ayan/Desktop/Manus Poker"
+ROOT="${ROOT:-$(cd "$(dirname "${BASH_SOURCE[0]}")/../.." && pwd)}"
 source "$ROOT/tests/browser-cli/agent-browser-env.sh"
 TIERS="${TIERS:-2 3 4 5 6}"
 BASE_HANDS="${BASE_HANDS:-2}"

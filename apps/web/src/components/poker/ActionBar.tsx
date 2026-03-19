@@ -1,12 +1,9 @@
 "use client";
 
-// OverBet — ActionBar
-// Moon Poker action zone: ghost pill buttons, raise slider, quick-bet presets.
-// Keyboard shortcuts: F=fold, C=call/check, R=raise, A=all-in
-
-import React, { useState, useEffect, useCallback } from "react";
+import React, { useCallback, useEffect, useMemo, useState } from "react";
 import { createPortal } from "react-dom";
 import { ChipAmount, ChipIcon } from "./ChipAmount";
+
 interface ActionBarProps {
   isActive: boolean;
   stack: number;
@@ -17,7 +14,6 @@ interface ActionBarProps {
   compact?: boolean;
   onAction: (actionType: string, amount?: number) => void;
 }
-
 
 export function ActionBar({
   isActive,
@@ -37,69 +33,101 @@ export function ActionBar({
   const [raiseAmount, setRaiseAmount] = useState<number>(minRaiseTo);
   const [showRaisePanel, setShowRaisePanel] = useState(false);
 
-  // Keep raiseAmount in valid range when game state changes
   useEffect(() => {
-    setRaiseAmount((prev) => Math.min(Math.max(prev, minRaiseTo), maxRaiseTo));
-  }, [minRaiseTo, maxRaiseTo]);
+    setRaiseAmount((previous) => Math.min(Math.max(previous, minRaiseTo), maxRaiseTo));
+  }, [maxRaiseTo, minRaiseTo]);
 
   const clampedRaise = Math.min(Math.max(raiseAmount, minRaiseTo), maxRaiseTo);
 
-  // Quick-bet presets
-  const presets = pot > 0 ? [
-    { label: "½ Pot", value: Math.min(Math.max(Math.round(pot * 0.5), minRaiseTo), maxRaiseTo) },
-    { label: "Pot",   value: Math.min(Math.max(pot, minRaiseTo), maxRaiseTo) },
-    { label: "2× Pot", value: Math.min(Math.max(pot * 2, minRaiseTo), maxRaiseTo) },
-  ] : [];
-
-  const handleRaise = useCallback(() => {
-    onAction("RAISE", clampedRaise);
-    setShowRaisePanel(false);
-  }, [onAction, clampedRaise]);
+  const presets = useMemo(
+    () =>
+      pot > 0
+        ? [
+            { label: "½ Pot", value: Math.min(Math.max(Math.round(pot * 0.5), minRaiseTo), maxRaiseTo) },
+            { label: "Pot", value: Math.min(Math.max(pot, minRaiseTo), maxRaiseTo) },
+            { label: "2× Pot", value: Math.min(Math.max(pot * 2, minRaiseTo), maxRaiseTo) },
+          ]
+        : [],
+    [pot, minRaiseTo, maxRaiseTo],
+  );
 
   const closeRaisePanel = useCallback(() => {
     setShowRaisePanel(false);
   }, []);
 
-  // Keyboard shortcuts
+  const confirmRaise = useCallback(() => {
+    onAction("RAISE", clampedRaise);
+    setShowRaisePanel(false);
+  }, [clampedRaise, onAction]);
+
   useEffect(() => {
     if (!isActive) return;
-    const handler = (e: KeyboardEvent) => {
-      const tag = (e.target as HTMLElement).tagName;
+
+    const handler = (event: KeyboardEvent) => {
+      const tag = (event.target as HTMLElement).tagName;
       if (tag === "INPUT" || tag === "TEXTAREA") return;
-      switch (e.key.toLowerCase()) {
-        case "f": onAction("FOLD"); break;
-        case "c": onAction(toCall > 0 ? "CALL" : "CHECK"); break;
-        case "r": setShowRaisePanel(v => !v); break;
-        case "a": onAction("ALL_IN"); break;
-        case "escape": setShowRaisePanel(false); break;
-        case "enter": if (showRaisePanel) handleRaise(); break;
+
+      switch (event.key.toLowerCase()) {
+        case "f":
+          onAction("FOLD");
+          break;
+        case "c":
+          onAction(toCall > 0 ? "CALL" : "CHECK");
+          break;
+        case "r":
+          if (canRaise) setShowRaisePanel((value) => !value);
+          break;
+        case "a":
+          onAction("ALL_IN");
+          break;
+        case "escape":
+          setShowRaisePanel(false);
+          break;
+        case "enter":
+          if (showRaisePanel && canRaise) confirmRaise();
+          break;
       }
     };
+
     window.addEventListener("keydown", handler);
     return () => window.removeEventListener("keydown", handler);
-  }, [isActive, toCall, showRaisePanel, handleRaise, onAction]);
+  }, [canRaise, confirmRaise, isActive, onAction, showRaisePanel, toCall]);
 
-  // ── Inactive state ────────────────────────────────────────────────────────
   if (!isActive) {
     return (
-      <div data-testid="action-bar-inactive" style={{
-        display: "flex", width: "100%", gap: 12,
-        opacity: 0.35, pointerEvents: "none", filter: "grayscale(0.5)",
-      }}>
-        <div style={{
-          flex: 1, padding: "14px 0", textAlign: "center",
-          fontWeight: 600, fontSize: 14, color: "rgba(255,255,255,0.4)",
-          border: "1px solid rgba(255,255,255,0.07)", borderRadius: 999,
-          background: "rgba(255,255,255,0.03)", fontFamily: "Outfit, sans-serif",
-          letterSpacing: "0.01em",
-        }}>
+      <div
+        data-testid="action-bar-inactive"
+        style={{
+          width: "100%",
+          display: "flex",
+          justifyContent: "center",
+          pointerEvents: "none",
+          opacity: 0.82,
+        }}
+      >
+        <div
+          style={{
+            minWidth: compact ? "100%" : 320,
+            maxWidth: compact ? "100%" : 420,
+            padding: compact ? "12px 16px" : "14px 18px",
+            borderRadius: 999,
+            border: "1px solid rgba(255,255,255,0.06)",
+            background: "rgba(10, 9, 19, 0.82)",
+            color: "rgba(255,255,255,0.38)",
+            fontSize: compact ? 12 : 13,
+            fontWeight: 600,
+            textAlign: "center",
+            boxShadow: "0 12px 26px rgba(0,0,0,0.24)",
+            backdropFilter: "blur(18px)",
+          }}
+        >
           Waiting for turn…
         </div>
       </div>
     );
   }
 
-  const raisePanelNode = showRaisePanel && canRaise ? (
+  const raisePanel = showRaisePanel && canRaise ? (
     <>
       <div
         data-testid="raise-modal-backdrop"
@@ -108,275 +136,312 @@ export function ActionBar({
           position: "fixed",
           inset: 0,
           zIndex: 999,
-          background: compact ? "rgba(0,0,0,0.45)" : "rgba(0,0,0,0.3)",
-          backdropFilter: compact ? "blur(2px)" : "none",
+          background: compact ? "rgba(5,4,10,0.6)" : "rgba(5,4,10,0.48)",
+          backdropFilter: "blur(6px)",
         }}
       />
-      <div data-testid="raise-modal" style={{
-        ...(compact
-          ? {
-              position: "fixed",
-              left: 10,
-              right: 10,
-              bottom: "calc(86px + env(safe-area-inset-bottom, 0px))",
-              zIndex: 1000,
-              borderRadius: 18,
-              maxHeight: "66dvh",
-              overflowY: "auto",
-            }
-          : {
-              position: "fixed",
-              left: "50%",
-              transform: "translateX(-50%)",
-              width: "min(560px, calc(100vw - 24px))",
-              bottom: 84,
-              zIndex: 1000,
-              borderRadius: 18,
-              maxHeight: "60dvh",
-              overflowY: "auto",
-            }),
-        background: "rgba(16,13,28,0.97)", border: "1px solid rgba(255,255,255,0.1)",
-        padding: compact ? "14px 14px" : "16px 18px", display: "flex", flexDirection: "column", gap: 12,
-        boxShadow: "0 -8px 40px rgba(0,0,0,0.5)",
-      }}>
-          <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center" }}>
-            <span style={{ color: "rgba(255,255,255,0.68)", fontSize: 11, fontWeight: 700, letterSpacing: "0.06em", textTransform: "uppercase" }}>
-              Raise Amount
+      <div
+        data-testid="raise-modal"
+        style={{
+          position: "fixed",
+          left: "50%",
+          bottom: compact ? "calc(92px + env(safe-area-inset-bottom, 0px))" : 42,
+          transform: "translateX(-50%)",
+          width: compact ? "min(92vw, 420px)" : "min(560px, calc(100vw - 48px))",
+          zIndex: 1000,
+          borderRadius: 26,
+          padding: compact ? "18px 16px" : "20px 22px",
+          display: "flex",
+          flexDirection: "column",
+          gap: 16,
+          background: "linear-gradient(180deg, rgba(16,13,28,0.98) 0%, rgba(11,10,20,0.98) 100%)",
+          border: "1px solid rgba(255,255,255,0.08)",
+          boxShadow: "0 28px 70px rgba(0,0,0,0.52)",
+          backdropFilter: "blur(24px)",
+        }}
+      >
+        <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center" }}>
+          <div style={{ display: "flex", flexDirection: "column", gap: 4 }}>
+            <span style={{ color: "rgba(255,255,255,0.42)", fontSize: 11, fontWeight: 700, letterSpacing: "0.12em", textTransform: "uppercase" }}>
+              Raise amount
             </span>
-            <button
-              onClick={closeRaisePanel}
-              aria-label="Close raise panel"
-              style={{
-                width: 28,
-                height: 28,
-                borderRadius: 999,
-                border: "1px solid rgba(255,255,255,0.14)",
-                background: "rgba(255,255,255,0.05)",
-                color: "rgba(255,255,255,0.75)",
-                fontSize: 16,
-                lineHeight: "1",
-                cursor: "pointer",
-              }}
-            >
-              ×
-            </button>
-          </div>
-          {/* Amount display */}
-          <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between" }}>
-            <span style={{ color: "rgba(255,255,255,0.4)", fontSize: 11, fontWeight: 600, textTransform: "uppercase", letterSpacing: "0.08em" }}>
-              Raise To
-            </span>
-            <div style={{ display: "flex", alignItems: "center", gap: 6 }}>
-              <ChipIcon size={13} color="rgba(167,139,250,0.8)" />
+            <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
+              <ChipIcon size={14} color="#c5b8ff" />
               <input
                 type="number"
                 value={raiseAmount}
                 min={minRaiseTo}
                 max={maxRaiseTo}
-                onChange={e => setRaiseAmount(Number(e.target.value))}
+                onChange={(event) => setRaiseAmount(Number(event.target.value))}
                 onBlur={() => setRaiseAmount(clampedRaise)}
                 style={{
-                  width: 80, padding: "4px 8px", textAlign: "right",
-                  fontFamily: "Outfit, sans-serif", fontWeight: 700, fontSize: 16,
-                  color: "#fff", background: "rgba(255,255,255,0.08)",
-                  border: "1px solid rgba(255,255,255,0.12)", borderRadius: 8, outline: "none",
+                  width: 120,
+                  border: "none",
+                  borderBottom: "1px solid rgba(255,255,255,0.14)",
+                  padding: "0 0 6px",
+                  color: "#ffffff",
+                  background: "transparent",
+                  fontSize: compact ? 28 : 34,
+                  fontWeight: 800,
+                  outline: "none",
                   fontVariantNumeric: "tabular-nums",
                 }}
-                onFocus={e => { e.currentTarget.style.borderColor = "rgba(124,58,237,0.5)"; }}
               />
             </div>
           </div>
+          <button
+            onClick={closeRaisePanel}
+            aria-label="Close raise panel"
+            style={{
+              width: 34,
+              height: 34,
+              borderRadius: "50%",
+              border: "1px solid rgba(255,255,255,0.12)",
+              background: "rgba(255,255,255,0.05)",
+              color: "rgba(255,255,255,0.74)",
+              fontSize: 18,
+              cursor: "pointer",
+            }}
+          >
+            ×
+          </button>
+        </div>
 
-          {/* Slider */}
-          <div style={{ position: "relative" }}>
-            <input
-              type="range"
-              min={minRaiseTo}
-              max={maxRaiseTo}
-              value={raiseAmount}
-              step={Math.max(1, Math.round((maxRaiseTo - minRaiseTo) / 100))}
-              onChange={e => setRaiseAmount(Number(e.target.value))}
-              style={{
-                width: "100%", accentColor: "#7c3aed",
-                background: `linear-gradient(to right, #7c3aed ${((raiseAmount - minRaiseTo) / (maxRaiseTo - minRaiseTo)) * 100}%, rgba(255,255,255,0.1) 0%)`,
-              }}
-            />
-            <div style={{ display: "flex", justifyContent: "space-between", marginTop: 4 }}>
-              <span style={{ color: "rgba(255,255,255,0.25)", fontSize: 10 }}>{minRaiseTo}</span>
-              <span style={{ color: "rgba(255,255,255,0.25)", fontSize: 10 }}>{maxRaiseTo}</span>
-            </div>
+        <div style={{ display: "grid", gap: 10 }}>
+          <input
+            type="range"
+            min={minRaiseTo}
+            max={maxRaiseTo}
+            value={raiseAmount}
+            step={Math.max(1, Math.round((maxRaiseTo - minRaiseTo) / 100))}
+            onChange={(event) => setRaiseAmount(Number(event.target.value))}
+            style={{ width: "100%", accentColor: "#8c84ff" }}
+          />
+          <div style={{ display: "flex", justifyContent: "space-between", color: "rgba(255,255,255,0.3)", fontSize: 11 }}>
+            <span>{minRaiseTo}</span>
+            <span>{maxRaiseTo}</span>
           </div>
+        </div>
 
-          {/* Quick-bet presets */}
-          {presets.length > 0 && (
-            <div style={{ display: "flex", gap: 6 }}>
-              {presets.map(({ label, value }) => (
+        {presets.length > 0 && (
+          <div style={{ display: "grid", gridTemplateColumns: `repeat(${presets.length}, minmax(0, 1fr))`, gap: 8 }}>
+            {presets.map(({ label, value }) => {
+              const selected = raiseAmount === value;
+              return (
                 <button
                   key={label}
                   onClick={() => setRaiseAmount(value)}
                   style={{
-                    flex: 1, padding: "6px 0", borderRadius: 10, border: "none",
-                    background: raiseAmount === value ? "rgba(124,58,237,0.35)" : "rgba(255,255,255,0.06)",
-                    color: raiseAmount === value ? "#c4b5fd" : "rgba(255,255,255,0.5)",
-                    fontSize: 11, fontWeight: 600, cursor: "pointer",
-                    fontFamily: "Outfit, sans-serif", transition: "all 0.15s",
-                  }}
-                  onMouseEnter={e => { e.currentTarget.style.background = "rgba(124,58,237,0.2)"; e.currentTarget.style.color = "#c4b5fd"; }}
-                  onMouseLeave={e => {
-                    e.currentTarget.style.background = raiseAmount === value ? "rgba(124,58,237,0.35)" : "rgba(255,255,255,0.06)";
-                    e.currentTarget.style.color = raiseAmount === value ? "#c4b5fd" : "rgba(255,255,255,0.5)";
+                    padding: "10px 12px",
+                    borderRadius: 14,
+                    border: selected ? "1px solid rgba(140,132,255,0.42)" : "1px solid rgba(255,255,255,0.08)",
+                    background: selected ? "rgba(140,132,255,0.18)" : "rgba(255,255,255,0.04)",
+                    color: selected ? "#d4ccff" : "rgba(255,255,255,0.66)",
+                    fontSize: 12,
+                    fontWeight: 700,
+                    cursor: "pointer",
                   }}
                 >
                   {label}
                 </button>
-              ))}
-            </div>
-          )}
+              );
+            })}
+          </div>
+        )}
 
-          {/* Confirm raise */}
-          <button
-            onClick={handleRaise}
-            style={{
-              padding: "12px 0", borderRadius: 14, border: "none",
-              background: "linear-gradient(135deg, #7c3aed, #a855f7)",
-              color: "#fff", fontFamily: "Outfit, sans-serif",
-              fontSize: 14, fontWeight: 700, cursor: "pointer",
-              boxShadow: "0 4px 20px rgba(124,58,237,0.35)", transition: "all 0.15s",
-            }}
-            onMouseEnter={e => { e.currentTarget.style.boxShadow = "0 4px 28px rgba(124,58,237,0.5)"; }}
-            onMouseLeave={e => { e.currentTarget.style.boxShadow = "0 4px 20px rgba(124,58,237,0.35)"; }}
-          >
-            <span style={{ display: "inline-flex", alignItems: "center", gap: 6 }}>
-              <span>Raise to</span>
-              <ChipAmount
-                amount={clampedRaise}
-                iconSize={12}
-                iconColor="#ffffff"
-                amountStyle={{ color: "inherit", fontSize: 14, fontWeight: 700 }}
-              />
-              <span>↵</span>
-            </span>
-          </button>
+        <button
+          onClick={confirmRaise}
+          style={{
+            width: "100%",
+            display: "inline-flex",
+            alignItems: "center",
+            justifyContent: "center",
+            gap: 8,
+            padding: "14px 18px",
+            borderRadius: 18,
+            border: "1px solid rgba(140,132,255,0.22)",
+            background: "linear-gradient(135deg, #7a5af8 0%, #9d7fff 100%)",
+            color: "#ffffff",
+            fontSize: 15,
+            fontWeight: 700,
+            cursor: "pointer",
+            boxShadow: "0 16px 32px rgba(106, 85, 230, 0.32)",
+          }}
+        >
+          Raise to
+          <ChipAmount
+            amount={clampedRaise}
+            iconSize={13}
+            iconColor="#ffffff"
+            amountStyle={{ color: "inherit", fontSize: 15, fontWeight: 800 }}
+          />
+        </button>
       </div>
     </>
   ) : null;
 
-  // ── Active state ──────────────────────────────────────────────────────────
   return (
-    <div data-testid="action-bar" style={{ display: "flex", flexDirection: "column", width: "100%", gap: 8, fontFamily: "Outfit, sans-serif" }}>
-
-      {/* Raise panel (shown when raise button clicked) */}
-      {typeof document !== "undefined" ? createPortal(raisePanelNode, document.body) : raisePanelNode}
-
-      {/* Main action row — Moon Poker pill buttons */}
-      <div style={{
-        display: "flex", alignItems: "center", justifyContent: "center",
-        flexWrap: compact ? "wrap" : "nowrap",
-        gap: compact ? 4 : 6,
-        padding: compact ? "4px 8px" : "6px 12px",
-        background: "rgba(10,8,20,0.85)", border: "1px solid rgba(255,255,255,0.08)",
-        borderRadius: 999, backdropFilter: "blur(20px)",
-        boxShadow: "0 8px 40px rgba(0,0,0,0.5)",
-      }}>
-
-        {/* Fold */}
-        <ActionPill
-          label="Fold"
+    <div data-testid="action-bar" style={{ width: "100%", display: "flex", justifyContent: "center" }}>
+      {typeof document !== "undefined" ? createPortal(raisePanel, document.body) : raisePanel}
+      <div
+        style={{
+          width: "100%",
+          maxWidth: compact ? "100%" : 540,
+          display: "grid",
+          gridTemplateColumns: canRaise ? "repeat(4, minmax(0, 1fr))" : "repeat(3, minmax(0, 1fr))",
+          gap: compact ? 8 : 10,
+          padding: compact ? "8px" : "10px",
+          borderRadius: compact ? 24 : 999,
+          background: "rgba(10, 9, 19, 0.9)",
+          border: "1px solid rgba(255,255,255,0.06)",
+          boxShadow: "0 18px 36px rgba(0,0,0,0.24)",
+          backdropFilter: "blur(24px)",
+        }}
+      >
+        <ActionButton
           testId="action-fold"
-          shortcut="F"
-          color="#f87171"
-          hoverBg="rgba(248,113,113,0.1)"
           compact={compact}
-          onClick={() => { setShowRaisePanel(false); onAction("FOLD"); }}
+          tone="danger"
+          label="Fold"
+          shortcut="F"
+          onClick={() => {
+            setShowRaisePanel(false);
+            onAction("FOLD");
+          }}
         />
 
-        <div style={{ width: 1, height: 28, background: "rgba(255,255,255,0.07)" }} />
-
-        {/* Check / Call */}
-        <ActionPill
-          label={toCall > 0 ? (
-            <>
-              <span>Call</span>
-              <ChipAmount
-                amount={toCall}
-                iconSize={10}
-                iconColor="#93c5fd"
-                amountStyle={{ color: "inherit", fontSize: compact ? 12 : 13, fontWeight: 600 }}
-              />
-            </>
-          ) : "Check"}
+        <ActionButton
           testId="action-check-call"
-          shortcut="C"
-          color={toCall > 0 ? "#93c5fd" : "rgba(255,255,255,0.7)"}
-          hoverBg={toCall > 0 ? "rgba(147,197,253,0.1)" : "rgba(255,255,255,0.07)"}
           compact={compact}
-          onClick={() => { setShowRaisePanel(false); onAction(toCall > 0 ? "CALL" : "CHECK"); }}
+          tone={toCall > 0 ? "info" : "neutral"}
+          label={
+            toCall > 0 ? (
+              <>
+                <span>Call</span>
+                <ChipAmount
+                  amount={toCall}
+                  iconSize={compact ? 10 : 11}
+                  iconColor="#8fd5ff"
+                  amountStyle={{ color: "inherit", fontSize: compact ? 12 : 13, fontWeight: 700 }}
+                />
+              </>
+            ) : (
+              "Check"
+            )
+          }
+          shortcut="C"
+          onClick={() => {
+            setShowRaisePanel(false);
+            onAction(toCall > 0 ? "CALL" : "CHECK");
+          }}
         />
 
         {canRaise && (
-          <>
-            <div style={{ width: 1, height: 28, background: "rgba(255,255,255,0.07)" }} />
-
-            {/* Raise */}
-            <ActionPill
-              label={showRaisePanel ? "▲ Raise" : "Raise"}
-              testId="action-raise"
-              shortcut="R"
-              color="#6ee7b7"
-              hoverBg="rgba(110,231,183,0.1)"
-              active={showRaisePanel}
-              compact={compact}
-              onClick={() => setShowRaisePanel(v => !v)}
-            />
-          </>
+          <ActionButton
+            testId="action-raise"
+            compact={compact}
+            tone="success"
+            active={showRaisePanel}
+            label={showRaisePanel ? "Raise Open" : "Raise"}
+            shortcut="R"
+            onClick={() => setShowRaisePanel((value) => !value)}
+          />
         )}
 
-        <div style={{ width: 1, height: 28, background: "rgba(255,255,255,0.07)" }} />
-
-        {/* All-In */}
-        <ActionPill
-          label="All-In"
+        <ActionButton
           testId="action-all-in"
-          shortcut="A"
-          color="#a78bfa"
-          hoverBg="rgba(167,139,250,0.12)"
           compact={compact}
-          onClick={() => { setShowRaisePanel(false); onAction("ALL_IN"); }}
+          tone="accent"
+          label="All-In"
+          shortcut="A"
+          onClick={() => {
+            setShowRaisePanel(false);
+            onAction("ALL_IN");
+          }}
         />
       </div>
     </div>
   );
 }
 
-// ── Pill button ───────────────────────────────────────────────────────────────
-function ActionPill({
-  label, shortcut, color, hoverBg, onClick, active = false, compact = false, testId,
+function ActionButton({
+  testId,
+  label,
+  shortcut,
+  onClick,
+  compact,
+  tone,
+  active = false,
 }: {
-  label: React.ReactNode; shortcut: string; color: string; hoverBg: string;
-  onClick: () => void; active?: boolean; compact?: boolean; testId?: string;
+  testId: string;
+  label: React.ReactNode;
+  shortcut: string;
+  onClick: () => void;
+  compact?: boolean;
+  tone: "danger" | "info" | "success" | "accent" | "neutral";
+  active?: boolean;
 }) {
-  const [hovered, setHovered] = useState(false);
+  const palette = {
+    danger: {
+      color: "#ff6b84",
+      background: active ? "rgba(255,107,132,0.16)" : "rgba(255,255,255,0.02)",
+      border: active ? "rgba(255,107,132,0.3)" : "rgba(255,255,255,0.06)",
+    },
+    info: {
+      color: "#8fd5ff",
+      background: active ? "rgba(143,213,255,0.16)" : "rgba(255,255,255,0.02)",
+      border: active ? "rgba(143,213,255,0.3)" : "rgba(255,255,255,0.06)",
+    },
+    success: {
+      color: "#78edb6",
+      background: active ? "rgba(120,237,182,0.16)" : "rgba(255,255,255,0.02)",
+      border: active ? "rgba(120,237,182,0.3)" : "rgba(255,255,255,0.06)",
+    },
+    accent: {
+      color: "#b89cff",
+      background: active ? "rgba(184,156,255,0.16)" : "rgba(255,255,255,0.02)",
+      border: active ? "rgba(184,156,255,0.3)" : "rgba(255,255,255,0.06)",
+    },
+    neutral: {
+      color: "rgba(255,255,255,0.82)",
+      background: active ? "rgba(255,255,255,0.12)" : "rgba(255,255,255,0.02)",
+      border: active ? "rgba(255,255,255,0.2)" : "rgba(255,255,255,0.06)",
+    },
+  }[tone];
 
   return (
     <button
       data-testid={testId}
       onClick={onClick}
-      onMouseEnter={() => setHovered(true)}
-      onMouseLeave={() => setHovered(false)}
       style={{
-        display: "inline-flex", alignItems: "center", gap: 6,
-        minHeight: compact ? 42 : 40,
-        padding: compact ? "8px 12px" : "10px 20px", borderRadius: 999, border: "none",
-        background: active ? hoverBg : hovered ? hoverBg : "transparent",
-        color, fontFamily: "Outfit, sans-serif", fontSize: compact ? 13 : 14, fontWeight: 600,
-        cursor: "pointer", transition: "all 0.15s", whiteSpace: "nowrap",
-        letterSpacing: "0.01em",
+        minHeight: compact ? 54 : 58,
+        display: "flex",
+        flexDirection: compact ? "row" : "column",
+        alignItems: "center",
+        justifyContent: "center",
+        gap: compact ? 6 : 4,
+        padding: compact ? "12px 10px" : "11px 12px 10px",
+        borderRadius: compact ? 16 : 18,
+        border: `1px solid ${palette.border}`,
+        background: palette.background,
+        color: palette.color,
+        cursor: "pointer",
+        transition: "transform 0.16s ease, border-color 0.16s ease, background 0.16s ease",
+        backdropFilter: "blur(12px)",
+      }}
+      onMouseEnter={(event) => {
+        event.currentTarget.style.transform = "translateY(-1px)";
+        event.currentTarget.style.background = active ? palette.background : "rgba(255,255,255,0.06)";
+      }}
+      onMouseLeave={(event) => {
+        event.currentTarget.style.transform = "translateY(0)";
+        event.currentTarget.style.background = palette.background;
       }}
     >
-      {label}
-      <span style={{ fontSize: 9, fontWeight: 400, opacity: 0.35, fontFamily: "monospace" }}>
-        {shortcut}
+      <span style={{ display: "inline-flex", alignItems: "center", gap: 6, fontSize: compact ? 13 : 15, fontWeight: 700, lineHeight: 1.1 }}>
+        {label}
       </span>
+      <span style={{ fontSize: 10, fontWeight: 700, color: "rgba(255,255,255,0.28)", letterSpacing: "0.08em" }}>{shortcut}</span>
     </button>
   );
 }

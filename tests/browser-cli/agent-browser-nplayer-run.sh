@@ -1,7 +1,7 @@
 #!/usr/bin/env bash
 set -uo pipefail
 
-ROOT="/Users/ayan/Desktop/Manus Poker"
+ROOT="${ROOT:-$(cd "$(dirname "${BASH_SOURCE[0]}")/../.." && pwd)}"
 source "$ROOT/tests/browser-cli/agent-browser-env.sh"
 
 GATEWAY_LOG="$ROOT/tests/browser-cli/.gateway.log"
@@ -26,6 +26,7 @@ EXPECT_TIMEOUT_CONTINUE="${EXPECT_TIMEOUT_CONTINUE:-0}"
 EXPECT_TIMEOUT_END="${EXPECT_TIMEOUT_END:-0}"
 REQUIRE_PREFLOP_TIMEOUT_TO_FLOP="${REQUIRE_PREFLOP_TIMEOUT_TO_FLOP:-0}"
 POST_TIMEOUT_INVALID_CLICK_CHECK="${POST_TIMEOUT_INVALID_CLICK_CHECK:-1}"
+BUY_IN_AMOUNT="${BUY_IN_AMOUNT:-1000}"
 
 LIVENESS_POLLS="${LIVENESS_POLLS:-40}"
 LIVENESS_WAIT_MS="${LIVENESS_WAIT_MS:-500}"
@@ -262,6 +263,7 @@ request_seat() {
   local display_name="$2"
   pnpm exec agent-browser --session "$session" find first "[data-testid^='seat-empty-']" click
   pnpm exec agent-browser --session "$session" find placeholder "Enter your name" fill "$display_name"
+  pnpm exec agent-browser --session "$session" find first "input[inputmode='numeric']" fill "$BUY_IN_AMOUNT"
   pnpm exec agent-browser --session "$session" find role button click --name "Request Seat"
 }
 

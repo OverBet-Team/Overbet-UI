@@ -1,303 +1,367 @@
 "use client";
 
-/**
- * PlayerPerspectiveView — Moon-style seated player view.
- * Hero at bottom center, opponents in semicircular arc. No empty seats.
- * Replaces the bird's-eye PokerTable for seated users.
- */
-
 import React from "react";
 import PlayingCard from "./PlayingCard";
 import { ChipAmount, ChipIcon } from "./ChipAmount";
-import type { PlayerViewState, OpponentForView } from "@/lib/overbet-to-player-view";
+import type { OpponentForView, PlayerViewState } from "@/lib/overbet-to-player-view";
 
-// Default avatar placeholder (initials)
-function AvatarPlaceholder({ name, size }: { name: string; size: number }) {
-  const initials = name.slice(0, 2).toUpperCase();
+type SeatSize = "lg" | "md" | "sm";
+
+const TABLE_SEAT_COUNT = 10;
+const ARC_ANGLES_BY_COUNT: Record<number, number[]> = {
+  1: [90],
+  2: [132, 48],
+  3: [90, 136, 44],
+  4: [112, 68, 146, 34],
+  5: [90, 124, 56, 146, 34],
+  6: [90, 118, 62, 140, 40, 24],
+  7: [90, 116, 64, 136, 44, 150, 30],
+  8: [90, 112, 68, 132, 48, 146, 34, 18],
+  9: [90, 110, 70, 128, 52, 142, 38, 154, 22],
+};
+
+function getInitials(name: string) {
+  const parts = name
+    .trim()
+    .split(/\s+/)
+    .filter(Boolean)
+    .slice(0, 2);
+
+  if (parts.length === 0) return "OB";
+  return parts.map((part) => part[0]?.toUpperCase() ?? "").join("") || "OB";
+}
+
+function AvatarPlaceholder({
+  name,
+  size,
+  active,
+}: {
+  name: string;
+  size: number;
+  active?: boolean;
+}) {
+  const initials = getInitials(name);
+
   return (
     <div
       style={{
+        position: "relative",
         width: size,
         height: size,
         borderRadius: "50%",
-        background: "linear-gradient(135deg, #3b2d5c 0%, #2a2040 100%)",
-        border: "2px solid rgba(255,255,255,0.14)",
-        display: "flex",
-        alignItems: "center",
-        justifyContent: "center",
-        fontSize: size * 0.4,
-        fontWeight: 700,
-        color: "rgba(255,255,255,0.9)",
-        fontFamily: "Outfit, sans-serif",
-      }}
-    >
-      {initials}
-    </div>
-  );
-}
-
-
-// Moon-style face-down card with concentric circles
-function FaceDownCard({ w, h, r, rotate = 0 }: { w: number; h: number; r: number; rotate?: number }) {
-  return (
-    <div
-      style={{
-        width: w,
-        height: h,
-        borderRadius: r,
-        background: "linear-gradient(145deg, #1e1b38 0%, #252245 100%)",
-        border: "1px solid rgba(255,255,255,0.10)",
-        boxShadow: "0 4px 14px rgba(0,0,0,0.55)",
-        transform: `rotate(${rotate}deg)`,
-        flexShrink: 0,
-        display: "flex",
-        alignItems: "center",
-        justifyContent: "center",
-        overflow: "hidden",
+        padding: Math.max(2, Math.round(size * 0.045)),
+        background: active
+          ? "linear-gradient(135deg, rgba(144, 116, 255, 0.92), rgba(99, 83, 255, 0.32))"
+          : "linear-gradient(135deg, rgba(255,255,255,0.14), rgba(255,255,255,0.02))",
+        boxShadow: active
+          ? "0 16px 30px rgba(97, 68, 224, 0.34)"
+          : "0 12px 28px rgba(0,0,0,0.34)",
       }}
     >
       <div
         style={{
-          position: "absolute",
-          inset: 3,
-          borderRadius: Math.max(r - 3, 2),
-          border: "1px solid rgba(255,255,255,0.06)",
+          width: "100%",
+          height: "100%",
+          borderRadius: "50%",
+          display: "flex",
+          alignItems: "center",
+          justifyContent: "center",
           background:
-            "repeating-linear-gradient(45deg, transparent, transparent 3px, rgba(255,255,255,0.015) 3px, rgba(255,255,255,0.015) 6px)",
+            "radial-gradient(circle at 30% 20%, rgba(255,255,255,0.28), transparent 24%), linear-gradient(160deg, #4f34b3 0%, #241a46 100%)",
+          border: "1px solid rgba(255,255,255,0.08)",
+          color: "#ffffff",
+          fontSize: Math.round(size * 0.34),
+          fontWeight: 800,
+          fontFamily: "Outfit, sans-serif",
+          letterSpacing: "-0.03em",
         }}
-      />
-      <svg
-        width={w * 0.38}
-        height={w * 0.38}
-        viewBox="0 0 24 24"
-        fill="none"
-        style={{ position: "relative", zIndex: 1 }}
       >
-        <circle cx="12" cy="12" r="9" stroke="rgba(255,255,255,0.1)" strokeWidth="1.5" />
-        <circle cx="12" cy="12" r="5" stroke="rgba(255,255,255,0.07)" strokeWidth="1" />
-        <circle cx="12" cy="12" r="2" fill="rgba(255,255,255,0.08)" />
-      </svg>
+        {initials}
+      </div>
     </div>
   );
 }
 
-function DealerChip({ size = 18 }: { size?: number }) {
+function DealerChip({ size = 20 }: { size?: number }) {
   return (
     <div
       style={{
-        width: size,
+        minWidth: size,
         height: size,
-        borderRadius: "50%",
-        background: "linear-gradient(135deg, #f5f5f0 0%, #e8e8e0 100%)",
-        border: "1.5px solid rgba(0,0,0,0.15)",
-        boxShadow: "0 2px 6px rgba(0,0,0,0.5), inset 0 1px 0 rgba(255,255,255,0.8)",
-        display: "flex",
+        padding: "0 7px",
+        borderRadius: 999,
+        background: "rgba(255,255,255,0.92)",
+        color: "#111319",
+        border: "1px solid rgba(17,19,25,0.12)",
+        boxShadow: "0 6px 16px rgba(0,0,0,0.28)",
+        display: "inline-flex",
         alignItems: "center",
         justifyContent: "center",
-        flexShrink: 0,
-        zIndex: 10,
+        fontSize: Math.max(10, Math.round(size * 0.48)),
+        fontWeight: 800,
+        lineHeight: 1,
       }}
     >
-      <span style={{ color: "#1a1a1a", fontSize: size * 0.45, fontWeight: 800, fontFamily: "Outfit, sans-serif", lineHeight: 1 }}>
-        D
-      </span>
+      D
+    </div>
+  );
+}
+
+function StatusBadge({ status, compactMode }: { status: string; compactMode?: boolean }) {
+  const normalized = status.toUpperCase();
+  const badgeMap: Record<string, { label: string; color: string; background: string; border: string }> = {
+    CALLED: {
+      label: "Called",
+      color: "#8c84ff",
+      background: "rgba(8, 6, 20, 0.92)",
+      border: "1px solid rgba(140,132,255,0.4)",
+    },
+    CHECKED: {
+      label: "Checked",
+      color: "#7fe0b2",
+      background: "rgba(8, 6, 20, 0.92)",
+      border: "1px solid rgba(127,224,178,0.36)",
+    },
+    RAISED: {
+      label: "Raised",
+      color: "#7fe0b2",
+      background: "rgba(8, 6, 20, 0.92)",
+      border: "1px solid rgba(127,224,178,0.36)",
+    },
+    ALL_IN: {
+      label: "All-In",
+      color: "#f7c86a",
+      background: "rgba(8, 6, 20, 0.92)",
+      border: "1px solid rgba(247,200,106,0.38)",
+    },
+    FOLDED: {
+      label: "Folded",
+      color: "#ff7386",
+      background: "rgba(8, 6, 20, 0.92)",
+      border: "1px solid rgba(255,115,134,0.3)",
+    },
+  };
+
+  const badge = badgeMap[normalized];
+  if (!badge) return null;
+
+  return (
+    <span
+      style={{
+        display: "inline-flex",
+        alignItems: "center",
+        justifyContent: "center",
+        padding: compactMode ? "4px 10px" : "5px 11px",
+        borderRadius: 999,
+        color: badge.color,
+        background: badge.background,
+        border: badge.border,
+        fontSize: compactMode ? 10 : 12,
+        fontWeight: 700,
+        lineHeight: 1,
+        boxShadow: "0 8px 18px rgba(0,0,0,0.18)",
+      }}
+    >
+      {badge.label}
+    </span>
+  );
+}
+
+function getSeatMetrics(totalPlayers: number, compactMode?: boolean) {
+  const seatSize: SeatSize = compactMode
+    ? totalPlayers <= 4
+      ? "md"
+      : "sm"
+    : totalPlayers === 2
+      ? "md"
+      : totalPlayers <= 4
+        ? "lg"
+        : totalPlayers <= 6
+          ? "md"
+          : "sm";
+
+  const avatarSize = seatSize === "lg" ? 84 : seatSize === "md" ? 70 : 56;
+  const footprintWidth = seatSize === "lg" ? 154 : seatSize === "md" ? 136 : 112;
+  const footprintHeight = seatSize === "lg" ? 156 : seatSize === "md" ? 136 : 114;
+  const boardCardSize: "sm" | "md" = compactMode ? "sm" : totalPlayers <= 4 ? "md" : "sm";
+  const heroCardSize: "md" | "lg" = compactMode ? "lg" : totalPlayers === 2 ? "md" : totalPlayers <= 4 ? "lg" : "md";
+
+  const arc = compactMode
+    ? { cy: 0.39, rx: 0.34, ry: 0.28 }
+    : totalPlayers === 2
+      ? { cy: 0.34, rx: 0.34, ry: 0.14 }
+      : totalPlayers <= 4
+        ? { cy: 0.4, rx: 0.38, ry: 0.24 }
+        : totalPlayers <= 6
+          ? { cy: 0.4, rx: 0.4, ry: 0.23 }
+          : { cy: 0.39, rx: 0.41, ry: 0.22 };
+
+  return {
+    seatSize,
+    avatarSize,
+    footprintWidth,
+    footprintHeight,
+    boardCardSize,
+    heroCardSize,
+    arc,
+  };
+}
+
+function HiddenHand({ seatSize, compactMode }: { seatSize: SeatSize; compactMode?: boolean }) {
+  const hiddenSize: "xs" | "sm" = seatSize === "lg" ? "sm" : "xs";
+  const offsetX = seatSize === "lg" ? 20 : seatSize === "md" ? 16 : 12;
+  const offsetY = seatSize === "lg" ? 15 : seatSize === "md" ? 12 : 10;
+
+  return (
+    <div
+      style={{
+        position: "absolute",
+        right: -offsetX,
+        bottom: offsetY,
+        display: "flex",
+        alignItems: "flex-end",
+        gap: 0,
+        pointerEvents: "none",
+      }}
+    >
+      <PlayingCard
+        faceDown
+        size={hiddenSize}
+        rotate={compactMode ? -16 : -18}
+        style={{ marginRight: -12, opacity: 0.92 }}
+      />
+      <PlayingCard faceDown size={hiddenSize} rotate={compactMode ? 6 : 8} />
     </div>
   );
 }
 
 function OpponentSeat({
   player,
-  size,
+  seatSize,
+  avatarSize,
+  revealCards,
   isWinner,
-  showCards,
+  compactMode,
 }: {
   player: OpponentForView;
-  size: "lg" | "md" | "sm";
+  seatSize: SeatSize;
+  avatarSize: number;
+  revealCards: boolean;
   isWinner?: boolean;
-  showCards?: boolean;
+  compactMode?: boolean;
 }) {
-  const isFolded = player.status === "FOLDED" || player.status === "folded";
-  const avSize = size === "lg" ? 88 : size === "md" ? 72 : 56;
   const cards = Array.isArray(player.cards) ? player.cards : [];
-  const hasRevealedCards = showCards && cards.length > 0;
-  const cardSize = size === "lg" ? "md" : "sm";
+  const hasVisibleCards = revealCards && cards.length > 0;
+  const cardSize: "xs" | "sm" = seatSize === "lg" ? "sm" : "xs";
+  const isFolded = player.status === "FOLDED" || player.status === "folded";
 
   return (
-    <div style={{ display: "flex", flexDirection: "column", alignItems: "center", gap: 0 }}>
-      <div style={{ position: "relative", flexShrink: 0 }}>
-        {hasRevealedCards ? (
-          <div style={{ display: "flex", alignItems: "flex-end", gap: 6 }}>
-            <div
-              style={{
-                position: "relative",
-                flexShrink: 0,
-                border: isWinner ? "2.5px solid rgba(234,179,8,0.7)" : undefined,
-                borderRadius: "50%",
-                boxShadow: isWinner ? "0 0 12px rgba(234,179,8,0.4)" : undefined,
-                padding: 2,
-              }}
-            >
-              <AvatarPlaceholder name={player.username} size={Math.round(avSize * 0.7)} />
-            </div>
-            {cards.map((card, i) => (
-              <PlayingCard key={i} card={card} size={cardSize} winning={isWinner} />
-            ))}
-          </div>
-        ) : (
-          <>
-        <AvatarPlaceholder name={player.username} size={avSize} />
-        {player.isDealer && (
-          <div style={{ position: "absolute", bottom: -4, left: -4, zIndex: 10 }}>
-            <DealerChip size={size === "lg" ? 20 : size === "md" ? 16 : 14} />
-          </div>
-        )}
+    <div style={{ display: "flex", flexDirection: "column", alignItems: "center", gap: compactMode ? 5 : 7 }}>
+      <StatusBadge status={player.status} compactMode={compactMode} />
+      <div style={{ position: "relative", minHeight: avatarSize + (compactMode ? 18 : 22), display: "flex", alignItems: "center", justifyContent: "center" }}>
         {player.isActive && (
           <div
             style={{
               position: "absolute",
-              left: -avSize * 0.08,
-              top: -avSize * 0.08,
-              width: avSize * 1.16,
-              height: avSize * 1.16,
+              inset: -7,
               borderRadius: "50%",
-              border: "2.5px solid rgba(167,139,250,0.75)",
-              boxShadow: "0 0 12px rgba(139,92,246,0.5)",
+              border: "1px solid rgba(155, 127, 255, 0.44)",
+              boxShadow: "0 0 0 10px rgba(93, 63, 199, 0.10), 0 0 28px rgba(114,83,255,0.30)",
               pointerEvents: "none",
-              zIndex: 5,
             }}
           />
         )}
-        {/* Face-down card — Moon-style with moon SVG circles */}
-        <div
-          style={{
-            position: "absolute",
-            left: avSize * 0.65,
-            top: avSize * 0.15,
-            zIndex: 4,
-          }}
-        >
-          <FaceDownCard
-            w={size === "lg" ? 44 : size === "md" ? 36 : 28}
-            h={size === "lg" ? 60 : size === "md" ? 50 : 38}
-            r={8}
-            rotate={8}
-          />
-        </div>
-      </>
+        {hasVisibleCards ? (
+          <div style={{ display: "flex", alignItems: "flex-end", gap: 8 }}>
+            <div style={{ position: "relative" }}>
+              <AvatarPlaceholder name={player.username} size={Math.round(avatarSize * 0.76)} active={player.isActive} />
+              {player.isDealer && (
+                <div style={{ position: "absolute", left: -6, bottom: -4 }}>
+                  <DealerChip size={compactMode ? 18 : 20} />
+                </div>
+              )}
+            </div>
+            <div style={{ display: "flex", alignItems: "flex-end" }}>
+              {cards.map((card, index) => (
+                <PlayingCard
+                  key={`${player.id}-${card}-${index}`}
+                  card={card}
+                  size={cardSize}
+                  winning={isWinner}
+                  rotate={index === 0 ? -8 : 5}
+                  style={{ marginLeft: index === 0 ? 0 : -14, zIndex: index + 1 }}
+                />
+              ))}
+            </div>
+          </div>
+        ) : (
+          <div style={{ position: "relative" }}>
+            <AvatarPlaceholder name={player.username} size={avatarSize} active={player.isActive} />
+            <HiddenHand seatSize={seatSize} compactMode={compactMode} />
+            {player.isDealer && (
+              <div style={{ position: "absolute", left: -6, bottom: -4 }}>
+                <DealerChip size={compactMode ? 18 : 20} />
+              </div>
+            )}
+          </div>
         )}
       </div>
-      <div style={{ display: "flex", flexDirection: "column", alignItems: "center", gap: 3, marginTop: 6 }}>
+      <div style={{ display: "flex", flexDirection: "column", alignItems: "center", gap: 5 }}>
         <span
           style={{
-            color: isFolded ? "rgba(255,255,255,0.4)" : "rgba(255,255,255,0.92)",
-            fontSize: size === "lg" ? 14 : size === "md" ? 12 : 11,
+            color: isFolded ? "rgba(255,255,255,0.48)" : "#ffffff",
+            fontSize: compactMode ? 12 : seatSize === "lg" ? 15 : 13,
             fontWeight: 700,
-            fontFamily: "Outfit, sans-serif",
-            whiteSpace: "nowrap",
+            lineHeight: 1.1,
+            letterSpacing: "-0.01em",
           }}
         >
           {player.username}
         </span>
         <ChipAmount
           amount={player.chips}
-          iconSize={10}
-          amountStyle={{ color: "rgba(255,255,255,0.5)", fontSize: 11, fontWeight: 500 }}
+          iconSize={compactMode ? 10 : 11}
+          amountStyle={{
+            color: isFolded ? "rgba(255,255,255,0.44)" : "rgba(255,255,255,0.74)",
+            fontSize: compactMode ? 11 : 12,
+            fontWeight: 600,
+          }}
         />
         {player.bet > 0 && (
           <div
             style={{
               display: "inline-flex",
               alignItems: "center",
-              gap: 3,
-              padding: "2px 7px 2px 5px",
+              gap: 4,
+              padding: compactMode ? "3px 8px" : "4px 9px",
               borderRadius: 999,
-              background: "rgba(167,139,250,0.2)",
-              border: "1px solid rgba(167,139,250,0.3)",
-              fontSize: 10,
-              fontWeight: 600,
-              color: "#a78bfa",
+              background: "rgba(255,255,255,0.08)",
+              border: "1px solid rgba(255,255,255,0.1)",
             }}
           >
             <ChipAmount
               amount={player.bet}
-              iconSize={9}
-              iconColor="#a78bfa"
-              amountStyle={{ color: "inherit", fontSize: 10, fontWeight: 600 }}
+              iconSize={compactMode ? 9 : 10}
+              amountStyle={{ color: "rgba(255,255,255,0.9)", fontSize: compactMode ? 10 : 11, fontWeight: 700 }}
             />
           </div>
-        )}
-        {/* Status badges — Moon-style */}
-        {isFolded && (
-          <span
-            style={{
-              display: "inline-flex",
-              padding: "2px 8px",
-              borderRadius: 999,
-              background: "rgba(107,114,128,0.25)",
-              border: "1px solid rgba(255,255,255,0.08)",
-              fontSize: 10,
-              fontWeight: 600,
-              color: "rgba(255,255,255,0.5)",
-              letterSpacing: "0.04em",
-            }}
-          >
-            Folded
-          </span>
-        )}
-        {!isFolded && (player.status === "CALLED" || player.status === "called") && (
-          <span
-            style={{
-              display: "inline-flex",
-              padding: "2px 8px",
-              borderRadius: 999,
-              background: "rgba(147,197,253,0.15)",
-              border: "1px solid rgba(147,197,253,0.25)",
-              fontSize: 10,
-              fontWeight: 600,
-              color: "#93c5fd",
-              letterSpacing: "0.04em",
-            }}
-          >
-            Called
-          </span>
-        )}
-        {!isFolded && (player.status === "RAISED" || player.status === "raised") && (
-          <span
-            style={{
-              display: "inline-flex",
-              padding: "2px 8px",
-              borderRadius: 999,
-              background: "rgba(110,231,183,0.15)",
-              border: "1px solid rgba(110,231,183,0.25)",
-              fontSize: 10,
-              fontWeight: 600,
-              color: "#6ee7b7",
-              letterSpacing: "0.04em",
-            }}
-          >
-            Raised
-          </span>
         )}
       </div>
     </div>
   );
 }
 
-const ARC_ANGLES_BY_COUNT: Record<number, number[]> = {
-  1: [90],
-  2: [135, 45],
-  3: [90, 140, 40],
-  4: [112, 68, 145, 35],
-  5: [90, 125, 55, 148, 32],
-  6: [90, 118, 62, 142, 38, 155],
-  7: [90, 116, 64, 138, 42, 152, 28],
-  8: [90, 113, 67, 134, 46, 150, 30, 158],
-  9: [90, 110, 70, 130, 50, 148, 32, 158, 22],
-};
+function boardRotation(index: number, compactMode?: boolean) {
+  const desktopRotations = [-14, -7, 0, 7, 14];
+  const compactRotations = [-10, -4, 0, 4, 10];
+  return (compactMode ? compactRotations : desktopRotations)[index] ?? 0;
+}
 
-const arcCY_pct = 0.44;
-const arcRX_pct = 0.38;
-const arcRY_pct = 0.38;
+function getSingleOpponentAngle(heroSeatIndex: number, opponentSeatIndex: number) {
+  const relative = (opponentSeatIndex - heroSeatIndex + TABLE_SEAT_COUNT) % TABLE_SEAT_COUNT;
+  if (relative === TABLE_SEAT_COUNT / 2) return 132;
+  return relative > TABLE_SEAT_COUNT / 2 ? 132 : 48;
+}
 
 export function PlayerPerspectiveView({
   viewState,
@@ -312,31 +376,28 @@ export function PlayerPerspectiveView({
   winnerCards?: string[];
   compactMode?: boolean;
 }) {
-  const { hero, opponents, board, totalPot, currentRoundAmount, phase, activePlayerId } = viewState;
-  const isCleanup = phase === "CLEANUP" || phase === "SHOWDOWN";
-  const total = opponents.length + 1;
-  const seatSize: "lg" | "md" | "sm" = compactMode
-    ? total <= 4
-      ? "md"
-      : "sm"
-    : total <= 4
-      ? "lg"
-      : total <= 6
-        ? "md"
-        : "sm";
-  const seatAngles = ARC_ANGLES_BY_COUNT[Math.min(opponents.length, 9)] ?? [];
-  const arcRX = compactMode ? 0.34 : arcRX_pct;
-  const arcRY = compactMode ? 0.32 : arcRY_pct;
-  const arcCY = compactMode ? 0.39 : arcCY_pct;
-  const boardCardSize = compactMode ? "sm" : "md";
-  const heroCardSize = compactMode ? "lg" : "xl";
-  const heroBottom = compactMode ? 6 : -50;
-  const heroGap = compactMode ? 4 : 6;
-  const potTop = compactMode ? "40%" : "44%";
-  const highlightHero = winnerId === hero.id && hero.cards.some((c) => winnerCards?.includes(c));
+  void cleanupShowAllRevealed;
 
-  const seatFootprintW = seatSize === "lg" ? 96 : seatSize === "md" ? 80 : 64;
-  const seatFootprintH = seatSize === "lg" ? 140 : seatSize === "md" ? 115 : 90;
+  const { hero, opponents, board, totalPot, currentRoundAmount, dealerId, activePlayerId, phase } = viewState;
+  const totalPlayers = opponents.length + 1;
+  const metrics = getSeatMetrics(totalPlayers, compactMode);
+  const seatAngles =
+    opponents.length === 1
+      ? [getSingleOpponentAngle(hero.seatIndex ?? 0, opponents[0].seatIndex)]
+      : ARC_ANGLES_BY_COUNT[Math.min(opponents.length, 9)] ?? [];
+  const isCleanup = phase === "CLEANUP" || phase === "SHOWDOWN";
+  const heroIsDealer = dealerId === hero.id;
+  const heroIsActive = activePlayerId === hero.id;
+  const heroCards = hero.cards?.length === 2 ? hero.cards : [null, null];
+  const highlightHero = winnerId === hero.id && hero.cards.some((card) => winnerCards?.includes(card));
+  const heroNameSize = compactMode ? 13 : 16;
+  const heroBottom = compactMode ? 8 : totalPlayers === 2 ? 12 : 6;
+  const boardTop = compactMode ? "36%" : totalPlayers === 2 ? "22%" : totalPlayers <= 4 ? "22%" : "24%";
+  const potFontSize = compactMode
+    ? "clamp(2.4rem, 6vw, 3rem)"
+    : totalPlayers === 2
+      ? "clamp(3rem, 4vw, 4rem)"
+      : "clamp(3.1rem, 4.4vw, 4.7rem)";
 
   return (
     <div
@@ -351,74 +412,117 @@ export function PlayerPerspectiveView({
         overflow: "hidden",
         display: "flex",
         flexDirection: "column",
-        background: "linear-gradient(170deg, #1a1428 0%, #141420 35%, #0f0e1a 100%)",
+        background: compactMode
+          ? "linear-gradient(180deg, rgba(21,18,34,0.96) 0%, rgba(14,12,26,0.98) 100%)"
+          : "transparent",
       }}
     >
-      {/* Arc background */}
-      <div className="table-surface" style={{ zIndex: 0 }} />
-      <div className="table-glow" style={{ zIndex: 0 }} />
+      <div
+        style={{
+          position: "absolute",
+          inset: 0,
+          background: compactMode
+            ? "radial-gradient(circle at 50% 28%, rgba(113,76,255,0.18), transparent 34%)"
+            : "radial-gradient(circle at 50% 18%, rgba(114, 83, 255, 0.18), transparent 36%)",
+          pointerEvents: "none",
+        }}
+      />
+      <div
+        style={{
+          position: "absolute",
+          left: "50%",
+          top: compactMode ? "34%" : "28%",
+          width: compactMode ? "96%" : totalPlayers === 2 ? "84%" : "88%",
+          height: compactMode ? "48%" : totalPlayers === 2 ? "48%" : "54%",
+          transform: "translateX(-50%)",
+          borderRadius: "50% 50% 46% 46% / 68% 68% 30% 30%",
+          background: "linear-gradient(180deg, rgba(52, 43, 100, 0.9) 0%, rgba(24, 20, 46, 0.98) 100%)",
+          border: "1px solid rgba(140, 112, 255, 0.18)",
+          boxShadow: "0 36px 90px rgba(16, 10, 38, 0.42), inset 0 1px 0 rgba(255,255,255,0.05)",
+          pointerEvents: "none",
+        }}
+      />
+      <div
+        style={{
+          position: "absolute",
+          left: "50%",
+          bottom: compactMode ? "-10%" : totalPlayers === 2 ? "8%" : "4%",
+          width: compactMode ? "102%" : "92%",
+          height: compactMode ? "60%" : totalPlayers === 2 ? "56%" : "64%",
+          transform: "translateX(-50%)",
+          borderRadius: "50% 50% 0 0 / 34% 34% 0 0",
+          background:
+            "radial-gradient(circle at 50% 18%, rgba(86,58,198,0.34) 0%, rgba(38,28,88,0.94) 44%, rgba(18,14,38,0.99) 100%)",
+          borderTop: "1px solid rgba(150, 122, 255, 0.22)",
+          boxShadow: "0 -22px 70px rgba(100, 61, 233, 0.22)",
+          pointerEvents: "none",
+        }}
+      />
 
-      {/* Opponents on semicircular arc */}
-      {opponents.map((opp, i) => {
-        const angleDeg = seatAngles[i] ?? 90;
+      {opponents.map((opponent, index) => {
+        const angleDeg = seatAngles[index] ?? 90;
         const angleRad = (angleDeg * Math.PI) / 180;
-        const px_pct = 0.5 + arcRX * Math.cos(angleRad);
-        const py_pct = arcCY - arcRY * Math.sin(angleRad);
+        const px = 0.5 + metrics.arc.rx * Math.cos(angleRad);
+        const py = metrics.arc.cy - metrics.arc.ry * Math.sin(angleRad);
+
         return (
           <div
-            key={opp.id}
+            key={opponent.id}
             style={{
               position: "absolute",
-              left: `calc(${(px_pct * 100).toFixed(2)}% - ${seatFootprintW / 2}px)`,
-              top: `calc(${(py_pct * 100).toFixed(2)}% - ${seatFootprintH / 2}px)`,
-              zIndex: 6,
-              animation: "fadeInSeat 0.4s ease forwards",
-              animationDelay: `${i * 60}ms`,
-              opacity: 0,
+              left: `calc(${(px * 100).toFixed(2)}% - ${metrics.footprintWidth / 2}px)`,
+              top: `calc(${(py * 100).toFixed(2)}% - ${metrics.footprintHeight / 2}px)`,
+              width: metrics.footprintWidth,
+              minHeight: metrics.footprintHeight,
+              display: "flex",
+              alignItems: "center",
+              justifyContent: "center",
+              zIndex: 4,
             }}
           >
             <OpponentSeat
-              player={opp}
-              size={seatSize}
-              isWinner={winnerId === opp.id}
-              showCards={isCleanup}
+              player={opponent}
+              seatSize={metrics.seatSize}
+              avatarSize={metrics.avatarSize}
+              revealCards={isCleanup}
+              isWinner={winnerId === opponent.id}
+              compactMode={compactMode}
             />
           </div>
         );
       })}
 
-      {/* Pot + Community cards */}
       <div
         style={{
           position: "absolute",
+          top: boardTop,
           left: "50%",
-          top: potTop,
           transform: "translateX(-50%)",
-          zIndex: 5,
+          zIndex: 6,
           display: "flex",
           flexDirection: "column",
           alignItems: "center",
-          gap: 16,
+          gap: compactMode ? 14 : 18,
           pointerEvents: "none",
         }}
       >
-        <div data-testid="total-pot-indicator" style={{ display: "flex", flexDirection: "column", alignItems: "center", gap: 8 }}>
-          <div style={{ display: "flex", alignItems: "center", gap: 5, color: "rgba(255,255,255,0.4)" }}>
-            <ChipIcon size={11} />
-            <span style={{ fontSize: 10, fontWeight: 600, letterSpacing: "0.08em", textTransform: "uppercase" }}>
+        <div data-testid="total-pot-indicator" style={{ display: "flex", flexDirection: "column", alignItems: "center", gap: compactMode ? 8 : 10 }}>
+          <div style={{ display: "flex", alignItems: "center", gap: 6, color: "rgba(255,255,255,0.48)" }}>
+            <ChipIcon size={compactMode ? 11 : 12} />
+            <span style={{ fontSize: compactMode ? 10 : 11, fontWeight: 700, letterSpacing: "0.12em", textTransform: "uppercase" }}>
               Total Pot
             </span>
           </div>
           <div data-testid="total-pot-amount">
             <ChipAmount
               amount={totalPot}
-              iconSize={compactMode ? 20 : 24}
+              iconSize={compactMode ? 18 : 22}
               amountStyle={{
                 color: "#ffffff",
-                fontSize: "clamp(2.8rem, 5vw, 4.5rem)",
+                fontSize: potFontSize,
                 fontWeight: 800,
-                fontFamily: "Outfit, sans-serif",
                 lineHeight: 1,
+                letterSpacing: "-0.05em",
               }}
               style={{ gap: compactMode ? 8 : 10 }}
             />
@@ -429,86 +533,133 @@ export function PlayerPerspectiveView({
               display: "inline-flex",
               alignItems: "center",
               gap: 8,
-              padding: compactMode ? "5px 10px" : "6px 12px",
+              padding: compactMode ? "6px 12px" : "8px 14px",
               borderRadius: 999,
-              background: "rgba(0,0,0,0.45)",
-              border: "1px solid rgba(167,139,250,0.24)",
-              color: "rgba(255,255,255,0.78)",
-              boxShadow: "0 2px 10px rgba(0,0,0,0.35)",
+              background: "rgba(9, 8, 18, 0.86)",
+              border: "1px solid rgba(255,255,255,0.08)",
+              boxShadow: "0 10px 28px rgba(0,0,0,0.24)",
             }}
           >
-            <span style={{ fontSize: 10, fontWeight: 700, letterSpacing: "0.08em", textTransform: "uppercase", color: "rgba(255,255,255,0.42)" }}>
+            <span style={{ fontSize: compactMode ? 9 : 10, fontWeight: 700, letterSpacing: "0.12em", textTransform: "uppercase", color: "rgba(255,255,255,0.42)" }}>
               Round
             </span>
             <span data-testid="current-round-amount">
               <ChipAmount
                 amount={currentRoundAmount}
-                iconSize={compactMode ? 10 : 11}
+                iconSize={compactMode ? 9 : 10}
                 iconColor="#a78bfa"
-                amountStyle={{ color: "#a78bfa", fontSize: compactMode ? 11 : 12, fontWeight: 700 }}
+                amountStyle={{ color: "#c7b8ff", fontSize: compactMode ? 11 : 12, fontWeight: 700 }}
               />
             </span>
           </div>
         </div>
-        <div data-testid="board-cards" style={{ display: "flex", gap: compactMode ? 4 : 6, alignItems: "center" }}>
-          {board.map((card, i) =>
-            <div key={i} data-testid={`board-card-${i}`} data-revealed={card ? "true" : "false"}>
+
+        <div data-testid="board-cards" style={{ display: "flex", gap: compactMode ? 2 : 4, alignItems: "center" }}>
+          {board.map((card, index) => (
+            <div
+              key={index}
+              data-testid={`board-card-${index}`}
+              data-revealed={card ? "true" : "false"}
+              style={{ marginLeft: index === 0 ? 0 : compactMode ? -4 : -6 }}
+            >
               {card ? (
-                <PlayingCard card={card} size={boardCardSize} />
+                <PlayingCard
+                  card={card}
+                  size={metrics.boardCardSize}
+                  rotate={boardRotation(index, compactMode)}
+                  style={{ zIndex: index + 1 }}
+                />
               ) : (
-                <PlayingCard dashed size={boardCardSize} />
+                <PlayingCard dashed size={metrics.boardCardSize} rotate={boardRotation(index, compactMode)} style={{ zIndex: index + 1 }} />
               )}
             </div>
-          )}
+          ))}
         </div>
       </div>
 
-      {/* Hero hand — bottom center, Moon-style bottom: -50 overlaps arc */}
       <div
         data-testid="hero-zone"
         style={{
           position: "absolute",
-          bottom: heroBottom,
           left: "50%",
+          bottom: heroBottom,
           transform: "translateX(-50%)",
           zIndex: 7,
           display: "flex",
           flexDirection: "column",
           alignItems: "center",
-          gap: heroGap,
+          gap: compactMode ? 8 : 12,
+          width: compactMode ? "auto" : "min(360px, 46%)",
         }}
       >
-        <div data-testid="hero-cards" style={{ display: "flex", alignItems: "flex-end", justifyContent: "center", gap: 0 }}>
-          {(hero.cards?.length === 2 ? hero.cards : [null, null]).map((card, i) =>
+        <div data-testid="hero-cards" style={{ display: "flex", alignItems: "flex-end", justifyContent: "center" }}>
+          {heroCards.map((card, index) =>
             card ? (
               <PlayingCard
-                key={i}
+                key={`${hero.id}-${card}-${index}`}
                 card={card}
-                size={heroCardSize}
-                rotate={i === 0 ? -10 : 6}
-                style={{ marginLeft: i > 0 ? (compactMode ? -34 : -44) : 0, zIndex: i + 1 }}
+                size={metrics.heroCardSize}
+                rotate={index === 0 ? -14 : 9}
                 winning={highlightHero}
+                style={{ marginLeft: index === 0 ? 0 : compactMode ? -30 : -34, zIndex: index + 1 }}
               />
             ) : (
               <PlayingCard
-                key={i}
+                key={`${hero.id}-placeholder-${index}`}
                 dashed
-                size="lg"
-                rotate={i === 0 ? -10 : 6}
-                style={{ marginLeft: i > 0 ? (compactMode ? -28 : -36) : 0, zIndex: i + 1 }}
+                size={metrics.heroCardSize}
+                rotate={index === 0 ? -14 : 9}
+                style={{ marginLeft: index === 0 ? 0 : compactMode ? -30 : -34, zIndex: index + 1 }}
               />
-            )
+            ),
           )}
         </div>
-        <div style={{ display: "flex", alignItems: "center", gap: 6 }}>
-          <span style={{ color: "rgba(255,255,255,0.92)", fontSize: compactMode ? 12 : 14, fontWeight: 700, fontFamily: "Outfit, sans-serif" }}>
+
+        <div style={{ display: "flex", alignItems: "center", gap: 8, minHeight: compactMode ? 28 : 32 }}>
+          {heroIsDealer && <DealerChip size={compactMode ? 22 : 24} />}
+          <span style={{ color: "#ffffff", fontSize: heroNameSize, fontWeight: 700, letterSpacing: "-0.01em" }}>
             {hero.username}
           </span>
-          <ChipAmount
-            amount={hero.chips}
-            iconSize={compactMode ? 9 : 11}
-            amountStyle={{ color: "#a78bfa", fontSize: compactMode ? 11 : 13, fontWeight: 700 }}
-          />
+          {hero.bet > 0 && (
+            <div
+              style={{
+                display: "inline-flex",
+                alignItems: "center",
+                gap: 4,
+                padding: compactMode ? "3px 8px" : "4px 10px",
+                borderRadius: 999,
+                background: "rgba(255,255,255,0.08)",
+                border: "1px solid rgba(255,255,255,0.09)",
+              }}
+            >
+              <span style={{ fontSize: compactMode ? 9 : 10, fontWeight: 700, color: "rgba(255,255,255,0.42)", textTransform: "uppercase", letterSpacing: "0.08em" }}>
+                Bet
+              </span>
+              <ChipAmount
+                amount={hero.bet}
+                iconSize={compactMode ? 9 : 10}
+                amountStyle={{ color: "#ffffff", fontSize: compactMode ? 10 : 11, fontWeight: 700 }}
+              />
+            </div>
+          )}
+          {heroIsActive && !compactMode && (
+            <span
+              style={{
+                display: "inline-flex",
+                alignItems: "center",
+                gap: 5,
+                padding: "4px 10px",
+                borderRadius: 999,
+                color: "#79f0b7",
+                background: "rgba(10, 23, 18, 0.72)",
+                border: "1px solid rgba(121, 240, 183, 0.2)",
+                fontSize: 11,
+                fontWeight: 700,
+              }}
+            >
+              Your turn
+            </span>
+          )}
         </div>
       </div>
     </div>

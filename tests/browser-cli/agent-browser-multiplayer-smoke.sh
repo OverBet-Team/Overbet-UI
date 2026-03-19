@@ -1,7 +1,7 @@
 #!/usr/bin/env bash
 set -euo pipefail
 
-ROOT="/Users/ayan/Desktop/Manus Poker"
+ROOT="${ROOT:-$(cd "$(dirname "${BASH_SOURCE[0]}")/../.." && pwd)}"
 source "$ROOT/tests/browser-cli/agent-browser-env.sh"
 
 GATEWAY_LOG="$ROOT/tests/browser-cli/.gateway.log"
@@ -12,6 +12,8 @@ TEST_TIMER_MODE="${TEST_TIMER_MODE:-short}"
 TURN_TIMEOUT_MS="${TURN_TIMEOUT_MS:-5000}"
 TIMEBANK_MS="${TIMEBANK_MS:-5000}"
 AUTO_START_DELAY_SECONDS="${AUTO_START_DELAY_SECONDS:-2}"
+BUY_IN_AMOUNT="${BUY_IN_AMOUNT:-1000}"
+CAPTURE_SUCCESS_ARTIFACTS="${CAPTURE_SUCCESS_ARTIFACTS:-1}"
 RUN_ID="$(date -u +%Y%m%dT%H%M%SZ)"
 ARTIFACT_DIR="$ROOT/tests/browser-cli/artifacts/$RUN_ID"
 BUG_LOG="$ROOT/tests/browser-cli/bug-log.jsonl"
@@ -59,11 +61,11 @@ try:
     if not isinstance(obj, dict):
         print("")
         raise SystemExit(0)
-    v = obj.get(key, "")
-    if isinstance(v, bool):
-        print("true" if v else "false")
+    value = obj.get(key, "")
+    if isinstance(value, bool):
+        print("true" if value else "false")
     else:
-        print(v)
+        print(value)
 except Exception:
     print("")
 PY
@@ -113,6 +115,30 @@ write_bug_log() {
     "$ARTIFACT_DIR" "$GATEWAY_LOG" >> "$BUG_LOG"
 }
 
+request_seat() {
+  local session="$1"
+  local display_name="$2"
+  pnpm exec agent-browser --session "$session" find first "[data-testid^='seat-empty-']" click
+  pnpm exec agent-browser --session "$session" find placeholder "Enter your name" fill "$display_name"
+  pnpm exec agent-browser --session "$session" find first "input[inputmode='numeric']" fill "$BUY_IN_AMOUNT"
+  pnpm exec agent-browser --session "$session" find role button click --name "Request Seat"
+}
+
+capture_success_artifacts() {
+  if [[ "$CAPTURE_SUCCESS_ARTIFACTS" != "1" ]]; then
+    return 0
+  fi
+  pnpm exec agent-browser --session "$SESSION_HOST" screenshot "$ARTIFACT_DIR/success-host.png" >/dev/null
+  pnpm exec agent-browser --session "$SESSION_JOINER" screenshot "$ARTIFACT_DIR/success-joiner.png" >/dev/null
+  pnpm exec agent-browser --session "$SESSION_HOST" snapshot > "$ARTIFACT_DIR/snapshot-host.txt"
+  pnpm exec agent-browser --session "$SESSION_JOINER" snapshot > "$ARTIFACT_DIR/snapshot-joiner.txt"
+  printf 'room=%s\nhost=%s\njoiner=%s\nbuyIn=%s\n' \
+    "$ROOM_SLUG" \
+    "$(read_ui_signature "$SESSION_HOST" || true)" \
+    "$(read_ui_signature "$SESSION_JOINER" || true)" \
+    "$BUY_IN_AMOUNT" > "$ARTIFACT_DIR/success-summary.txt"
+}
+
 cleanup() {
   local code=${1:-0}
   if [[ -n "${WEB_PID:-}" ]]; then kill "$WEB_PID" >/dev/null 2>&1 || true; fi
@@ -122,9 +148,9 @@ cleanup() {
     pnpm exec agent-browser --session "$SESSION_JOINER" screenshot "$ARTIFACT_DIR/failure-joiner.png" 2>/dev/null || true
     pnpm exec agent-browser --session "$SESSION_HOST" snapshot > "$ARTIFACT_DIR/snapshot-host.txt" 2>/dev/null || true
     pnpm exec agent-browser --session "$SESSION_JOINER" snapshot > "$ARTIFACT_DIR/snapshot-joiner.txt" 2>/dev/null || true
-    cp "$GATEWAY_LOG" "$ARTIFACT_DIR/gateway.log" 2>/dev/null || true
-    cp "$WEB_LOG" "$ARTIFACT_DIR/web.log" 2>/dev/null || true
   fi
+  cp "$GATEWAY_LOG" "$ARTIFACT_DIR/gateway.log" 2>/dev/null || true
+  cp "$WEB_LOG" "$ARTIFACT_DIR/web.log" 2>/dev/null || true
   pnpm exec agent-browser --session "$SESSION_HOST" close >/dev/null 2>&1 || true
   pnpm exec agent-browser --session "$SESSION_JOINER" close >/dev/null 2>&1 || true
 }
@@ -166,17 +192,12 @@ if [[ -z "$ROOM_SLUG" ]]; then
   exit 1
 fi
 
-pnpm exec agent-browser --session "$SESSION_HOST" find first "[data-testid^='seat-empty-']" click
-pnpm exec agent-browser --session "$SESSION_HOST" find placeholder "Enter your name" fill "AgentHost"
-pnpm exec agent-browser --session "$SESSION_HOST" find role button click --name "Request Seat"
+request_seat "$SESSION_HOST" "AgentHost"
 
 pnpm exec agent-browser --session "$SESSION_JOINER" open "http://127.0.0.1:$WEB_PORT/room/$ROOM_SLUG"
 pnpm exec agent-browser --session "$SESSION_JOINER" eval "localStorage.setItem('overbet_user_id','ab-joiner')"
 pnpm exec agent-browser --session "$SESSION_JOINER" reload
-
-pnpm exec agent-browser --session "$SESSION_JOINER" find first "[data-testid^='seat-empty-']" click
-pnpm exec agent-browser --session "$SESSION_JOINER" find placeholder "Enter your name" fill "AgentJoiner"
-pnpm exec agent-browser --session "$SESSION_JOINER" find role button click --name "Request Seat"
+request_seat "$SESSION_JOINER" "AgentJoiner"
 
 pnpm exec agent-browser --session "$SESSION_HOST" wait 2000
 pnpm exec agent-browser --session "$SESSION_HOST" find testid host-seat-requests-toggle click
@@ -194,13 +215,12 @@ for _ in $(seq 1 2); do
   if [[ -z "$APPROVE_TESTID" ]]; then
     break
   fi
-  pnpm exec agent-browser --session "$SESSION_HOST" eval "(() => { const b = document.querySelector('[data-testid=\"'"$APPROVE_TESTID"'\"'); if (b) b.click(); })()"
+  pnpm exec agent-browser --session "$SESSION_HOST" eval "(() => { const b = document.querySelector('[data-testid=\"'"$APPROVE_TESTID"'\"]'); if (b) b.click(); })()"
   pnpm exec agent-browser --session "$SESSION_HOST" wait 1200
 done
 pnpm exec agent-browser --session "$SESSION_HOST" find testid host-seat-requests-toggle click
 pnpm exec agent-browser --session "$SESSION_HOST" wait 3000
 
-# Approval-state checkpoint before start:
 pending_count="$(pnpm exec agent-browser --session "$SESSION_HOST" eval "document.querySelectorAll('[data-testid^=\"approve-seat-\"]').length" | awk 'NF{last=$0} END{print last}')"
 seat_count="$(pnpm exec agent-browser --session "$SESSION_HOST" eval "document.querySelectorAll('[data-testid^=\"seat-player-\"]').length" | awk 'NF{last=$0} END{print last}')"
 start_enabled="$(pnpm exec agent-browser --session "$SESSION_HOST" eval "(() => { const b=document.querySelector('[data-testid=\"host-start-game-button\"]'); return !!b && !b.disabled; })()" | awk 'NF{last=$0} END{print last}')"
@@ -251,7 +271,6 @@ if [[ -n "$host_error" || -n "$joiner_error" ]]; then
   exit 1
 fi
 
-# Brief convergence window for host/joiner phase alignment after start.
 if [[ "$host_phase" != "$joiner_phase" ]]; then
   for _ in $(seq 1 10); do
     pnpm exec agent-browser --session "$SESSION_HOST" wait 500 >/dev/null
@@ -276,9 +295,10 @@ if [[ "$joiner_phase" == "LOBBY" && "$joiner_action_enabled" == "true" ]]; then
   exit 1
 fi
 
+capture_success_artifacts
+
 if [[ "$host_phase" == "LOBBY" || "$joiner_phase" == "LOBBY" ]]; then
   echo "Agent-browser multiplayer smoke passed for room $ROOM_SLUG (lobby+seated state observed with inactive action bar)"
 else
   echo "Agent-browser multiplayer smoke passed for room $ROOM_SLUG (phase=$joiner_phase hostPhase=$host_phase)"
 fi
-
