@@ -9,6 +9,7 @@ export interface PlayerData {
   id: string;
   username: string;
   chips: number;
+  /** Uppercase status: ACTIVE, FOLDED, etc. */
   status: string;
   seatIndex: number;
   cards?: string[];
@@ -85,6 +86,7 @@ export function Seat({
 
   const isTimerActive = isActive && timer?.playerId === player?.id && timeLeft > 0;
   const timeLeftSecs = Math.ceil(timeLeft / 1000);
+  // Exception: Avatar uses fixed clamp geometry per design system
   const emptySeatSize = "clamp(44px, 5.5vw, 56px)";
 
   // ── Empty seat ──────────────────────────────────────────────────────────

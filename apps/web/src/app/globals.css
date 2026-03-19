@@ -289,3 +289,175 @@ input[type="range"]::-webkit-slider-thumb { -webkit-appearance: none; appearance
     gap: 10px;
   }
 }
+
+/* ============================================================
+   SEMANTIC UI UTILITIES — Shared patterns for modals, panels,
+   buttons, and interactive states. Replace inline styles with
+   these where applicable.
+   ============================================================ */
+
+/* ---- MODAL / OVERLAY ---- */
+.modal-backdrop {
+  position: fixed; inset: 0; z-index: 50;
+  display: flex; align-items: center; justify-content: center;
+  background: rgba(0,0,0,0.75); backdrop-filter: blur(12px);
+  padding: 16px;
+}
+.modal-backdrop--bottom {
+  align-items: flex-end; padding: 0;
+}
+
+/* ---- PANEL CARD ---- */
+.panel {
+  width: 100%; position: relative;
+  background: rgba(16,13,28,0.98);
+  border: 1px solid rgba(255,255,255,0.1);
+  border-radius: 24px;
+  box-shadow: 0 24px 80px rgba(0,0,0,0.7);
+  font-family: 'Outfit', sans-serif;
+}
+.panel--sheet {
+  border-radius: 18px 18px 0 0;
+  max-height: 82dvh;
+  overflow-y: auto;
+}
+
+/* ---- ICON BUTTON (circle, 36px default) ---- */
+.icon-btn {
+  width: 36px; height: 36px; min-width: 36px; min-height: 36px;
+  border-radius: 50%;
+  border: 1px solid rgba(255,255,255,0.1);
+  background: rgba(16,13,28,0.8);
+  color: rgba(255,255,255,0.4);
+  display: flex; align-items: center; justify-content: center;
+  cursor: pointer; backdrop-filter: blur(8px);
+  transition: color 0.15s, border-color 0.15s;
+}
+.icon-btn:hover {
+  color: #a78bfa;
+  border-color: rgba(167,139,250,0.3);
+}
+.icon-btn:focus-visible {
+  outline: 2px solid var(--ring);
+  outline-offset: 2px;
+}
+
+/* ---- GHOST PILL BUTTON ---- */
+.ghost-pill {
+  display: inline-flex; align-items: center; gap: 6px;
+  padding: 6px 12px; border-radius: 999px;
+  border: 1px solid rgba(255,255,255,0.12);
+  background: transparent;
+  color: rgba(255,255,255,0.7);
+  font-family: 'Outfit', sans-serif;
+  font-size: 12px; font-weight: 600;
+  cursor: pointer; transition: all 0.15s;
+}
+.ghost-pill:hover, .ghost-pill[data-active='true'] {
+  background: rgba(255,255,255,0.08);
+}
+.ghost-pill:focus-visible {
+  outline: 2px solid var(--ring);
+  outline-offset: 2px;
+}
+
+/* ---- PRIMARY BUTTON (gradient) ---- */
+.btn-primary {
+  display: inline-flex; align-items: center; justify-content: center; gap: 8px;
+  padding: 12px 20px; border-radius: 14px; border: none;
+  background: linear-gradient(135deg, #7c3aed, #a855f7);
+  color: #fff; font-family: 'Outfit', sans-serif;
+  font-size: 14px; font-weight: 700; cursor: pointer;
+  box-shadow: 0 4px 20px rgba(124,58,237,0.35);
+  transition: all 0.15s; letter-spacing: 0.01em;
+}
+.btn-primary:hover {
+  box-shadow: 0 4px 28px rgba(124,58,237,0.5);
+}
+.btn-primary:disabled {
+  opacity: 0.5; cursor: not-allowed; box-shadow: none;
+}
+.btn-primary:focus-visible {
+  outline: 2px solid var(--ring);
+  outline-offset: 2px;
+}
+
+/* ---- DANGER BUTTON (red gradient) ---- */
+.btn-danger {
+  display: inline-flex; align-items: center; justify-content: center; gap: 8px;
+  padding: 12px 20px; border-radius: 14px; border: none;
+  background: linear-gradient(135deg, #ef4444, #dc2626);
+  color: #fff; font-family: 'Outfit', sans-serif;
+  font-size: 14px; font-weight: 700; cursor: pointer;
+  box-shadow: 0 4px 20px rgba(239,68,68,0.3);
+  transition: all 0.15s;
+}
+.btn-danger:hover {
+  box-shadow: 0 4px 28px rgba(239,68,68,0.5);
+}
+.btn-danger:disabled {
+  opacity: 0.5; cursor: not-allowed; box-shadow: none;
+}
+.btn-danger:focus-visible {
+  outline: 2px solid var(--ring);
+  outline-offset: 2px;
+}
+
+/* ---- SECONDARY/GHOST BUTTON ---- */
+.btn-ghost {
+  display: inline-flex; align-items: center; justify-content: center; gap: 8px;
+  padding: 11px 20px; border-radius: 14px;
+  border: 1px solid rgba(255,255,255,0.1);
+  background: transparent; color: rgba(255,255,255,0.5);
+  font-family: 'Outfit', sans-serif;
+  font-size: 14px; font-weight: 600; cursor: pointer;
+  transition: all 0.15s;
+}
+.btn-ghost:hover {
+  background: rgba(255,255,255,0.06); color: #fff;
+}
+.btn-ghost:focus-visible {
+  outline: 2px solid var(--ring);
+  outline-offset: 2px;
+}
+
+/* ---- INPUT FIELD ---- */
+.input-field {
+  width: 100%; padding: 10px 14px; border-radius: 12px;
+  background: rgba(255,255,255,0.06);
+  border: 1px solid rgba(255,255,255,0.1);
+  color: #fff; font-size: 14px; font-weight: 500;
+  font-family: 'Outfit', sans-serif;
+  outline: none; box-sizing: border-box;
+  transition: border-color 0.15s;
+}
+.input-field:focus {
+  border-color: rgba(124,58,237,0.5);
+}
+
+/* ---- CLOSE BUTTON (×) ---- */
+.close-btn {
+  position: absolute; top: 16px; right: 16px;
+  background: none; border: none;
+  color: rgba(255,255,255,0.3); font-size: 20px;
+  cursor: pointer; line-height: 1; padding: 4px;
+}
+.close-btn:hover { color: rgba(255,255,255,0.6); }
+.close-btn:focus-visible {
+  outline: 2px solid var(--ring);
+  outline-offset: 2px;
+}
+
+/* ---- LABEL ---- */
+.label {
+  display: block; color: rgba(255,255,255,0.45); font-size: 10px;
+  font-weight: 600; text-transform: uppercase; letter-spacing: 0.08em;
+  margin-bottom: 8px; font-family: 'Outfit', sans-serif;
+}
+
+/* ---- FOCUS VISIBLE (global) ---- */
+:focus-visible {
+  outline: 2px solid var(--ring);
+  outline-offset: 2px;
+}
+

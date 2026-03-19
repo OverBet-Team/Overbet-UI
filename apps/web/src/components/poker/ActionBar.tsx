@@ -7,6 +7,10 @@
 import React, { useState, useEffect, useCallback } from "react";
 import { createPortal } from "react-dom";
 import { ChipAmount, ChipIcon } from "./ChipAmount";
+
+/** All player action types the ActionBar can emit. */
+export type PlayerActionType = "FOLD" | "CALL" | "CHECK" | "RAISE" | "ALL_IN";
+
 interface ActionBarProps {
   isActive: boolean;
   stack: number;
@@ -15,7 +19,7 @@ interface ActionBarProps {
   minRaise: number;
   pot?: number;
   compact?: boolean;
-  onAction: (actionType: string, amount?: number) => void;
+  onAction: (actionType: PlayerActionType, amount?: number) => void;
 }
 
 
@@ -282,6 +286,7 @@ export function ActionBar({
         {/* Fold */}
         <ActionPill
           label="Fold"
+          ariaLabel="Fold"
           testId="action-fold"
           shortcut="F"
           color="#f87171"
@@ -292,7 +297,6 @@ export function ActionBar({
 
         <div style={{ width: 1, height: 28, background: "rgba(255,255,255,0.07)" }} />
 
-        {/* Check / Call */}
         <ActionPill
           label={toCall > 0 ? (
             <>
@@ -305,6 +309,7 @@ export function ActionBar({
               />
             </>
           ) : "Check"}
+          ariaLabel={toCall > 0 ? `Call ${toCall}` : "Check"}
           testId="action-check-call"
           shortcut="C"
           color={toCall > 0 ? "#93c5fd" : "rgba(255,255,255,0.7)"}
@@ -317,9 +322,9 @@ export function ActionBar({
           <>
             <div style={{ width: 1, height: 28, background: "rgba(255,255,255,0.07)" }} />
 
-            {/* Raise */}
             <ActionPill
               label={showRaisePanel ? "▲ Raise" : "Raise"}
+              ariaLabel={showRaisePanel ? "Close raise panel" : "Open raise panel"}
               testId="action-raise"
               shortcut="R"
               color="#6ee7b7"
@@ -333,9 +338,9 @@ export function ActionBar({
 
         <div style={{ width: 1, height: 28, background: "rgba(255,255,255,0.07)" }} />
 
-        {/* All-In */}
         <ActionPill
           label="All-In"
+          ariaLabel="All in"
           testId="action-all-in"
           shortcut="A"
           color="#a78bfa"
@@ -350,16 +355,24 @@ export function ActionBar({
 
 // ── Pill button ───────────────────────────────────────────────────────────────
 function ActionPill({
-  label, shortcut, color, hoverBg, onClick, active = false, compact = false, testId,
+  label, ariaLabel, shortcut, color, hoverBg, onClick, active = false, compact = false, testId,
 }: {
-  label: React.ReactNode; shortcut: string; color: string; hoverBg: string;
-  onClick: () => void; active?: boolean; compact?: boolean; testId?: string;
+  label: React.ReactNode;
+  ariaLabel?: string;
+  shortcut: string;
+  color: string;
+  hoverBg: string;
+  onClick: () => void;
+  active?: boolean;
+  compact?: boolean;
+  testId?: string;
 }) {
   const [hovered, setHovered] = useState(false);
 
   return (
     <button
       data-testid={testId}
+      aria-label={ariaLabel}
       onClick={onClick}
       onMouseEnter={() => setHovered(true)}
       onMouseLeave={() => setHovered(false)}
