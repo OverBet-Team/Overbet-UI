@@ -10,8 +10,10 @@
     "test": "vitest run"
   },
   "dependencies": {
+    "@floating-ui/react": "^0.27.19",
     "@overbet/db": "workspace:*",
     "@overbet/engine": "workspace:*",
+    "@radix-ui/react-dialog": "^1.1.15",
     "@vercel/analytics": "^1.6.1",
     "framer-motion": "^12.34.3",
     "lucide-react": "^0.575.0",

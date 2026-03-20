@@ -11,96 +11,23 @@ import PlayingCard from "./PlayingCard";
 import { ChipAmount, ChipIcon } from "./ChipAmount";
 import type { PlayerViewState, OpponentForView } from "@/lib/overbet-to-player-view";
 
-// Default avatar placeholder (initials)
+// Default avatar placeholder (initials). Dynamic width/height/fontSize kept as inline style.
 function AvatarPlaceholder({ name, size }: { name: string; size: number }) {
   const initials = name.slice(0, 2).toUpperCase();
   return (
     <div
-      style={{
-        width: size,
-        height: size,
-        borderRadius: "50%",
-        background: "linear-gradient(135deg, #3b2d5c 0%, #2a2040 100%)",
-        border: "2px solid rgba(255,255,255,0.14)",
-        display: "flex",
-        alignItems: "center",
-        justifyContent: "center",
-        fontSize: size * 0.4,
-        fontWeight: 700,
-        color: "rgba(255,255,255,0.9)",
-        fontFamily: "Outfit, sans-serif",
-      }}
+      className="rounded-full bg-[--bg-elevated] border-2 border-white/[0.14] flex items-center justify-center text-white/90 font-bold font-body"
+      style={{ width: size, height: size, fontSize: size * 0.4 }}
     >
       {initials}
     </div>
   );
 }
 
-
-// Moon-style face-down card with concentric circles
-function FaceDownCard({ w, h, r, rotate = 0 }: { w: number; h: number; r: number; rotate?: number }) {
-  return (
-    <div
-      style={{
-        width: w,
-        height: h,
-        borderRadius: r,
-        background: "linear-gradient(145deg, #1e1b38 0%, #252245 100%)",
-        border: "1px solid rgba(255,255,255,0.10)",
-        boxShadow: "0 4px 14px rgba(0,0,0,0.55)",
-        transform: `rotate(${rotate}deg)`,
-        flexShrink: 0,
-        display: "flex",
-        alignItems: "center",
-        justifyContent: "center",
-        overflow: "hidden",
-      }}
-    >
-      <div
-        style={{
-          position: "absolute",
-          inset: 3,
-          borderRadius: Math.max(r - 3, 2),
-          border: "1px solid rgba(255,255,255,0.06)",
-          background:
-            "repeating-linear-gradient(45deg, transparent, transparent 3px, rgba(255,255,255,0.015) 3px, rgba(255,255,255,0.015) 6px)",
-        }}
-      />
-      <svg
-        width={w * 0.38}
-        height={w * 0.38}
-        viewBox="0 0 24 24"
-        fill="none"
-        style={{ position: "relative", zIndex: 1 }}
-      >
-        <circle cx="12" cy="12" r="9" stroke="rgba(255,255,255,0.1)" strokeWidth="1.5" />
-        <circle cx="12" cy="12" r="5" stroke="rgba(255,255,255,0.07)" strokeWidth="1" />
-        <circle cx="12" cy="12" r="2" fill="rgba(255,255,255,0.08)" />
-      </svg>
-    </div>
-  );
-}
-
 function DealerChip({ size = 18 }: { size?: number }) {
   return (
-    <div
-      style={{
-        width: size,
-        height: size,
-        borderRadius: "50%",
-        background: "linear-gradient(135deg, #f5f5f0 0%, #e8e8e0 100%)",
-        border: "1.5px solid rgba(0,0,0,0.15)",
-        boxShadow: "0 2px 6px rgba(0,0,0,0.5), inset 0 1px 0 rgba(255,255,255,0.8)",
-        display: "flex",
-        alignItems: "center",
-        justifyContent: "center",
-        flexShrink: 0,
-        zIndex: 10,
-      }}
-    >
-      <span style={{ color: "#1a1a1a", fontSize: size * 0.45, fontWeight: 800, fontFamily: "Outfit, sans-serif", lineHeight: 1 }}>
-        D
-      </span>
+    <div className="w-[18px] h-[18px] rounded-full bg-[--gold] text-black font-extrabold text-[8px] flex items-center justify-center flex-shrink-0 z-10">
+      D
     </div>
   );
 }
@@ -121,12 +48,14 @@ function OpponentSeat({
   const cards = Array.isArray(player.cards) ? player.cards : [];
   const hasRevealedCards = showCards && cards.length > 0;
   const cardSize = size === "lg" ? "md" : "sm";
+  // Map OpponentSeat size to PlayingCard faceDown size: sm→xs, md/lg→sm
+  const faceDownSize = size === "sm" ? "xs" : "sm";
 
   return (
-    <div style={{ display: "flex", flexDirection: "column", alignItems: "center", gap: 0 }}>
-      <div style={{ position: "relative", flexShrink: 0 }}>
+    <div className={`flex flex-col items-center gap-0${isFolded ? " opacity-50 grayscale" : ""}`}>
+      <div className="relative flex-shrink-0">
         {hasRevealedCards ? (
-          <div style={{ display: "flex", alignItems: "flex-end", gap: 6 }}>
+          <div className="flex items-end gap-1.5">
             <div
               style={{
                 position: "relative",
@@ -145,56 +74,38 @@ function OpponentSeat({
           </div>
         ) : (
           <>
-        <AvatarPlaceholder name={player.username} size={avSize} />
-        {player.isDealer && (
-          <div style={{ position: "absolute", bottom: -4, left: -4, zIndex: 10 }}>
-            <DealerChip size={size === "lg" ? 20 : size === "md" ? 16 : 14} />
-          </div>
-        )}
-        {player.isActive && (
-          <div
-            style={{
-              position: "absolute",
-              left: -avSize * 0.08,
-              top: -avSize * 0.08,
-              width: avSize * 1.16,
-              height: avSize * 1.16,
-              borderRadius: "50%",
-              border: "2.5px solid rgba(167,139,250,0.75)",
-              boxShadow: "0 0 12px rgba(139,92,246,0.5)",
-              pointerEvents: "none",
-              zIndex: 5,
-            }}
-          />
-        )}
-        {/* Face-down card — Moon-style with moon SVG circles */}
-        <div
-          style={{
-            position: "absolute",
-            left: avSize * 0.65,
-            top: avSize * 0.15,
-            zIndex: 4,
-          }}
-        >
-          <FaceDownCard
-            w={size === "lg" ? 44 : size === "md" ? 36 : 28}
-            h={size === "lg" ? 60 : size === "md" ? 50 : 38}
-            r={8}
-            rotate={8}
-          />
-        </div>
-      </>
+            <AvatarPlaceholder name={player.username} size={avSize} />
+            {player.isDealer && (
+              <div className="absolute -bottom-1 -left-1 z-10">
+                <DealerChip size={size === "lg" ? 20 : size === "md" ? 16 : 14} />
+              </div>
+            )}
+            {player.isActive && (
+              <div
+                className="absolute rounded-full ring-2 ring-[--accent]/75 shadow-[0_0_12px_rgba(59,130,246,0.5)] pointer-events-none"
+                style={{
+                  left: -avSize * 0.08,
+                  top: -avSize * 0.08,
+                  width: avSize * 1.16,
+                  height: avSize * 1.16,
+                  zIndex: 5,
+                }}
+              />
+            )}
+            {/* Face-down card positioned over the avatar */}
+            <div
+              className="absolute z-[4]"
+              style={{ left: avSize * 0.65, top: avSize * 0.15 }}
+            >
+              <PlayingCard faceDown size={faceDownSize} rotate={8} />
+            </div>
+          </>
         )}
       </div>
-      <div style={{ display: "flex", flexDirection: "column", alignItems: "center", gap: 3, marginTop: 6 }}>
+      <div className="flex flex-col items-center gap-[3px] mt-1.5">
         <span
-          style={{
-            color: isFolded ? "rgba(255,255,255,0.4)" : "rgba(255,255,255,0.92)",
-            fontSize: size === "lg" ? 14 : size === "md" ? 12 : 11,
-            fontWeight: 700,
-            fontFamily: "Outfit, sans-serif",
-            whiteSpace: "nowrap",
-          }}
+          className="font-bold font-body whitespace-nowrap text-white/90"
+          style={{ fontSize: size === "lg" ? 14 : size === "md" ? 12 : 11 }}
         >
           {player.username}
         </span>
@@ -204,77 +115,28 @@ function OpponentSeat({
           amountStyle={{ color: "rgba(255,255,255,0.5)", fontSize: 11, fontWeight: 500 }}
         />
         {player.bet > 0 && (
-          <div
-            style={{
-              display: "inline-flex",
-              alignItems: "center",
-              gap: 3,
-              padding: "2px 7px 2px 5px",
-              borderRadius: 999,
-              background: "rgba(167,139,250,0.2)",
-              border: "1px solid rgba(167,139,250,0.3)",
-              fontSize: 10,
-              fontWeight: 600,
-              color: "#a78bfa",
-            }}
-          >
+          <div className="inline-flex items-center gap-[3px] px-[7px] py-[2px] rounded-full bg-[--accent]/20 border border-[--accent]/30 text-[--accent]">
             <ChipAmount
               amount={player.bet}
               iconSize={9}
-              iconColor="#a78bfa"
+              iconColor="var(--accent)"
               amountStyle={{ color: "inherit", fontSize: 10, fontWeight: 600 }}
             />
           </div>
         )}
-        {/* Status badges — Moon-style */}
+        {/* Status badges */}
         {isFolded && (
-          <span
-            style={{
-              display: "inline-flex",
-              padding: "2px 8px",
-              borderRadius: 999,
-              background: "rgba(107,114,128,0.25)",
-              border: "1px solid rgba(255,255,255,0.08)",
-              fontSize: 10,
-              fontWeight: 600,
-              color: "rgba(255,255,255,0.5)",
-              letterSpacing: "0.04em",
-            }}
-          >
+          <span className="inline-flex rounded-full px-2 py-0.5 text-[10px] font-semibold tracking-wider bg-white/10 border border-white/[0.08] text-white/50">
             Folded
           </span>
         )}
         {!isFolded && (player.status === "CALLED" || player.status === "called") && (
-          <span
-            style={{
-              display: "inline-flex",
-              padding: "2px 8px",
-              borderRadius: 999,
-              background: "rgba(147,197,253,0.15)",
-              border: "1px solid rgba(147,197,253,0.25)",
-              fontSize: 10,
-              fontWeight: 600,
-              color: "#93c5fd",
-              letterSpacing: "0.04em",
-            }}
-          >
+          <span className="inline-flex rounded-full px-2 py-0.5 text-[10px] font-semibold tracking-wider bg-[--accent]/15 border border-[--accent]/25 text-[--accent]">
             Called
           </span>
         )}
         {!isFolded && (player.status === "RAISED" || player.status === "raised") && (
-          <span
-            style={{
-              display: "inline-flex",
-              padding: "2px 8px",
-              borderRadius: 999,
-              background: "rgba(110,231,183,0.15)",
-              border: "1px solid rgba(110,231,183,0.25)",
-              fontSize: 10,
-              fontWeight: 600,
-              color: "#6ee7b7",
-              letterSpacing: "0.04em",
-            }}
-          >
+          <span className="inline-flex rounded-full px-2 py-0.5 text-[10px] font-semibold tracking-wider bg-[--success]/15 border border-[--success]/25 text-[--success]">
             Raised
           </span>
         )}
@@ -341,20 +203,11 @@ export function PlayerPerspectiveView({
       data-testid="player-perspective"
       data-phase={phase}
       data-active-player={activePlayerId}
-      style={{
-        width: "100%",
-        minHeight: 0,
-        flex: 1,
-        position: "relative",
-        overflow: "hidden",
-        display: "flex",
-        flexDirection: "column",
-        background: "linear-gradient(170deg, #1a1428 0%, #141420 35%, #0f0e1a 100%)",
-      }}
+      className="bg-[--bg-base] w-full flex-1 relative overflow-hidden flex flex-col"
+      style={{ minHeight: 0 }}
     >
       {/* Arc background */}
-      <div className="table-surface" style={{ zIndex: 0 }} />
-      <div className="table-glow" style={{ zIndex: 0 }} />
+      <div className="table-felt" style={{ zIndex: 0 }} />
 
       {/* Opponents on semicircular arc */}
       {opponents.map((opp, i) => {
@@ -400,10 +253,10 @@ export function PlayerPerspectiveView({
           pointerEvents: "none",
         }}
       >
-        <div data-testid="total-pot-indicator" style={{ display: "flex", flexDirection: "column", alignItems: "center", gap: 8 }}>
-          <div style={{ display: "flex", alignItems: "center", gap: 5, color: "rgba(255,255,255,0.4)" }}>
+        <div data-testid="total-pot-indicator" className="flex flex-col items-center gap-2">
+          <div className="flex items-center gap-[5px] text-[--text-secondary]">
             <ChipIcon size={11} />
-            <span style={{ fontSize: 10, fontWeight: 600, letterSpacing: "0.08em", textTransform: "uppercase" }}>
+            <span className="text-[10px] font-semibold uppercase tracking-widest">
               Total Pot
             </span>
           </div>
@@ -412,10 +265,10 @@ export function PlayerPerspectiveView({
               amount={totalPot}
               iconSize={compactMode ? 20 : 24}
               amountStyle={{
-                color: "#ffffff",
+                color: "var(--text-primary)",
                 fontSize: "clamp(2.8rem, 5vw, 4.5rem)",
                 fontWeight: 800,
-                fontFamily: "Outfit, sans-serif",
+                fontFamily: "var(--font-display)",
                 lineHeight: 1,
               }}
               style={{ gap: compactMode ? 8 : 10 }}
@@ -423,27 +276,18 @@ export function PlayerPerspectiveView({
           </div>
           <div
             data-testid="current-round-indicator"
-            style={{
-              display: "inline-flex",
-              alignItems: "center",
-              gap: 8,
-              padding: compactMode ? "5px 10px" : "6px 12px",
-              borderRadius: 999,
-              background: "rgba(0,0,0,0.45)",
-              border: "1px solid rgba(167,139,250,0.24)",
-              color: "rgba(255,255,255,0.78)",
-              boxShadow: "0 2px 10px rgba(0,0,0,0.35)",
-            }}
+            className="inline-flex items-center gap-2 rounded-full bg-black/45 border border-[--accent]/24 text-white/[0.78] shadow-[0_2px_10px_rgba(0,0,0,0.35)]"
+            style={{ padding: compactMode ? "5px 10px" : "6px 12px" }}
           >
-            <span style={{ fontSize: 10, fontWeight: 700, letterSpacing: "0.08em", textTransform: "uppercase", color: "rgba(255,255,255,0.42)" }}>
+            <span className="text-[10px] font-bold uppercase tracking-[0.08em] text-white/40">
               Round
             </span>
             <span data-testid="current-round-amount">
               <ChipAmount
                 amount={currentRoundAmount}
                 iconSize={compactMode ? 10 : 11}
-                iconColor="#a78bfa"
-                amountStyle={{ color: "#a78bfa", fontSize: compactMode ? 11 : 12, fontWeight: 700 }}
+                iconColor="var(--accent)"
+                amountStyle={{ color: "var(--accent)", fontSize: compactMode ? 11 : 12, fontWeight: 700 }}
               />
             </span>
           </div>
@@ -498,14 +342,17 @@ export function PlayerPerspectiveView({
             )
           )}
         </div>
-        <div style={{ display: "flex", alignItems: "center", gap: 6 }}>
-          <span style={{ color: "rgba(255,255,255,0.92)", fontSize: compactMode ? 12 : 14, fontWeight: 700, fontFamily: "Outfit, sans-serif" }}>
+        <div className="flex items-center gap-1.5">
+          <span
+            className="text-[--text-primary] font-semibold font-body"
+            style={{ fontSize: compactMode ? 12 : 14 }}
+          >
             {hero.username}
           </span>
           <ChipAmount
             amount={hero.chips}
             iconSize={compactMode ? 9 : 11}
-            amountStyle={{ color: "#a78bfa", fontSize: compactMode ? 11 : 13, fontWeight: 700 }}
+            amountStyle={{ color: "var(--accent)", fontSize: compactMode ? 11 : 13, fontWeight: 700 }}
           />
         </div>
       </div>

@@ -4,7 +4,9 @@ import { createRoom } from "./actions/room";
 import { useRouter } from "next/navigation";
 import { useState } from "react";
 import { useUser } from "../hooks/useUser";
-import { Plus, Minus, Play } from "lucide-react";
+import Plus from 'lucide-react/dist/esm/icons/plus'
+import Minus from 'lucide-react/dist/esm/icons/minus'
+import Play from 'lucide-react/dist/esm/icons/play'
 import { ChipIcon } from "@/components/poker/ChipAmount";
 
 // ── Moon Poker logo mark ──────────────────────────────────────────────────────
@@ -15,7 +17,7 @@ function MoonLogo({ size = 32 }: { size?: number }) {
     <div style={{ position: "relative", width: size, height: chip, flexShrink: 0 }}>
       <div style={{
         position: "absolute", width: chip, height: chip,
-        borderRadius: "50%", background: "#eab308", left: 0,
+        borderRadius: "50%", background: "var(--gold)", left: 0,
       }} />
       <div style={{
         position: "absolute", width: chip, height: chip,
@@ -35,21 +37,14 @@ function NumberInput({
   step: number; min: number; max: number;
 }) {
   return (
-    <div style={{
-      display: "flex", flexDirection: "column", alignItems: "center", gap: 8,
-      padding: "12px 8px", borderRadius: 12,
-      background: "rgba(255,255,255,0.04)", border: "1px solid rgba(255,255,255,0.06)",
-    }}>
-      <span style={{
-        color: "rgba(255,255,255,0.4)", fontSize: 10, fontWeight: 600,
-        textTransform: "uppercase", letterSpacing: "0.08em", textAlign: "center",
-        fontFamily: "Outfit, sans-serif",
-      }}>{label}</span>
-      <span style={{
-        color: "#fff", fontWeight: 700, fontSize: 18,
-        fontFamily: "Outfit, sans-serif", fontVariantNumeric: "tabular-nums",
-      }}>{value}</span>
-      <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
+    <div className="flex flex-col items-center gap-2 p-3 rounded-xl bg-white/[0.04] border border-white/[0.06]">
+      <span className="text-white/40 text-[10px] font-semibold uppercase tracking-widest text-center font-body">
+        {label}
+      </span>
+      <span className="text-white font-bold text-lg font-body num-font">
+        {value}
+      </span>
+      <div className="flex items-center gap-2">
         <button
           aria-label={`Decrease ${label}`}
           onClick={() => onChange(Math.max(min, value - step))}
@@ -122,50 +117,30 @@ export default function HomeClient() {
   };
 
   return (
-    <div style={{
-      minHeight: "100dvh",
-      display: "flex", alignItems: "center", justifyContent: "center",
-      background: "linear-gradient(160deg, #1a1428 0%, #141420 40%, #0f0e1a 100%)",
-      overflowY: "auto", WebkitOverflowScrolling: "touch",
-      padding: "20px 16px",
-      fontFamily: "Outfit, sans-serif",
-    }}>
+    <div
+      className="font-body bg-[--bg-base] min-h-dvh flex items-center justify-center overflow-y-auto"
+      style={{ WebkitOverflowScrolling: "touch", padding: "20px 16px" }}
+    >
       {/* Background glow */}
-      <div style={{
-        position: "fixed", pointerEvents: "none",
-        top: "20%", left: "50%", transform: "translateX(-50%)",
-        width: "60%", height: "40%",
-        background: "radial-gradient(ellipse, rgba(110,55,220,0.18) 0%, transparent 70%)",
-        filter: "blur(40px)",
-      }} />
+      <div className="fixed pointer-events-none top-1/5 left-1/2 -translate-x-1/2 w-3/5 h-2/5 bg-[--accent]/[0.12] blur-[40px]" />
 
       {/* Setup card */}
-      <div style={{
-        position: "relative", width: "100%", maxWidth: 460,
-        borderRadius: 24, overflow: "hidden",
-        background: "rgba(18,15,32,0.96)",
-        border: "1px solid rgba(255,255,255,0.08)",
-        boxShadow: "0 30px 80px rgba(0,0,0,0.7)",
-        flexShrink: 0,
-      }}>
+      <div className="relative w-full max-w-[460px] rounded-2xl overflow-hidden bg-[--bg-surface] border border-white/[0.08] shadow-2xl flex-shrink-0">
         {/* Header */}
-        <div style={{
-          padding: "28px 32px 22px",
-          borderBottom: "1px solid rgba(255,255,255,0.06)",
-        }}>
-          <div style={{ display: "flex", alignItems: "center", gap: 10, marginBottom: 6 }}>
+        <div className="px-8 py-7 pb-5 border-b border-white/[0.06]">
+          <div className="flex items-center gap-2.5 mb-1.5">
             <MoonLogo size={30} />
-            <span style={{ color: "#fff", fontWeight: 700, fontSize: 20, letterSpacing: "-0.01em" }}>
+            <span className="text-white font-bold text-xl font-display tracking-tight">
               OverBet
             </span>
           </div>
-          <p style={{ color: "rgba(255,255,255,0.35)", fontSize: 13, margin: 0 }}>
+          <p className="text-white/35 text-[13px] m-0">
             Set up your home game
           </p>
         </div>
 
         {/* Body */}
-        <div style={{ padding: "24px 32px 28px", display: "flex", flexDirection: "column", gap: 22 }}>
+        <div className="px-8 py-6 pb-7 flex flex-col gap-5">
 
           {/* Table name */}
           <div>
@@ -189,31 +164,22 @@ export default function HomeClient() {
           </div>
 
           {/* Blind preview */}
-          <div style={{
-            display: "flex", alignItems: "center", gap: 8,
-            padding: "10px 14px", borderRadius: 10,
-            background: "rgba(255,255,255,0.03)", border: "1px solid rgba(255,255,255,0.05)",
-          }}>
+          <div className="flex items-center gap-2 px-3.5 py-2.5 rounded-xl bg-white/[0.03] border border-white/[0.05]">
             <ChipIcon size={14} color="rgba(167,139,250,0.7)" />
-            <span style={{ color: "rgba(255,255,255,0.35)", fontSize: 12 }}>
+            <span className="text-white/35 text-xs">
               Blinds
             </span>
-            <span style={{ color: "rgba(255,255,255,0.75)", fontSize: 12, fontWeight: 600 }}>
+            <span className="text-white/75 text-xs font-semibold">
               {smallBlind}/{bigBlind}
             </span>
-            <span style={{ color: "rgba(255,255,255,0.25)", fontSize: 11, marginLeft: "auto" }}>
+            <span className="text-white/25 text-[11px] ml-auto">
               Buy-in set at table
             </span>
           </div>
 
           {/* Error */}
           {error && (
-            <div style={{
-              display: "flex", alignItems: "flex-start", gap: 10,
-              padding: "12px 14px", borderRadius: 10,
-              background: "rgba(220,38,38,0.1)", border: "1px solid rgba(220,38,38,0.25)",
-              color: "#fca5a5", fontSize: 13,
-            }}>
+            <div className="flex items-start gap-2.5 px-3.5 py-3 rounded-xl bg-[--danger]/10 border border-[--danger]/25 text-red-300 text-[13px]">
               <svg width={16} height={16} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={2} style={{ flexShrink: 0, marginTop: 1 }}>
                 <path strokeLinecap="round" strokeLinejoin="round" d="M12 9v3.75m-9.303 3.376c-.866 1.5.217 3.374 1.948 3.374h14.71c1.73 0 2.813-1.874 1.948-3.374L13.949 3.378c-.866-1.5-3.032-1.5-3.898 0L2.697 16.126zM12 15.75h.007v.008H12v-.008z" />
               </svg>
@@ -225,8 +191,7 @@ export default function HomeClient() {
           <button
             onClick={handleStartGame}
             disabled={loading}
-            className="btn-primary"
-            style={{ width: "100%", padding: "14px 0", borderRadius: 16, fontSize: 15 }}
+            className="btn-primary w-full py-3.5 rounded-2xl text-[15px]"
           >
             {loading ? (
               <>
@@ -244,10 +209,10 @@ export default function HomeClient() {
           </button>
 
           {/* Divider */}
-          <div style={{ display: "flex", alignItems: "center", gap: 12 }}>
-            <div style={{ flex: 1, height: 1, background: "rgba(255,255,255,0.06)" }} />
-            <span style={{ color: "rgba(255,255,255,0.2)", fontSize: 11, fontWeight: 500 }}>or</span>
-            <div style={{ flex: 1, height: 1, background: "rgba(255,255,255,0.06)" }} />
+          <div className="flex items-center gap-3">
+            <div className="flex-1 h-px bg-white/[0.06]" />
+            <span className="text-white/20 text-[11px] font-medium">or</span>
+            <div className="flex-1 h-px bg-white/[0.06]" />
           </div>
 
           {/* Join Room button */}
@@ -268,27 +233,17 @@ export default function HomeClient() {
           onClick={() => setShowJoinModal(false)}
         >
           <div
-            style={{
-              width: "100%", maxWidth: 360,
-              background: "rgba(22,18,40,0.97)",
-              border: "1px solid rgba(255,255,255,0.1)",
-              borderRadius: 20,
-              boxShadow: "0 25px 60px rgba(0,0,0,0.7)",
-              overflow: "hidden",
-            }}
+            className="w-full max-w-[360px] bg-[--bg-surface] border border-white/10 rounded-2xl shadow-[0_25px_60px_rgba(0,0,0,0.7)] overflow-hidden"
             onClick={e => e.stopPropagation()}
           >
-            {/* Thin purple accent line */}
-            <div style={{
-              height: 2,
-              background: "linear-gradient(90deg, transparent, rgba(139,92,246,0.8) 40%, rgba(167,139,250,0.9) 60%, transparent)",
-            }} />
+            {/* Thin accent line */}
+            <div className="h-[2px] bg-gradient-to-r from-transparent via-[--accent]/80 to-transparent" />
 
-            <div style={{ padding: "22px 24px 24px" }}>
-              <h2 style={{ color: "#fff", fontWeight: 700, fontSize: 18, margin: "0 0 4px", fontFamily: "Outfit, sans-serif" }}>
+            <div className="px-6 py-5 pb-6">
+              <h2 className="text-white font-bold text-lg m-0 mb-1 font-display">
                 Join a Room
               </h2>
-              <p style={{ color: "rgba(255,255,255,0.4)", fontSize: 13, margin: "0 0 20px" }}>
+              <p className="text-white/40 text-[13px] m-0 mb-5">
                 Enter the 6-character room code from the host.
               </p>
 
@@ -300,16 +255,7 @@ export default function HomeClient() {
                 placeholder="A3F9B2"
                 maxLength={6}
                 autoFocus
-                style={{
-                  width: "100%", padding: "14px 0", textAlign: "center",
-                  fontSize: 28, fontWeight: 700, letterSpacing: "0.35em",
-                  fontFamily: "Outfit, monospace", color: "#fff",
-                  background: "rgba(255,255,255,0.06)", border: "1px solid rgba(255,255,255,0.12)",
-                  borderRadius: 12, outline: "none", boxSizing: "border-box",
-                  transition: "border-color 0.15s",
-                }}
-                onFocus={e => { e.currentTarget.style.borderColor = "rgba(124,58,237,0.6)"; }}
-                onBlur={e => { e.currentTarget.style.borderColor = "rgba(255,255,255,0.12)"; }}
+                className="w-full py-3.5 text-center text-[28px] font-bold tracking-[0.35em] font-mono text-white bg-white/[0.06] border border-white/12 rounded-xl outline-none num-font focus:border-[--accent]/60 transition-colors box-border"
               />
 
               {joinError && (

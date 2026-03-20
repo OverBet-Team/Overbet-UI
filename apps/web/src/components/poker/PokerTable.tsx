@@ -1,18 +1,18 @@
 /**
- * PokerTable - 10-seat oval layout with Moon Poker visual language
+ * PokerTable - 10-seat oval layout with visual refactor
  *
  * Seat positions are distributed around an ellipse using CSS absolute
  * positioning. Seats 0-9 are placed clockwise starting from the bottom-center
- * (the "hero" seat convention used by PokerNow / Moon Poker).
+ * (the "hero" seat convention).
  *
  * Board cards use the PlayingCard component with proper suit symbols.
  */
 
-import React from "react";
-import { motion, AnimatePresence } from "framer-motion";
-import { Seat, PlayerData, TurnTimer } from "./Seat";
-import PlayingCard from "./PlayingCard";
-import { ChipAmount } from "./ChipAmount";
+import React from 'react';
+import { motion, AnimatePresence } from 'framer-motion';
+import { Seat, PlayerData, TurnTimer } from './Seat';
+import PlayingCard from './PlayingCard';
+import { ChipAmount } from './ChipAmount';
 
 interface PokerTableProps {
   players: (PlayerData | undefined)[];
@@ -38,15 +38,11 @@ function ellipsePosition(angleDeg: number, radiusX: number, radiusY: number): Ta
 }
 
 // Occupied seats sit closer to the rail because their footprint is larger.
-const PLAYER_SEAT_POSITIONS: TablePosition[] = LOBBY_SEAT_ANGLES.map((angle) =>
-  ellipsePosition(angle, 43, 41.5),
-);
+const PLAYER_SEAT_POSITIONS: TablePosition[] = LOBBY_SEAT_ANGLES.map((angle) => ellipsePosition(angle, 43, 41.5));
 
 // Empty-seat request markers sit slightly inward while following the exact same
 // balanced oval geometry as occupied seats.
-const EMPTY_SEAT_POSITIONS: TablePosition[] = LOBBY_SEAT_ANGLES.map((angle) =>
-  ellipsePosition(angle, 38.5, 36.5),
-);
+const EMPTY_SEAT_POSITIONS: TablePosition[] = LOBBY_SEAT_ANGLES.map((angle) => ellipsePosition(angle, 38.5, 36.5));
 
 // Approximate offset from seat toward table center for card deal animation
 const CENTER_OFFSETS: { x: number; y: number }[] = [
@@ -64,6 +60,20 @@ const CENTER_OFFSETS: { x: number; y: number }[] = [
 
 const MAX_SEATS = 10;
 
+// ═══════════════════════════════════════════════════════════════════════════
+// Hoist static watermark (Vercel rule: rendering-hoist-jsx)
+// ═══════════════════════════════════════════════════════════════════════════
+
+const OVERBET_WATERMARK = (
+  <div className="absolute top-[34%] left-1/2 -translate-x-1/2 -translate-y-1/2 text-[28px] font-extrabold tracking-[0.25em] text-white/[0.04] uppercase font-display select-none">
+    OverBet
+  </div>
+);
+
+// ═══════════════════════════════════════════════════════════════════════════
+// PokerTable Component
+// ═══════════════════════════════════════════════════════════════════════════
+
 export function PokerTable({
   players,
   dealerId,
@@ -74,98 +84,79 @@ export function PokerTable({
   handleSeatClick,
   turnTimer,
 }: PokerTableProps) {
-  const tableSeats = Array.from({ length: MAX_SEATS }).map((_, i) =>
-    players.find((p) => p?.seatIndex === i),
-  );
+  const tableSeats = Array.from({ length: MAX_SEATS }).map((_, i) => players.find((p) => p?.seatIndex === i));
 
   const communitySlots = Array.from({ length: 5 }).map((_, i) => board[i] ?? null);
   const boardHasCards = communitySlots.some(Boolean);
-  const boardCardSize = boardHasCards ? "md" : "sm";
+  const boardCardSize = boardHasCards ? 'md' : 'sm';
   const boardGap = boardHasCards ? 8 : 6;
 
   return (
-    <div
-      style={{
-        width: "100%",
-        display: "flex",
-        justifyContent: "center",
-      }}
-    >
-      <div
-        className="relative w-full max-w-5xl"
-        style={{ aspectRatio: "2.1 / 1", margin: "28px auto 20px" }}
-      >
+    <div className="w-full flex justify-center">
+      <div className="relative w-full max-w-5xl" style={{ aspectRatio: '2.1 / 1', margin: '28px auto 20px' }}>
+        {/* Outer shadow/border */}
         <div
           className="absolute inset-0 rounded-[200px]"
           style={{
-            background: "transparent",
-            boxShadow: "0 30px 100px rgba(0,0,0,0.8), 0 0 0 1px rgba(255,255,255,0.04)",
+            background: 'transparent',
+            boxShadow: '0 30px 100px rgba(0,0,0,0.8), 0 0 0 1px rgba(255,255,255,0.04)',
           }}
         />
+
+        {/* Table rail (border) with new table-rail color */}
         <div
-          className="absolute inset-0 rounded-[200px]"
+          className="absolute inset-0 rounded-[200px] table-rail"
           style={{
-            background: "linear-gradient(180deg, #2a2040 0%, #1a1530 100%)",
-            border: "10px solid #1a1530",
-            boxShadow: "inset 0 0 0 1px rgba(255,255,255,0.06)",
+            background: 'linear-gradient(180deg, var(--table-rail) 0%, #14202e 100%)',
+            border: '10px solid var(--table-rail)',
+            boxShadow: 'inset 0 0 0 1px rgba(255,255,255,0.06)',
           }}
         />
+
+        {/* Table felt surface with new table-felt gradient */}
         <div
-          className="absolute rounded-[180px]"
+          className="absolute rounded-[180px] table-felt"
           style={{
-            inset: "10px",
-            background:
-              "radial-gradient(ellipse 90% 70% at 50% 55%, #1f1848 0%, #181338 30%, #130f2e 60%, #0e0b22 100%)",
-            boxShadow: "inset 0 0 60px rgba(0,0,0,0.5)",
+            inset: '10px',
+            boxShadow: 'inset 0 0 60px rgba(0,0,0,0.5)',
           }}
         />
+
+        {/* Inner felt border accent */}
         <div
           className="absolute rounded-[175px] pointer-events-none"
           style={{
-            inset: "14px",
-            border: "1px solid rgba(120,80,240,0.15)",
+            inset: '14px',
+            border: '1px solid rgba(59,130,246,0.15)',
           }}
         />
+
+        {/* Felt glow effect */}
         <div
           className="absolute pointer-events-none"
           style={{
-            top: "25%",
-            left: "50%",
-            transform: "translateX(-50%)",
-            width: "50%",
-            height: "35%",
-            background: "radial-gradient(ellipse, rgba(100,50,220,0.25) 0%, transparent 70%)",
-            filter: "blur(24px)",
+            top: '25%',
+            left: '50%',
+            transform: 'translateX(-50%)',
+            width: '50%',
+            height: '35%',
+            background: 'radial-gradient(ellipse, rgba(59,130,246,0.2) 0%, transparent 70%)',
+            filter: 'blur(24px)',
           }}
         />
 
+        {/* Content layer (cards, pots, watermark) */}
         <div className="absolute inset-0 pointer-events-none" style={{ zIndex: 0 }}>
-          <div
-            style={{
-              position: "absolute",
-              top: "34%",
-              left: "50%",
-              transform: "translate(-50%, -50%)",
-              fontSize: 28,
-              fontWeight: 800,
-              letterSpacing: "0.25em",
-              color: "rgba(255,255,255,0.04)",
-              textTransform: "uppercase",
-              fontFamily: "Outfit, Inter, sans-serif",
-              userSelect: "none",
-            }}
-          >
-            OverBet
-          </div>
+          {/* Static watermark (hoisted) */}
+          {OVERBET_WATERMARK}
 
+          {/* Community cards */}
           <div
+            className="absolute flex items-center"
             style={{
-              position: "absolute",
-              top: "50%",
-              left: "50%",
-              transform: "translate(-50%, -50%)",
-              display: "flex",
-              alignItems: "center",
+              top: '50%',
+              left: '50%',
+              transform: 'translate(-50%, -50%)',
               gap: boardGap,
             }}
           >
@@ -177,7 +168,7 @@ export function PokerTable({
                     data-testid={`community-slot-${i}`}
                     initial={{ opacity: 0, y: -16, scale: 0.85 }}
                     animate={{ opacity: 1, y: 0, scale: 1 }}
-                    transition={{ delay: i * 0.08, type: "spring", stiffness: 300, damping: 24 }}
+                    transition={{ delay: i * 0.08, type: 'spring', stiffness: 300, damping: 24 }}
                   >
                     <PlayingCard card={card} size={boardCardSize} />
                   </motion.div>
@@ -196,15 +187,13 @@ export function PokerTable({
             </AnimatePresence>
           </div>
 
+          {/* Pot display */}
           <div
+            className="absolute flex items-center gap-2"
             style={{
-              position: "absolute",
-              top: boardHasCards ? "68%" : "70%",
-              left: "50%",
-              transform: "translateX(-50%)",
-              display: "flex",
-              alignItems: "center",
-              gap: 8,
+              top: boardHasCards ? '68%' : '70%',
+              left: '50%',
+              transform: 'translateX(-50%)',
             }}
           >
             <AnimatePresence>
@@ -215,30 +204,21 @@ export function PokerTable({
                     initial={{ opacity: 0, scale: 0 }}
                     animate={{ opacity: 1, scale: 1 }}
                     exit={{ opacity: 0, scale: 0 }}
+                    className="px-3.5 py-1 rounded-full backdrop-blur-md font-bold text-[13px] font-body tracking-tight shadow-lg"
                     style={{
-                      padding: "5px 14px",
-                      borderRadius: 999,
                       border:
-                        pot.type === "MAIN"
-                          ? "1px solid rgba(239,68,68,0.35)"
-                          : "1px solid rgba(99,102,241,0.35)",
-                      background: "rgba(0,0,0,0.55)",
-                      backdropFilter: "blur(8px)",
-                      color: pot.type === "MAIN" ? "#f87171" : "#a5b4fc",
-                      fontWeight: 700,
-                      fontSize: 13,
-                      fontFamily: "Outfit, Inter, sans-serif",
-                      letterSpacing: "0.01em",
-                      boxShadow: "0 2px 12px rgba(0,0,0,0.4)",
+                        pot.type === 'MAIN' ? '1px solid rgba(239,68,68,0.35)' : '1px solid rgba(99,102,241,0.35)',
+                      background: 'rgba(0,0,0,0.55)',
+                      color: pot.type === 'MAIN' ? '#f87171' : '#a5b4fc',
                     }}
                   >
-                    <span style={{ display: "inline-flex", alignItems: "center", gap: 6 }}>
-                      <span>{pot.type === "MAIN" ? "POT" : "SIDE"}:</span>
+                    <span className="inline-flex items-center gap-1.5">
+                      <span>{pot.type === 'MAIN' ? 'POT' : 'SIDE'}:</span>
                       <ChipAmount
                         amount={pot.amount}
                         iconSize={12}
-                        iconColor={pot.type === "MAIN" ? "#f87171" : "#a5b4fc"}
-                        amountStyle={{ color: "inherit" }}
+                        iconColor={pot.type === 'MAIN' ? '#f87171' : '#a5b4fc'}
+                        amountStyle={{ color: 'inherit' }}
                       />
                     </span>
                   </motion.div>
@@ -247,6 +227,7 @@ export function PokerTable({
           </div>
         </div>
 
+        {/* Seats around the table */}
         {PLAYER_SEAT_POSITIONS.map((playerPos, i) => {
           const seatPosition = tableSeats[i] ? playerPos : EMPTY_SEAT_POSITIONS[i];
 
@@ -257,7 +238,7 @@ export function PokerTable({
               style={{
                 top: seatPosition.top,
                 left: seatPosition.left,
-                transform: "translate(-50%, -50%)",
+                transform: 'translate(-50%, -50%)',
               }}
             >
               <Seat

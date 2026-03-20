@@ -1,6 +1,9 @@
-"use client";
+'use client';
 
-import { Settings } from "lucide-react";
+import * as Dialog from '@radix-ui/react-dialog';
+import { motion, AnimatePresence } from 'framer-motion';
+// Direct import to avoid barrel-file cost (bundle-barrel-imports rule)
+import Settings from 'lucide-react/dist/esm/icons/settings';
 
 interface RoomSettings {
   variant: string;
@@ -21,69 +24,130 @@ interface SettingsModalProps {
 
 // Keep the slider list centralized so the modal renders a single source of truth.
 const SETTINGS_FIELDS = [
-  { key: "turnTimeout" as const, label: "Turn Time", min: 10, max: 120, step: 5, unit: "s", color: "#f87171" },
-  { key: "timeBank" as const, label: "Time Bank", min: 0, max: 120, step: 5, unit: "s", color: "#fb923c" },
-  { key: "autoStartDelay" as const, label: "Auto-Start Delay", min: 2, max: 30, step: 1, unit: "s", color: "#a78bfa" },
+  { key: 'turnTimeout' as const, label: 'Turn Time', min: 10, max: 120, step: 5, unit: 's', color: 'var(--danger)' },
+  { key: 'timeBank' as const, label: 'Time Bank', min: 0, max: 120, step: 5, unit: 's', color: 'var(--gold)' },
+  {
+    key: 'autoStartDelay' as const,
+    label: 'Auto-Start Delay',
+    min: 2,
+    max: 30,
+    step: 1,
+    unit: 's',
+    color: 'var(--accent)',
+  },
 ] as const;
 
-export function SettingsModal({ settingsDraft, onSettingsChange, onSave, onClose, isPortraitMobile }: SettingsModalProps) {
+export function SettingsModal({
+  settingsDraft,
+  onSettingsChange,
+  onSave,
+  onClose,
+  isPortraitMobile,
+}: SettingsModalProps) {
   return (
-    <div
-      className={`modal-backdrop${isPortraitMobile ? " modal-backdrop--bottom" : ""}`}
-    >
-      <div
-        className={`panel${isPortraitMobile ? " panel--sheet" : ""}`}
-        style={{
-          maxWidth: isPortraitMobile ? "100%" : 420,
-          padding: isPortraitMobile ? "18px 16px 22px" : 28,
-        }}
-      >
-        <button className="close-btn" onClick={onClose} aria-label="Close settings">✕</button>
+    <Dialog.Root open onOpenChange={(open) => !open && onClose()}>
+      <Dialog.Portal>
+        <AnimatePresence>
+          <>
+            {/* Overlay */}
+            <Dialog.Overlay asChild>
+              <motion.div
+                className="fixed inset-0 z-50 bg-black/60 backdrop-blur-sm"
+                initial={{ opacity: 0 }}
+                animate={{ opacity: 1 }}
+                exit={{ opacity: 0 }}
+                transition={{ duration: 0.2 }}
+              />
+            </Dialog.Overlay>
 
-        <div style={{ display: "flex", alignItems: "center", gap: 10, marginBottom: 6 }}>
-          <Settings size={18} color="rgba(167,139,250,0.8)" />
-          <h2 style={{ color: "#fff", fontSize: 18, fontWeight: 700, margin: 0 }}>Room Settings</h2>
-        </div>
-        <p style={{ color: "rgba(255,255,255,0.3)", fontSize: 11, marginBottom: 24, fontStyle: "italic" }}>
-          Changes take effect on the next hand.
-        </p>
+            {/* Content */}
+            <Dialog.Content asChild>
+              <motion.div
+                className={`fixed z-50 flex pointer-events-none ${
+                  isPortraitMobile ? 'inset-x-0 bottom-0 items-end' : 'inset-0 items-center justify-center p-4'
+                }`}
+                initial={{ opacity: 0, scale: isPortraitMobile ? 1 : 0.95, y: isPortraitMobile ? 40 : 0 }}
+                animate={{ opacity: 1, scale: 1, y: 0 }}
+                exit={{ opacity: 0, scale: isPortraitMobile ? 1 : 0.95, y: isPortraitMobile ? 40 : 0 }}
+                transition={{ duration: 0.2, ease: 'easeOut' }}
+              >
+                <div
+                  className={`pointer-events-auto w-full font-body bg-[--bg-surface] border border-white/10 shadow-2xl ${
+                    isPortraitMobile ? 'rounded-t-[18px] max-h-[82dvh] overflow-y-auto' : 'rounded-2xl max-w-[420px]'
+                  }`}
+                  style={{ padding: isPortraitMobile ? '18px 16px 22px' : '28px' }}
+                >
+                  <button className="close-btn" onClick={onClose} aria-label="Close settings">
+                    ✕
+                  </button>
 
-        <div style={{ display: "flex", flexDirection: "column", gap: 20 }}>
-          {SETTINGS_FIELDS.map(({ key, label, min, max, step, unit, color }) => {
-            const value = settingsDraft[key] ?? 30;
-            return (
-              <div key={key}>
-                <div style={{ display: "flex", justifyContent: "space-between", marginBottom: 6 }}>
-                  <label style={{ color: "rgba(255,255,255,0.7)", fontSize: 13, fontWeight: 600 }}>{label}</label>
-                  <span style={{ color, fontFamily: "monospace", fontWeight: 700, fontSize: 13 }}>
-                    {value}{unit}
-                  </span>
+                  {/* Header */}
+                  <div className="flex items-center gap-2.5 mb-1.5">
+                    <Settings size={18} color="var(--accent)" />
+                    <Dialog.Title className="text-white text-lg font-bold font-display m-0">
+                      Room Settings
+                    </Dialog.Title>
+                  </div>
+                  <Dialog.Description className="text-white/30 text-[11px] mb-6 italic m-0">
+                    Changes take effect on the next hand.
+                  </Dialog.Description>
+
+                  {/* Settings sliders */}
+                  <div className="flex flex-col gap-5">
+                    {SETTINGS_FIELDS.map(({ key, label, min, max, step, unit, color }) => {
+                      const value = settingsDraft[key] ?? 30;
+                      return (
+                        <div key={key}>
+                          <div className="flex justify-between mb-1.5">
+                            <label className="text-white/70 text-[13px] font-semibold font-body">{label}</label>
+                            <span className="font-mono font-bold text-[13px]" style={{ color }}>
+                              {value}
+                              {unit}
+                            </span>
+                          </div>
+                          <input
+                            type="range"
+                            min={min}
+                            max={max}
+                            step={step}
+                            value={value}
+                            onChange={(e) =>
+                              onSettingsChange({ ...settingsDraft, [key]: Number(e.target.value) })
+                            }
+                            className="w-full"
+                            style={{ accentColor: color }}
+                            aria-label={label}
+                          />
+                          <div className="flex justify-between mt-0.5">
+                            <span className="text-white/20 text-[10px]">
+                              {min}
+                              {unit}
+                            </span>
+                            <span className="text-white/20 text-[10px]">
+                              {max}
+                              {unit}
+                            </span>
+                          </div>
+                        </div>
+                      );
+                    })}
+                  </div>
+
+                  {/* Actions */}
+                  <div className="flex gap-2.5 mt-7">
+                    <button className="btn-ghost" style={{ flex: 1 }} onClick={onClose}>
+                      Cancel
+                    </button>
+                    <button className="btn-primary" style={{ flex: 1, fontSize: 13 }} onClick={onSave}>
+                      Save Settings
+                    </button>
+                  </div>
                 </div>
-                <input
-                  type="range" min={min} max={max} step={step}
-                  value={value}
-                  onChange={(e) => onSettingsChange({ ...settingsDraft, [key]: Number(e.target.value) })}
-                  style={{ width: "100%", accentColor: color }}
-                  aria-label={label}
-                />
-                <div style={{ display: "flex", justifyContent: "space-between", marginTop: 2 }}>
-                  <span style={{ color: "rgba(255,255,255,0.2)", fontSize: 10 }}>{min}{unit}</span>
-                  <span style={{ color: "rgba(255,255,255,0.2)", fontSize: 10 }}>{max}{unit}</span>
-                </div>
-              </div>
-            );
-          })}
-        </div>
-
-        <div style={{ display: "flex", gap: 10, marginTop: 28 }}>
-          <button className="btn-ghost" style={{ flex: 1 }} onClick={onClose}>
-            Cancel
-          </button>
-          <button className="btn-primary" style={{ flex: 1, fontSize: 13 }} onClick={onSave}>
-            Save Settings
-          </button>
-        </div>
-      </div>
-    </div>
+              </motion.div>
+            </Dialog.Content>
+          </>
+        </AnimatePresence>
+      </Dialog.Portal>
+    </Dialog.Root>
   );
 }
