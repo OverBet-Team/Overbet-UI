@@ -7,6 +7,7 @@ type PotDisplayState = {
   players?: PlayerBetLike[] | null;
 };
 
+// Normalizes nullable numeric inputs for pot display math.
 function nonNegativeAmount(value: number | null | undefined) {
   if (!Number.isFinite(value)) return 0;
   return Math.max(0, Number(value));
