@@ -301,13 +301,11 @@ const arcRY_pct = 0.38;
 
 export function PlayerPerspectiveView({
   viewState,
-  cleanupShowAllRevealed,
   winnerId,
   winnerCards,
   compactMode,
 }: {
   viewState: PlayerViewState;
-  cleanupShowAllRevealed?: boolean;
   winnerId?: string;
   winnerCards?: string[];
   compactMode?: boolean;

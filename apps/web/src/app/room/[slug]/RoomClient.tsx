@@ -17,6 +17,8 @@ import { GameLog } from "@/components/poker/GameLog";
 import { ChipAmount } from "@/components/poker/ChipAmount";
 import { PlayerData, TurnTimer } from "@/components/poker/Seat";
 import WinnerToast from "@/components/poker/WinnerToast";
+import { SettingsModal as RoomSettingsModal } from "@/components/poker/SettingsModal";
+import { FairnessModal as RoomFairnessModal } from "@/components/poker/FairnessModal";
 import { useUser } from "@/hooks/useUser";
 
 // ── Types ─────────────────────────────────────────────────────────────────────
@@ -533,172 +535,28 @@ export default function RoomClient({ slug, initialRoom }: RoomProps) {
       : []),
   ];
 
-  // ── Settings Modal (shared between lobby and in-game) ───────────────────────
-  const SettingsModal = () => (
-    <div style={{
-      position: "fixed", inset: 0, zIndex: 50, display: "flex",
-      alignItems: isPortraitMobile ? "flex-end" : "center",
-      justifyContent: "center",
-      padding: isPortraitMobile ? 0 : 16,
-      background: "rgba(0,0,0,0.75)", backdropFilter: "blur(12px)",
-    }}>
-      <div style={{
-        width: "100%", maxWidth: isPortraitMobile ? "100%" : 420, padding: isPortraitMobile ? "18px 16px 22px" : 28, position: "relative",
-        background: "rgba(16,13,28,0.98)", border: "1px solid rgba(255,255,255,0.1)",
-        borderRadius: isPortraitMobile ? "18px 18px 0 0" : 24, boxShadow: "0 24px 80px rgba(0,0,0,0.7)",
-        fontFamily: "Outfit, sans-serif",
-        maxHeight: isPortraitMobile ? "82dvh" : "none",
-        overflowY: isPortraitMobile ? "auto" : "visible",
-      }}>
-        <button onClick={() => setShowSettingsModal(false)} style={{
-          position: "absolute", top: 16, right: 16, background: "none", border: "none",
-          color: "rgba(255,255,255,0.3)", fontSize: 20, cursor: "pointer", lineHeight: 1,
-        }}>✕</button>
+  // ── Settings Modal (extracted) ───────────────────────────────────────────────
+  const SettingsModal = () => {
+    if (!settingsDraft) return null;
+    return (
+      <RoomSettingsModal
+        settingsDraft={settingsDraft}
+        onSettingsChange={(next) => setSettingsDraft(next)}
+        onSave={handleSaveSettings}
+        onClose={() => setShowSettingsModal(false)}
+        isPortraitMobile={isPortraitMobile}
+      />
+    );
+  };
 
-        <div style={{ display: "flex", alignItems: "center", gap: 10, marginBottom: 6 }}>
-          <Settings size={18} color="rgba(167,139,250,0.8)" />
-          <h2 style={{ color: "#fff", fontSize: 18, fontWeight: 700, margin: 0 }}>Room Settings</h2>
-        </div>
-        <p style={{ color: "rgba(255,255,255,0.3)", fontSize: 11, marginBottom: 24, fontStyle: "italic" }}>
-          Changes take effect on the next hand.
-        </p>
-
-        <div style={{ display: "flex", flexDirection: "column", gap: 20 }}>
-          {[
-            { key: "turnTimeout", label: "Turn Time", min: 10, max: 120, step: 5, unit: "s", color: "#f87171" },
-            { key: "timeBank", label: "Time Bank", min: 0, max: 120, step: 5, unit: "s", color: "#fb923c" },
-            { key: "autoStartDelay", label: "Auto-Start Delay", min: 2, max: 30, step: 1, unit: "s", color: "#a78bfa" },
-          ].map(({ key, label, min, max, step, unit, color }) => (
-            <div key={key}>
-              <div style={{ display: "flex", justifyContent: "space-between", marginBottom: 6 }}>
-                <label style={{ color: "rgba(255,255,255,0.7)", fontSize: 13, fontWeight: 600 }}>{label}</label>
-                <span style={{ color, fontFamily: "monospace", fontWeight: 700, fontSize: 13 }}>
-                  {(settingsDraft as any)?.[key] ?? 30}{unit}
-                </span>
-              </div>
-              <input
-                type="range" min={min} max={max} step={step}
-                value={(settingsDraft as any)?.[key] ?? 30}
-                onChange={(e) => setSettingsDraft((prev) => prev ? { ...prev, [key]: Number(e.target.value) } : prev)}
-                style={{ width: "100%", accentColor: color }}
-              />
-              <div style={{ display: "flex", justifyContent: "space-between", marginTop: 2 }}>
-                <span style={{ color: "rgba(255,255,255,0.2)", fontSize: 10 }}>{min}{unit}</span>
-                <span style={{ color: "rgba(255,255,255,0.2)", fontSize: 10 }}>{max}{unit}</span>
-              </div>
-            </div>
-          ))}
-        </div>
-
-        <div style={{ display: "flex", gap: 10, marginTop: 28 }}>
-          <button onClick={() => setShowSettingsModal(false)} style={{
-            flex: 1, padding: "11px 0", borderRadius: 14, border: "1px solid rgba(255,255,255,0.1)",
-            background: "transparent", color: "rgba(255,255,255,0.4)", fontFamily: "Outfit, sans-serif",
-            fontSize: 13, fontWeight: 600, cursor: "pointer",
-          }}>
-            Cancel
-          </button>
-          <button onClick={handleSaveSettings} style={{
-            flex: 1, padding: "11px 0", borderRadius: 14, border: "none",
-            background: "linear-gradient(135deg, #7c3aed, #a855f7)",
-            color: "#fff", fontFamily: "Outfit, sans-serif",
-            fontSize: 13, fontWeight: 700, cursor: "pointer",
-            boxShadow: "0 4px 20px rgba(124,58,237,0.3)",
-          }}>
-            Save Settings
-          </button>
-        </div>
-      </div>
-    </div>
-  );
-
-  // ── Fairness Modal ──────────────────────────────────────────────────────────
+  // ── Fairness Modal (extracted) ───────────────────────────────────────────────
   const FairnessModal = () => (
-    <div style={{
-      position: "fixed", inset: 0, zIndex: 50, display: "flex",
-      alignItems: isPortraitMobile ? "flex-end" : "center",
-      justifyContent: "center",
-      padding: isPortraitMobile ? 0 : 16,
-      background: "rgba(0,0,0,0.75)", backdropFilter: "blur(12px)",
-    }}>
-      <div style={{
-        width: "100%", maxWidth: isPortraitMobile ? "100%" : 420, padding: isPortraitMobile ? "18px 16px 22px" : 28, position: "relative",
-        background: "rgba(16,13,28,0.98)", border: "1px solid rgba(255,255,255,0.1)",
-        borderRadius: isPortraitMobile ? "18px 18px 0 0" : 24, boxShadow: "0 24px 80px rgba(0,0,0,0.7)",
-        fontFamily: "Outfit, sans-serif",
-        maxHeight: isPortraitMobile ? "82dvh" : "none",
-        overflowY: isPortraitMobile ? "auto" : "visible",
-      }}>
-        <button onClick={() => setShowFairnessModal(false)} style={{
-          position: "absolute", top: 16, right: 16, background: "none", border: "none",
-          color: "rgba(255,255,255,0.3)", fontSize: 20, cursor: "pointer",
-        }}>✕</button>
-
-        <div style={{ display: "flex", alignItems: "center", gap: 10, marginBottom: 20 }}>
-          <Shield size={18} color="#6ee7b7" />
-          <h2 style={{ color: "#fff", fontSize: 18, fontWeight: 700, margin: 0 }}>Provably Fair</h2>
-        </div>
-
-        <div style={{ display: "flex", flexDirection: "column", gap: 16 }}>
-          <div style={{
-            padding: 16, borderRadius: 14, background: "rgba(255,255,255,0.04)",
-            border: "1px solid rgba(255,255,255,0.07)",
-          }}>
-            <div style={{ color: "rgba(255,255,255,0.35)", fontSize: 10, fontWeight: 700, textTransform: "uppercase", letterSpacing: "0.1em", marginBottom: 8 }}>
-              Current Hand Commitment
-            </div>
-            <div style={{
-              fontFamily: "monospace", fontSize: 10, wordBreak: "break-all",
-              background: "rgba(0,0,0,0.3)", padding: "8px 10px", borderRadius: 8,
-              border: "1px solid rgba(255,255,255,0.05)", color: "rgba(255,255,255,0.7)",
-            }}>
-              {currentCommitment || "Waiting for hand…"}
-            </div>
-            <p style={{ marginTop: 8, color: "rgba(255,255,255,0.25)", fontSize: 10, fontStyle: "italic", lineHeight: 1.5 }}>
-              SHA-256 hash generated before cards were dealt — proves the deck order is fixed.
-            </p>
-          </div>
-
-          {gameState?.lastHandReveal && (
-            <div style={{
-              padding: 16, borderRadius: 14,
-              background: "rgba(110,231,183,0.05)", border: "1px solid rgba(110,231,183,0.2)",
-            }}>
-              <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 12 }}>
-                <span style={{ color: "#6ee7b7", fontSize: 10, fontWeight: 700, textTransform: "uppercase", letterSpacing: "0.1em" }}>
-                  Last Hand Revealed
-                </span>
-                <span data-testid="room-code" style={{
-                  background: "rgba(110,231,183,0.15)", color: "#6ee7b7",
-                  fontSize: 9, fontWeight: 700, padding: "2px 8px", borderRadius: 999,
-                  border: "1px solid rgba(110,231,183,0.3)",
-                }}>
-                  VERIFIED
-                </span>
-              </div>
-              <div style={{ display: "flex", flexDirection: "column", gap: 8 }}>
-                <div>
-                  <span style={{ color: "rgba(255,255,255,0.35)", fontSize: 9, display: "block", marginBottom: 2 }}>Seed</span>
-                  <code style={{ color: "#6ee7b7", fontFamily: "monospace", fontSize: 14 }}>
-                    {gameState.lastHandReveal.seed}
-                  </code>
-                </div>
-                <div>
-                  <span style={{ color: "rgba(255,255,255,0.35)", fontSize: 9, display: "block", marginBottom: 2 }}>Commitment</span>
-                  <code style={{ color: "rgba(255,255,255,0.4)", fontFamily: "monospace", fontSize: 9, wordBreak: "break-all" }}>
-                    {gameState.lastHandReveal.commitment}
-                  </code>
-                </div>
-              </div>
-            </div>
-          )}
-
-          <p style={{ color: "rgba(255,255,255,0.2)", fontSize: 10, textAlign: "center", lineHeight: 1.5 }}>
-            Even the server host cannot see your cards until they are revealed at showdown.
-          </p>
-        </div>
-      </div>
-    </div>
+    <RoomFairnessModal
+      currentCommitment={currentCommitment}
+      lastHandReveal={gameState?.lastHandReveal ?? null}
+      onClose={() => setShowFairnessModal(false)}
+      isPortraitMobile={isPortraitMobile}
+    />
   );
 
   // ── Host controls panel (collapsable) ───────────────────────────────────────
@@ -1192,7 +1050,6 @@ export default function RoomClient({ slug, initialRoom }: RoomProps) {
               <div style={{ flex: 1, minHeight: 0, display: "flex", width: "100%", position: "relative" }}>
                 <PlayerPerspectiveView
                   viewState={viewState}
-                  cleanupShowAllRevealed={cleanupShowAllRevealed}
                   winnerId={winner?.winnerId}
                   winnerCards={winner?.winnerCards}
                   compactMode={isPortraitMobile}

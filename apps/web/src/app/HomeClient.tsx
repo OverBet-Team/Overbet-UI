@@ -51,28 +51,18 @@ function NumberInput({
       }}>{value}</span>
       <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
         <button
+          aria-label={`Decrease ${label}`}
           onClick={() => onChange(Math.max(min, value - step))}
-          style={{
-            width: 24, height: 24, borderRadius: "50%", border: "none",
-            background: "rgba(255,255,255,0.06)", color: "rgba(255,255,255,0.5)",
-            cursor: "pointer", display: "flex", alignItems: "center", justifyContent: "center",
-            transition: "all 0.15s",
-          }}
-          onMouseEnter={e => { e.currentTarget.style.background = "rgba(255,255,255,0.12)"; e.currentTarget.style.color = "#fff"; }}
-          onMouseLeave={e => { e.currentTarget.style.background = "rgba(255,255,255,0.06)"; e.currentTarget.style.color = "rgba(255,255,255,0.5)"; }}
+          className="icon-btn"
+          style={{ width: 24, height: 24, minWidth: 24, minHeight: 24 }}
         >
           <Minus size={11} />
         </button>
         <button
+          aria-label={`Increase ${label}`}
           onClick={() => onChange(Math.min(max, value + step))}
-          style={{
-            width: 24, height: 24, borderRadius: "50%", border: "none",
-            background: "rgba(255,255,255,0.06)", color: "rgba(255,255,255,0.5)",
-            cursor: "pointer", display: "flex", alignItems: "center", justifyContent: "center",
-            transition: "all 0.15s",
-          }}
-          onMouseEnter={e => { e.currentTarget.style.background = "rgba(255,255,255,0.12)"; e.currentTarget.style.color = "#fff"; }}
-          onMouseLeave={e => { e.currentTarget.style.background = "rgba(255,255,255,0.06)"; e.currentTarget.style.color = "rgba(255,255,255,0.5)"; }}
+          className="icon-btn"
+          style={{ width: 24, height: 24, minWidth: 24, minHeight: 24 }}
         >
           <Plus size={11} />
         </button>
@@ -88,7 +78,6 @@ export default function HomeClient() {
 
   // Game config state
   const [tableName, setTableName] = useState("Home Game");
-  const [startingChips, setStartingChips] = useState(1000);
   const [smallBlind, setSmallBlind] = useState(5);
   const [bigBlind, setBigBlind] = useState(10);
 
@@ -180,45 +169,26 @@ export default function HomeClient() {
 
           {/* Table name */}
           <div>
-            <label style={{
-              display: "block", color: "rgba(255,255,255,0.45)", fontSize: 10,
-              fontWeight: 600, textTransform: "uppercase", letterSpacing: "0.08em", marginBottom: 8,
-            }}>
-              Table Name
-            </label>
+            <label className="label">Table Name</label>
             <input
               type="text"
               value={tableName}
               onChange={e => setTableName(e.target.value)}
               placeholder="Home Game"
-              style={{
-                width: "100%", padding: "10px 14px", borderRadius: 12,
-                background: "rgba(255,255,255,0.06)", border: "1px solid rgba(255,255,255,0.1)",
-                color: "#fff", fontSize: 14, fontWeight: 500, outline: "none",
-                fontFamily: "Outfit, sans-serif", boxSizing: "border-box",
-                transition: "border-color 0.15s",
-              }}
-              onFocus={e => { e.currentTarget.style.borderColor = "rgba(124,58,237,0.5)"; }}
-              onBlur={e => { e.currentTarget.style.borderColor = "rgba(255,255,255,0.1)"; }}
+              className="input-field"
             />
           </div>
 
           {/* Chip settings */}
           <div>
-            <label style={{
-              display: "block", color: "rgba(255,255,255,0.45)", fontSize: 10,
-              fontWeight: 600, textTransform: "uppercase", letterSpacing: "0.08em", marginBottom: 8,
-            }}>
-              Game Settings
-            </label>
-            <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr 1fr", gap: 10 }}>
-              <NumberInput label="Buy-In" value={startingChips} onChange={setStartingChips} step={100} min={100} max={50000} />
+            <label className="label">Blind Structure</label>
+            <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 10 }}>
               <NumberInput label="Small Blind" value={smallBlind} onChange={setSmallBlind} step={5} min={1} max={500} />
               <NumberInput label="Big Blind" value={bigBlind} onChange={setBigBlind} step={5} min={2} max={1000} />
             </div>
           </div>
 
-          {/* Chip preview */}
+          {/* Blind preview */}
           <div style={{
             display: "flex", alignItems: "center", gap: 8,
             padding: "10px 14px", borderRadius: 10,
@@ -226,13 +196,13 @@ export default function HomeClient() {
           }}>
             <ChipIcon size={14} color="rgba(167,139,250,0.7)" />
             <span style={{ color: "rgba(255,255,255,0.35)", fontSize: 12 }}>
-              Each player starts with
+              Blinds
             </span>
             <span style={{ color: "rgba(255,255,255,0.75)", fontSize: 12, fontWeight: 600 }}>
-              {startingChips.toLocaleString()} chips
+              {smallBlind}/{bigBlind}
             </span>
-            <span style={{ color: "rgba(255,255,255,0.35)", fontSize: 12, marginLeft: "auto" }}>
-              Blinds {smallBlind}/{bigBlind}
+            <span style={{ color: "rgba(255,255,255,0.25)", fontSize: 11, marginLeft: "auto" }}>
+              Buy-in set at table
             </span>
           </div>
 
@@ -255,17 +225,8 @@ export default function HomeClient() {
           <button
             onClick={handleStartGame}
             disabled={loading}
-            style={{
-              width: "100%", padding: "14px 0", borderRadius: 16, border: "none",
-              background: loading ? "rgba(124,58,237,0.4)" : "linear-gradient(135deg, #7c3aed, #a855f7)",
-              color: "#fff", fontFamily: "Outfit, sans-serif",
-              fontSize: 15, fontWeight: 700, cursor: loading ? "not-allowed" : "pointer",
-              display: "flex", alignItems: "center", justifyContent: "center", gap: 10,
-              boxShadow: loading ? "none" : "0 4px 30px rgba(124,58,237,0.4)",
-              transition: "all 0.2s", letterSpacing: "0.01em",
-            }}
-            onMouseEnter={e => { if (!loading) e.currentTarget.style.boxShadow = "0 6px 40px rgba(124,58,237,0.55)"; }}
-            onMouseLeave={e => { if (!loading) e.currentTarget.style.boxShadow = "0 4px 30px rgba(124,58,237,0.4)"; }}
+            className="btn-primary"
+            style={{ width: "100%", padding: "14px 0", borderRadius: 16, fontSize: 15 }}
           >
             {loading ? (
               <>
@@ -292,14 +253,8 @@ export default function HomeClient() {
           {/* Join Room button */}
           <button
             onClick={() => { setShowJoinModal(true); setJoinError(null); setRoomCode(""); }}
-            style={{
-              width: "100%", padding: "12px 0", borderRadius: 14, border: "1px solid rgba(255,255,255,0.1)",
-              background: "rgba(255,255,255,0.04)", color: "rgba(255,255,255,0.7)",
-              fontFamily: "Outfit, sans-serif", fontSize: 14, fontWeight: 600,
-              cursor: "pointer", transition: "all 0.15s", letterSpacing: "0.01em",
-            }}
-            onMouseEnter={e => { e.currentTarget.style.background = "rgba(255,255,255,0.08)"; e.currentTarget.style.color = "#fff"; }}
-            onMouseLeave={e => { e.currentTarget.style.background = "rgba(255,255,255,0.04)"; e.currentTarget.style.color = "rgba(255,255,255,0.7)"; }}
+            className="btn-ghost"
+            style={{ width: "100%" }}
           >
             Join Existing Room
           </button>
@@ -309,7 +264,7 @@ export default function HomeClient() {
       {/* Join Room modal */}
       {showJoinModal && (
         <div
-          className="modal-overlay"
+          className="modal-backdrop"
           onClick={() => setShowJoinModal(false)}
         >
           <div
@@ -366,29 +321,15 @@ export default function HomeClient() {
               <div style={{ display: "flex", gap: 10, marginTop: 18 }}>
                 <button
                   onClick={() => setShowJoinModal(false)}
-                  style={{
-                    flex: 1, padding: "11px 0", borderRadius: 12,
-                    border: "1px solid rgba(255,255,255,0.1)",
-                    background: "transparent", color: "rgba(255,255,255,0.5)",
-                    fontFamily: "Outfit, sans-serif", fontSize: 14, fontWeight: 600,
-                    cursor: "pointer", transition: "all 0.15s",
-                  }}
-                  onMouseEnter={e => { e.currentTarget.style.background = "rgba(255,255,255,0.06)"; e.currentTarget.style.color = "#fff"; }}
-                  onMouseLeave={e => { e.currentTarget.style.background = "transparent"; e.currentTarget.style.color = "rgba(255,255,255,0.5)"; }}
+                  className="btn-ghost"
+                  style={{ flex: 1 }}
                 >
                   Cancel
                 </button>
                 <button
                   onClick={handleJoinRoom}
-                  style={{
-                    flex: 1, padding: "11px 0", borderRadius: 12, border: "none",
-                    background: "linear-gradient(135deg, #7c3aed, #a855f7)",
-                    color: "#fff", fontFamily: "Outfit, sans-serif",
-                    fontSize: 14, fontWeight: 700, cursor: "pointer",
-                    boxShadow: "0 4px 20px rgba(124,58,237,0.35)", transition: "all 0.15s",
-                  }}
-                  onMouseEnter={e => { e.currentTarget.style.boxShadow = "0 4px 28px rgba(124,58,237,0.5)"; }}
-                  onMouseLeave={e => { e.currentTarget.style.boxShadow = "0 4px 20px rgba(124,58,237,0.35)"; }}
+                  className="btn-primary"
+                  style={{ flex: 1 }}
                 >
                   Join Room
                 </button>

@@ -6,11 +6,32 @@
 
 import type { PlayerData } from "@/components/poker/Seat";
 import { getPotDisplayAmounts } from "@/lib/pot-display";
+
+/**
+ * Partial shape of a player record from the game engine state.
+ * The engine may use `stack` or `chips` for the same concept, and
+ * `cards` or `holeCards` depending on game phase. We accept both
+ * and normalize downstream.
+ */
+export interface GameEnginePlayer {
+  id: string;
+  chips?: number;
+  stack?: number;
+  bet?: number;
+  status?: string;
+  cards?: string[];
+  holeCards?: string[];
+  displayName?: string;
+  username?: string;
+  handName?: string;
+}
+
 export interface OpponentForView {
   id: string;
   username: string;
   chips: number;
   bet: number;
+  /** Uppercase status: ACTIVE, FOLDED, CALLED, RAISED, ALL_IN, etc. */
   status: string;
   seatIndex: number; // physical seat for arc ordering
   cards?: string[];
@@ -23,6 +44,7 @@ export interface HeroForView {
   username: string;
   chips: number;
   bet: number;
+  /** Uppercase status: ACTIVE, FOLDED, CALLED, RAISED, ALL_IN, etc. */
   status: string;
   cards: string[];
 }
@@ -35,48 +57,53 @@ export interface PlayerViewState {
   currentRoundAmount: number;
   dealerId: string;
   activePlayerId: string;
-  /** When true (cleanup phase), UI may reveal full board on Show All click */
   phase?: string;
 }
 
+/** Normalize status strings to uppercase for consistent UI matching. */
+function normalizeStatus(status: string | undefined): string {
+  return (status ?? "ACTIVE").toUpperCase();
+}
+
+export interface GameStateForView {
+  board?: string[];
+  pot?: number;
+  sidePots?: { amount?: number }[];
+  phase?: string;
+  dealerId?: string;
+  activePlayerId?: string;
+  players?: GameEnginePlayer[];
+}
 
 export function toPlayerViewState(
   players: PlayerData[],
-  gameState: {
-    board?: string[];
-    pot?: number;
-    sidePots?: { amount?: number }[];
-    phase?: string;
-    dealerId?: string;
-    activePlayerId?: string;
-    players?: any[];
-  } | null,
+  gameState: GameStateForView | null,
   userId: string
- ): PlayerViewState | null {
+): PlayerViewState | null {
   const mySeat = players.find((p) => p.id === userId && p.seatIndex !== undefined);
   if (!mySeat) return null;
 
-  const gPlayers = Array.isArray(gameState?.players) ? gameState.players : [];
+  const gPlayers: GameEnginePlayer[] = Array.isArray(gameState?.players) ? gameState.players : [];
   const opponents = players
     .filter((p) => p.id !== userId && p.seatIndex !== undefined && p.status !== "PENDING")
     .sort((a, b) => a.seatIndex - b.seatIndex)
-    .map((p) => {
-      const gp = gPlayers.find((x: any) => x.id === p.id) || {};
+    .map((p): OpponentForView => {
+      const gp = gPlayers.find((x) => x.id === p.id);
       return {
         id: p.id,
         username: p.username,
-        chips: gp.chips ?? gp.stack ?? p.chips,
-        bet: gp.bet ?? p.bet ?? 0,
-        status: gp.status ?? p.status ?? "ACTIVE",
+        chips: gp?.chips ?? gp?.stack ?? p.chips,
+        bet: gp?.bet ?? p.bet ?? 0,
+        status: normalizeStatus(gp?.status ?? p.status),
         seatIndex: p.seatIndex,
-        cards: gp.cards ?? gp.holeCards ?? p.cards,
+        cards: gp?.cards ?? gp?.holeCards ?? p.cards,
         isDealer: (gameState?.dealerId ?? "") === p.id,
         isActive: (gameState?.activePlayerId ?? "") === p.id,
-      } as OpponentForView;
+      };
     });
 
-  const myGp = gPlayers.find((x: any) => x.id === userId) || {};
-  const heroCards = myGp.cards ?? myGp.holeCards ?? mySeat.cards ?? [];
+  const myGp = gPlayers.find((x) => x.id === userId);
+  const heroCards = myGp?.cards ?? myGp?.holeCards ?? mySeat.cards ?? [];
 
   const board = Array.from({ length: 5 }, (_, i) => (gameState?.board ?? [])[i] ?? null);
 
@@ -86,9 +113,9 @@ export function toPlayerViewState(
     hero: {
       id: mySeat.id,
       username: mySeat.username,
-      chips: myGp.chips ?? myGp.stack ?? mySeat.chips,
-      bet: myGp.bet ?? mySeat.bet ?? 0,
-      status: myGp.status ?? mySeat.status ?? "ACTIVE",
+      chips: myGp?.chips ?? myGp?.stack ?? mySeat.chips,
+      bet: myGp?.bet ?? mySeat.bet ?? 0,
+      status: normalizeStatus(myGp?.status ?? mySeat.status),
       cards: Array.isArray(heroCards) ? heroCards : [],
     },
     opponents,
