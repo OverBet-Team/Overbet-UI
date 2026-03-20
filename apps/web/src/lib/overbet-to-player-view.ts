@@ -37,6 +37,8 @@ export interface OpponentForView {
   cards?: string[];
   isDealer: boolean;
   isActive: boolean;
+  isSB: boolean;
+  isBB: boolean;
 }
 
 export interface HeroForView {
@@ -57,6 +59,8 @@ export interface PlayerViewState {
   currentRoundAmount: number;
   dealerId: string;
   activePlayerId: string;
+  sbPlayerId: string;
+  bbPlayerId: string;
   phase?: string;
 }
 
@@ -72,6 +76,8 @@ export interface GameStateForView {
   phase?: string;
   dealerId?: string;
   activePlayerId?: string;
+  sbPlayerId?: string;
+  bbPlayerId?: string;
   players?: GameEnginePlayer[];
 }
 
@@ -99,6 +105,8 @@ export function toPlayerViewState(
         cards: gp?.cards ?? gp?.holeCards ?? p.cards,
         isDealer: (gameState?.dealerId ?? "") === p.id,
         isActive: (gameState?.activePlayerId ?? "") === p.id,
+        isSB: (gameState?.sbPlayerId ?? "") === p.id,
+        isBB: (gameState?.bbPlayerId ?? "") === p.id,
       };
     });
 
@@ -124,6 +132,8 @@ export function toPlayerViewState(
     currentRoundAmount,
     dealerId: gameState?.dealerId ?? "",
     activePlayerId: gameState?.activePlayerId ?? "",
+    sbPlayerId: gameState?.sbPlayerId ?? "",
+    bbPlayerId: gameState?.bbPlayerId ?? "",
     phase: gameState?.phase,
   };
 }

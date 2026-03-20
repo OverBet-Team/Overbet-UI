@@ -30,6 +30,8 @@ interface SeatProps {
   isDealer: boolean;
   isActive: boolean;
   isSelf: boolean;
+  isSB: boolean;
+  isBB: boolean;
   onSeatClick: (index: number) => void;
   timer?: TurnTimer | null;
   centerOffset?: { x: number; y: number };
@@ -163,12 +165,30 @@ const SeatTimer = React.memo(function SeatTimer({ timer, playerId }: SeatTimerPr
 // Seat Component
 // ═══════════════════════════════════════════════════════════════════════════
 
-export function Seat({
+// ═══════════════════════════════════════════════════════════════════════════
+// PositionBadge — SB/BB indicator, hoisted to avoid re-definition on each render
+// ═══════════════════════════════════════════════════════════════════════════
+
+const PositionBadge = React.memo(function PositionBadge({ type }: { type: 'SB' | 'BB' }) {
+  // SB: blue accent bg; BB: gold bg black text
+  return (
+    <div className={[
+      "absolute -right-1 -bottom-1 w-[22px] h-[22px] rounded-full text-[9px] font-black flex items-center justify-center border-2 border-black shadow-md z-10",
+      type === 'SB' ? 'bg-[--accent] text-white' : 'bg-[--gold] text-black',
+    ].join(' ')}>
+      {type}
+    </div>
+  );
+});
+
+export const Seat = React.memo(function Seat({
   player,
   seatIndex,
   isDealer,
   isActive,
   isSelf,
+  isSB,
+  isBB,
   onSeatClick,
   timer,
   centerOffset = { x: 0, y: 0 },
@@ -204,11 +224,10 @@ export function Seat({
   return (
     <div
       data-testid={`seat-player-${seatIndex}`}
-      className="flex flex-col items-center gap-1.5"
-      style={{
-        opacity: isPending ? 0.7 : isFolded ? 0.5 : 1,
-        animation: isPending ? 'pulse 2s infinite' : undefined,
-      }}
+      className={[
+        'flex flex-col items-center gap-1.5',
+        isPending ? 'opacity-70 animate-pulse' : isFolded ? 'opacity-50' : 'opacity-100',
+      ].join(' ')}
     >
       {/* Bet chip — floats above avatar */}
       <AnimatePresence>
@@ -263,6 +282,10 @@ export function Seat({
               D
             </div>
           )}
+
+          {/* SB/BB position badges — only when not dealer and not pending */}
+          {!isDealer && !isPending && isSB && <PositionBadge type="SB" />}
+          {!isDealer && !isPending && !isSB && isBB && <PositionBadge type="BB" />}
 
           {/* Pending indicator */}
           {isPending && (
@@ -345,4 +368,5 @@ export function Seat({
       </div>
     </div>
   );
-}
+});
+

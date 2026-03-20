@@ -7,12 +7,20 @@
  */
 
 import React from "react";
+import { motion, AnimatePresence } from "framer-motion";
 import PlayingCard from "./PlayingCard";
 import { ChipAmount, ChipIcon } from "./ChipAmount";
 import type { PlayerViewState, OpponentForView } from "@/lib/overbet-to-player-view";
+import type { TurnTimer } from "@/components/poker/Seat";
 
 // Default avatar placeholder (initials). Dynamic width/height/fontSize kept as inline style.
-function AvatarPlaceholder({ name, size }: { name: string; size: number }) {
+const AvatarPlaceholder = React.memo(function AvatarPlaceholder({
+  name,
+  size,
+}: {
+  name: string;
+  size: number;
+}) {
   const initials = name.slice(0, 2).toUpperCase();
   return (
     <div
@@ -22,26 +30,49 @@ function AvatarPlaceholder({ name, size }: { name: string; size: number }) {
       {initials}
     </div>
   );
-}
+});
 
 function DealerChip({ size = 18 }: { size?: number }) {
   return (
-    <div className="w-[18px] h-[18px] rounded-full bg-[--gold] text-black font-extrabold text-[8px] flex items-center justify-center flex-shrink-0 z-10">
+    <div
+      className="rounded-full bg-[--gold] text-black font-extrabold text-[8px] flex items-center justify-center flex-shrink-0 z-10"
+      style={{ width: size, height: size }}
+    >
       D
     </div>
   );
 }
 
-function OpponentSeat({
+const SBChip = React.memo(function SBChip() {
+  return (
+    <div className="w-[22px] h-[22px] rounded-full bg-[--accent] text-white text-[9px] font-black flex items-center justify-center flex-shrink-0 z-10 shadow-md">
+      SB
+    </div>
+  );
+});
+
+const BBChip = React.memo(function BBChip() {
+  return (
+    <div className="w-[22px] h-[22px] rounded-full bg-[--gold] text-black text-[9px] font-black flex items-center justify-center flex-shrink-0 z-10 shadow-md">
+      BB
+    </div>
+  );
+});
+
+const OpponentSeat = React.memo(function OpponentSeat({
   player,
   size,
   isWinner,
   showCards,
+  isSB,
+  isBB,
 }: {
   player: OpponentForView;
   size: "lg" | "md" | "sm";
   isWinner?: boolean;
   showCards?: boolean;
+  isSB?: boolean;
+  isBB?: boolean;
 }) {
   const isFolded = player.status === "FOLDED" || player.status === "folded";
   const avSize = size === "lg" ? 88 : size === "md" ? 72 : 56;
@@ -52,7 +83,14 @@ function OpponentSeat({
   const faceDownSize = size === "sm" ? "xs" : "sm";
 
   return (
-    <div className={`flex flex-col items-center gap-0${isFolded ? " opacity-50 grayscale" : ""}`}>
+    <motion.div
+      className="flex flex-col items-center gap-0"
+      animate={{
+        opacity: isFolded ? 0.5 : 1,
+        filter: isFolded ? "grayscale(1)" : "grayscale(0)",
+      }}
+      transition={{ duration: 0.3 }}
+    >
       <div className="relative flex-shrink-0">
         {hasRevealedCards ? (
           <div className="flex items-end gap-1.5">
@@ -80,9 +118,19 @@ function OpponentSeat({
                 <DealerChip size={size === "lg" ? 20 : size === "md" ? 16 : 14} />
               </div>
             )}
+            {!player.isDealer && isSB && (
+              <div className="absolute -bottom-1 -left-1 z-10">
+                <SBChip />
+              </div>
+            )}
+            {!player.isDealer && !isSB && isBB && (
+              <div className="absolute -bottom-1 -left-1 z-10">
+                <BBChip />
+              </div>
+            )}
             {player.isActive && (
               <div
-                className="absolute rounded-full ring-2 ring-[--accent]/75 shadow-[0_0_12px_rgba(59,130,246,0.5)] pointer-events-none"
+                className="absolute rounded-full ring-[3px] ring-[--accent]/75 shadow-[0_0_12px_rgba(59,130,246,0.5)] pointer-events-none"
                 style={{
                   left: -avSize * 0.08,
                   top: -avSize * 0.08,
@@ -103,12 +151,14 @@ function OpponentSeat({
         )}
       </div>
       <div className="flex flex-col items-center gap-[3px] mt-1.5">
-        <span
-          className="font-bold font-body whitespace-nowrap text-white/90"
-          style={{ fontSize: size === "lg" ? 14 : size === "md" ? 12 : 11 }}
-        >
-          {player.username}
-        </span>
+        <div className={player.isActive ? "shadow-[0_0_12px_rgba(59,130,246,0.4)]" : undefined}>
+          <span
+            className="font-bold font-body whitespace-nowrap text-white/90"
+            style={{ fontSize: size === "lg" ? 14 : size === "md" ? 12 : 11 }}
+          >
+            {player.username}
+          </span>
+        </div>
         <ChipAmount
           amount={player.chips}
           iconSize={10}
@@ -124,26 +174,49 @@ function OpponentSeat({
             />
           </div>
         )}
-        {/* Status badges */}
-        {isFolded && (
-          <span className="inline-flex rounded-full px-2 py-0.5 text-[10px] font-semibold tracking-wider bg-white/10 border border-white/[0.08] text-white/50">
-            Folded
-          </span>
-        )}
-        {!isFolded && (player.status === "CALLED" || player.status === "called") && (
-          <span className="inline-flex rounded-full px-2 py-0.5 text-[10px] font-semibold tracking-wider bg-[--accent]/15 border border-[--accent]/25 text-[--accent]">
-            Called
-          </span>
-        )}
-        {!isFolded && (player.status === "RAISED" || player.status === "raised") && (
-          <span className="inline-flex rounded-full px-2 py-0.5 text-[10px] font-semibold tracking-wider bg-[--success]/15 border border-[--success]/25 text-[--success]">
-            Raised
-          </span>
-        )}
+        {/* Status badges — spring pop-in/out via AnimatePresence */}
+        <AnimatePresence>
+          {isFolded && (
+            <motion.span
+              key="folded"
+              initial={{ scale: 0, opacity: 0 }}
+              animate={{ scale: 1, opacity: 1 }}
+              exit={{ scale: 0, opacity: 0 }}
+              transition={{ type: "spring", stiffness: 400, damping: 20 }}
+              className="inline-flex rounded-full px-2 py-0.5 text-[10px] font-semibold tracking-wider bg-white/10 border border-white/[0.08] text-white/50"
+            >
+              Folded
+            </motion.span>
+          )}
+          {!isFolded && (player.status === "CALLED" || player.status === "called") && (
+            <motion.span
+              key="called"
+              initial={{ scale: 0, opacity: 0 }}
+              animate={{ scale: 1, opacity: 1 }}
+              exit={{ scale: 0, opacity: 0 }}
+              transition={{ type: "spring", stiffness: 400, damping: 20 }}
+              className="inline-flex rounded-full px-2 py-0.5 text-[10px] font-semibold tracking-wider bg-[--accent]/15 border border-[--accent]/25 text-[--accent]"
+            >
+              Called
+            </motion.span>
+          )}
+          {!isFolded && (player.status === "RAISED" || player.status === "raised") && (
+            <motion.span
+              key="raised"
+              initial={{ scale: 0, opacity: 0 }}
+              animate={{ scale: 1, opacity: 1 }}
+              exit={{ scale: 0, opacity: 0 }}
+              transition={{ type: "spring", stiffness: 400, damping: 20 }}
+              className="inline-flex rounded-full px-2 py-0.5 text-[10px] font-semibold tracking-wider bg-[--success]/15 border border-[--success]/25 text-[--success]"
+            >
+              Raised
+            </motion.span>
+          )}
+        </AnimatePresence>
       </div>
-    </div>
+    </motion.div>
   );
-}
+});
 
 const ARC_ANGLES_BY_COUNT: Record<number, number[]> = {
   1: [90],
@@ -161,18 +234,115 @@ const arcCY_pct = 0.44;
 const arcRX_pct = 0.38;
 const arcRY_pct = 0.38;
 
-export function PlayerPerspectiveView({
+// ═══════════════════════════════════════════════════════════════════════════
+// HeroTimer — Larger SVG ring for the hero zone (r=48 vs Seat's r=34).
+// Isolated to a memo component so the 50ms interval re-renders don't
+// propagate to the rest of PlayerPerspectiveView.
+// ═══════════════════════════════════════════════════════════════════════════
+
+const HERO_CIRCUMFERENCE = 2 * Math.PI * 48; // r=48, larger than seat timer
+
+interface HeroTimerProps {
+  timer: TurnTimer;
+  playerId: string;
+}
+
+const HeroTimer = React.memo(function HeroTimer({ timer, playerId }: HeroTimerProps) {
+  const [timeLeft, setTimeLeft] = React.useState<number>(0);
+  const [displayTotal, setDisplayTotal] = React.useState<number>(1);
+  const [timerPhase, setTimerPhase] = React.useState<"base" | "timebank">("base");
+
+  React.useEffect(() => {
+    if (timer.playerId !== playerId) {
+      setTimeLeft(0);
+      return;
+    }
+    setDisplayTotal(timer.total);
+    setTimerPhase(timer.phase);
+    const interval = setInterval(() => {
+      const now = Date.now();
+      const remaining = Math.max(0, timer.expiresAt - now);
+      setTimeLeft(remaining);
+      if (remaining === 0) clearInterval(interval);
+    }, 50);
+    return () => clearInterval(interval);
+  }, [timer, playerId]);
+
+  const progress = displayTotal > 0 ? timeLeft / displayTotal : 0;
+  const strokeOffset = HERO_CIRCUMFERENCE * (1 - progress);
+  const timeLeftSecs = Math.ceil(timeLeft / 1000);
+  const timerColor =
+    timerPhase === "timebank"
+      ? progress < 0.2
+        ? "#ef4444"
+        : "#f97316"
+      : progress < 0.2
+      ? "#ef4444"
+      : "#22c55e";
+
+  return (
+    <>
+      {/* SVG wrapper div for GPU acceleration (Vercel rule: animate-svg-wrapper) */}
+      <div className="absolute inset-0 flex items-center justify-center pointer-events-none">
+        <svg
+          className="absolute -rotate-90"
+          style={{ width: 120, height: 120 }}
+          viewBox="0 0 120 120"
+        >
+          <circle
+            cx="60"
+            cy="60"
+            r="48"
+            fill="none"
+            stroke="rgba(255,255,255,0.06)"
+            strokeWidth="3"
+          />
+          <circle
+            cx="60"
+            cy="60"
+            r="48"
+            fill="none"
+            stroke={timerColor}
+            strokeWidth="3"
+            strokeDasharray={HERO_CIRCUMFERENCE}
+            strokeDashoffset={strokeOffset}
+            strokeLinecap="round"
+            className="transition-[stroke-dashoffset] duration-[50ms] linear transition-[stroke] duration-300"
+          />
+        </svg>
+      </div>
+      {/* Countdown badge — top-right of hero area */}
+      <div
+        className="absolute -top-2 right-4 min-w-6 h-6 px-1.5 rounded-full flex items-center justify-center text-[11px] font-black text-white z-20 shadow-md"
+        style={{
+          border: `1.5px solid ${timerColor}`,
+          background:
+            timerPhase === "timebank" ? "rgba(249,115,22,0.9)" : "rgba(34,197,94,0.9)",
+        }}
+        aria-live="polite"
+        aria-label={`${timeLeftSecs} seconds remaining`}
+      >
+        {timeLeftSecs}
+      </div>
+    </>
+  );
+});
+
+export const PlayerPerspectiveView = React.memo(function PlayerPerspectiveView({
   viewState,
   winnerId,
   winnerCards,
   compactMode,
+  turnTimer,
 }: {
   viewState: PlayerViewState;
   winnerId?: string;
   winnerCards?: string[];
   compactMode?: boolean;
+  turnTimer?: TurnTimer | null;
 }) {
-  const { hero, opponents, board, totalPot, currentRoundAmount, phase, activePlayerId } = viewState;
+  const { hero, opponents, board, totalPot, currentRoundAmount, phase, activePlayerId } =
+    viewState;
   const isCleanup = phase === "CLEANUP" || phase === "SHOWDOWN";
   const total = opponents.length + 1;
   const seatSize: "lg" | "md" | "sm" = compactMode
@@ -180,10 +350,10 @@ export function PlayerPerspectiveView({
       ? "md"
       : "sm"
     : total <= 4
-      ? "lg"
-      : total <= 6
-        ? "md"
-        : "sm";
+    ? "lg"
+    : total <= 6
+    ? "md"
+    : "sm";
   const seatAngles = ARC_ANGLES_BY_COUNT[Math.min(opponents.length, 9)] ?? [];
   const arcRX = compactMode ? 0.34 : arcRX_pct;
   const arcRY = compactMode ? 0.32 : arcRY_pct;
@@ -193,7 +363,8 @@ export function PlayerPerspectiveView({
   const heroBottom = compactMode ? 6 : -50;
   const heroGap = compactMode ? 4 : 6;
   const potTop = compactMode ? "40%" : "44%";
-  const highlightHero = winnerId === hero.id && hero.cards.some((c) => winnerCards?.includes(c));
+  const highlightHero =
+    winnerId === hero.id && hero.cards.some((c) => winnerCards?.includes(c));
 
   const seatFootprintW = seatSize === "lg" ? 96 : seatSize === "md" ? 80 : 64;
   const seatFootprintH = seatSize === "lg" ? 140 : seatSize === "md" ? 115 : 90;
@@ -203,8 +374,7 @@ export function PlayerPerspectiveView({
       data-testid="player-perspective"
       data-phase={phase}
       data-active-player={activePlayerId}
-      className="bg-[--bg-base] w-full flex-1 relative overflow-hidden flex flex-col"
-      style={{ minHeight: 0 }}
+      className="bg-[--bg-base] w-full flex-1 relative overflow-hidden flex flex-col min-h-0"
     >
       {/* Arc background */}
       <div className="table-felt" style={{ zIndex: 0 }} />
@@ -233,6 +403,8 @@ export function PlayerPerspectiveView({
               size={seatSize}
               isWinner={winnerId === opp.id}
               showCards={isCleanup}
+              isSB={opp.isSB}
+              isBB={opp.isBB}
             />
           </div>
         );
@@ -240,17 +412,11 @@ export function PlayerPerspectiveView({
 
       {/* Pot + Community cards */}
       <div
+        className="absolute flex flex-col items-center gap-4 pointer-events-none z-[5]"
         style={{
-          position: "absolute",
           left: "50%",
           top: potTop,
           transform: "translateX(-50%)",
-          zIndex: 5,
-          display: "flex",
-          flexDirection: "column",
-          alignItems: "center",
-          gap: 16,
-          pointerEvents: "none",
         }}
       >
         <div data-testid="total-pot-indicator" className="flex flex-col items-center gap-2">
@@ -287,40 +453,53 @@ export function PlayerPerspectiveView({
                 amount={currentRoundAmount}
                 iconSize={compactMode ? 10 : 11}
                 iconColor="var(--accent)"
-                amountStyle={{ color: "var(--accent)", fontSize: compactMode ? 11 : 12, fontWeight: 700 }}
+                amountStyle={{
+                  color: "var(--accent)",
+                  fontSize: compactMode ? 11 : 12,
+                  fontWeight: 700,
+                }}
               />
             </span>
           </div>
         </div>
-        <div data-testid="board-cards" style={{ display: "flex", gap: compactMode ? 4 : 6, alignItems: "center" }}>
-          {board.map((card, i) =>
-            <div key={i} data-testid={`board-card-${i}`} data-revealed={card ? "true" : "false"}>
+        <div
+          data-testid="board-cards"
+          className="flex items-center"
+          style={{ gap: compactMode ? 4 : 6 }}
+        >
+          {board.map((card, i) => (
+            <div
+              key={i}
+              data-testid={`board-card-${i}`}
+              data-revealed={card ? "true" : "false"}
+            >
               {card ? (
                 <PlayingCard card={card} size={boardCardSize} />
               ) : (
                 <PlayingCard dashed size={boardCardSize} />
               )}
             </div>
-          )}
+          ))}
         </div>
       </div>
 
       {/* Hero hand — bottom center, Moon-style bottom: -50 overlaps arc */}
       <div
         data-testid="hero-zone"
+        className="flex flex-col items-center"
         style={{
           position: "absolute",
           bottom: heroBottom,
           left: "50%",
           transform: "translateX(-50%)",
           zIndex: 7,
-          display: "flex",
-          flexDirection: "column",
-          alignItems: "center",
           gap: heroGap,
         }}
       >
-        <div data-testid="hero-cards" style={{ display: "flex", alignItems: "flex-end", justifyContent: "center", gap: 0 }}>
+        {turnTimer && turnTimer.playerId === hero.id && (
+          <HeroTimer timer={turnTimer} playerId={hero.id} />
+        )}
+        <div data-testid="hero-cards" className="flex items-end justify-center">
           {(hero.cards?.length === 2 ? hero.cards : [null, null]).map((card, i) =>
             card ? (
               <PlayingCard
@@ -352,10 +531,14 @@ export function PlayerPerspectiveView({
           <ChipAmount
             amount={hero.chips}
             iconSize={compactMode ? 9 : 11}
-            amountStyle={{ color: "var(--accent)", fontSize: compactMode ? 11 : 13, fontWeight: 700 }}
+            amountStyle={{
+              color: "var(--accent)",
+              fontSize: compactMode ? 11 : 13,
+              fontWeight: 700,
+            }}
           />
         </div>
       </div>
     </div>
   );
-}
+});

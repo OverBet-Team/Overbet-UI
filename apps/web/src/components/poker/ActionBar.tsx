@@ -6,6 +6,7 @@
 
 import React, { useState, useEffect, useCallback } from "react";
 import { createPortal } from "react-dom";
+import { motion } from "framer-motion";
 import { ChipAmount, ChipIcon } from "./ChipAmount";
 
 /** All player action types the ActionBar can emit. */
@@ -148,7 +149,7 @@ export function ActionBar({
           <span className="text-white/40 text-[11px] font-semibold uppercase tracking-wider font-body">
             Raise To
           </span>
-          <div style={{ display: "flex", alignItems: "center", gap: 6 }}>
+          <div className="flex items-center gap-1.5">
             <ChipIcon size={13} color="rgba(167,139,250,0.8)" />
             <input
               type="number"
@@ -163,7 +164,7 @@ export function ActionBar({
         </div>
 
         {/* Slider — keep inline style for dynamic gradient and accent */}
-        <div style={{ position: "relative" }}>
+        <div className="relative">
           <input
             type="range"
             min={minRaiseTo}
@@ -176,15 +177,15 @@ export function ActionBar({
               background: `linear-gradient(to right, #7c3aed ${((raiseAmount - minRaiseTo) / (maxRaiseTo - minRaiseTo)) * 100}%, rgba(255,255,255,0.1) 0%)`,
             }}
           />
-          <div style={{ display: "flex", justifyContent: "space-between", marginTop: 4 }}>
-            <span style={{ color: "rgba(255,255,255,0.25)", fontSize: 10 }}>{minRaiseTo}</span>
-            <span style={{ color: "rgba(255,255,255,0.25)", fontSize: 10 }}>{maxRaiseTo}</span>
+          <div className="flex justify-between mt-1">
+            <span className="text-[10px] text-white/25">{minRaiseTo}</span>
+            <span className="text-[10px] text-white/25">{maxRaiseTo}</span>
           </div>
         </div>
 
         {/* Quick-bet presets */}
         {presets.length > 0 && (
-          <div style={{ display: "flex", gap: 6 }}>
+          <div className="flex gap-1.5">
             {presets.map(({ label, value }) => (
               <button
                 key={label}
@@ -206,7 +207,7 @@ export function ActionBar({
           onClick={handleRaise}
           className="w-full py-3 rounded-[14px] border-0 bg-[--accent] text-white font-bold text-sm font-body hover:bg-[--accent-hover] transition-colors shadow-[0_4px_20px_rgba(59,130,246,0.35)] hover:shadow-[0_4px_28px_rgba(59,130,246,0.5)] cursor-pointer"
         >
-          <span style={{ display: "inline-flex", alignItems: "center", gap: 6 }}>
+          <span className="inline-flex items-center gap-1.5">
             <span>Raise to</span>
             <ChipAmount
               amount={clampedRaise}
@@ -223,7 +224,7 @@ export function ActionBar({
 
   // ── Active state ──────────────────────────────────────────────────────────
   return (
-    <div data-testid="action-bar" style={{ display: "flex", flexDirection: "column", width: "100%", gap: 8, fontFamily: "Outfit, sans-serif" }}>
+    <div data-testid="action-bar" className="flex flex-col w-full gap-2 font-body">
 
       {/* Raise panel (shown when raise button clicked) */}
       {typeof document !== "undefined" ? createPortal(raisePanelNode, document.body) : raisePanelNode}
@@ -308,7 +309,7 @@ export function ActionBar({
 // ── Pill button ───────────────────────────────────────────────────────────────
 // Hover state is handled entirely via Tailwind `hover:` classes — no JS state needed.
 // `activeClass` applies the hover background permanently (used when raise panel is open).
-function ActionPill({
+const ActionPill = React.memo(function ActionPill({
   label, ariaLabel, shortcut, color, hoverClass, activeClass, onClick, active = false, compact = false, testId,
 }: {
   label: React.ReactNode;
@@ -324,10 +325,11 @@ function ActionPill({
   testId?: string;
 }) {
   return (
-    <button
+    <motion.button
       data-testid={testId}
       aria-label={ariaLabel}
       onClick={onClick}
+      whileTap={{ scale: 0.95 }}
       className={[
         "inline-flex items-center gap-1.5 rounded-full border-0 cursor-pointer transition-colors whitespace-nowrap font-semibold tracking-tight",
         compact ? "min-h-[42px] px-3 py-2 text-[13px]" : "min-h-[40px] px-5 py-2.5 text-[14px]",
@@ -340,6 +342,6 @@ function ActionPill({
       <span className="text-[9px] font-normal opacity-35 font-mono">
         {shortcut}
       </span>
-    </button>
+    </motion.button>
   );
-}
+});

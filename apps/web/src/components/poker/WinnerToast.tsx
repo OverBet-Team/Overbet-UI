@@ -1,88 +1,89 @@
 "use client";
 
 // OverBet — WinnerToast
-// Moon Poker winner announcement overlay.
-// Auto-fades after 6 seconds. NO manual "New Hand" button — OverBet auto-starts.
+// Compact single-line pill notification. Auto-fades after 6 s.
+// Desktop: anchored bottom-right, slides in from right.
+// Mobile (compact): anchored bottom-center, slides up.
 
-import { useEffect, useState } from "react";
+import React, { useEffect, useState } from "react";
 import { AnimatePresence, motion } from "framer-motion";
 import Trophy from "lucide-react/dist/esm/icons/trophy";
 import { ChipAmount } from "./ChipAmount";
 
 interface WinnerToastProps {
-  winner: string;    // display name of the winner
-  pot: number;       // chips won
-  handName?: string; // e.g. "Full House", "Straight Flush"
+  winner: string;
+  pot: number;
+  handName?: string;
+  /** When true: bottom-center slide-up (mobile). Default false: bottom-right slide-in. */
+  compact?: boolean;
 }
 
-export default function WinnerToast({ winner, pot, handName }: WinnerToastProps) {
-  const [phase, setPhase] = useState<"hidden" | "in" | "visible" | "out">("hidden");
+// Separated so React.memo identity is stable across hot reloads.
+function WinnerToastInner({ winner, pot, handName, compact = false }: WinnerToastProps) {
+  const [visible, setVisible] = useState(false);
 
+  // Reset and re-show whenever the winner/pot changes (new hand resolution).
+  // Use setTimeout to avoid calling setState synchronously inside the effect body.
   useEffect(() => {
-    const t1 = setTimeout(() => setPhase("in"), 20);
-    const t2 = setTimeout(() => setPhase("visible"), 380);
-    const t3 = setTimeout(() => setPhase("out"), 6000);
-    return () => { clearTimeout(t1); clearTimeout(t2); clearTimeout(t3); };
+    const t1 = setTimeout(() => setVisible(true), 0);
+    const t2 = setTimeout(() => setVisible(false), 6000);
+    return () => { clearTimeout(t1); clearTimeout(t2); };
   }, [winner, pot]);
 
-  const isVisible = phase === "in" || phase === "visible";
+  const wrapperClass = compact
+    ? "fixed bottom-20 left-1/2 -translate-x-1/2 z-50 max-w-[calc(100vw-2rem)]"
+    : "fixed bottom-4 right-4 z-50";
+
+  const motionVariants = compact
+    ? { initial: { y: 40, opacity: 0 }, animate: { y: 0, opacity: 1 }, exit: { y: 40, opacity: 0 } }
+    : { initial: { x: 40, opacity: 0 }, animate: { x: 0, opacity: 1 }, exit: { x: 40, opacity: 0 } };
 
   return (
-    <div
-      className="winner-toast fixed bottom-8 left-1/2 -translate-x-1/2 z-50"
-      data-testid="winner-toast"
-    >
+    <div className={wrapperClass} data-testid="winner-toast">
       <AnimatePresence>
-        {isVisible && (
+        {visible && (
           <motion.div
-            initial={{ y: 80, opacity: 0 }}
-            animate={{ y: 0, opacity: 1 }}
-            exit={{ y: 60, opacity: 0 }}
-            className="bg-[--bg-surface] border border-[--gold]/30 rounded-2xl px-6 py-4 shadow-[0_8px_40px_rgba(245,158,11,0.2)] backdrop-blur-md text-center"
+            initial={motionVariants.initial}
+            animate={motionVariants.animate}
+            exit={motionVariants.exit}
+            transition={{ type: "spring", stiffness: 320, damping: 28 }}
+            className="flex items-center gap-2.5 h-11 px-4 bg-[--bg-surface] border border-[--gold]/30 rounded-full shadow-[0_4px_24px_rgba(245,158,11,0.15)] backdrop-blur-md whitespace-nowrap"
           >
-            <div className="flex flex-col items-center gap-3">
-              {/* Trophy icon */}
-              <Trophy size={20} color="var(--gold)" />
+            {/* Trophy marker */}
+            <Trophy size={15} color="var(--gold)" aria-hidden="true" />
 
-              {/* Winner */}
-              <div>
-                <p className="text-[--text-secondary] text-sm font-body">Hand Winner</p>
-                <p className="text-[--gold] font-display font-bold text-lg">{winner}</p>
-              </div>
+            {/* Winner name */}
+            <span className="text-[--gold] font-bold text-sm font-display">
+              {winner}
+            </span>
 
-              {/* Pot won */}
-              <ChipAmount
-                amount={pot}
-                prefix={<span className="text-[--gold] text-base font-bold -tracking-[0.01em]">+</span>}
-                iconSize={14}
-                iconColor="var(--gold)"
-                amountStyle={{ color: "var(--text-primary)", fontSize: 16, fontWeight: 600 }}
-                suffix={<span className="text-[--text-muted] text-xs font-body">chips</span>}
-                style={{ gap: 7 }}
-              />
+            {/* Pot won — ChipAmount API requires iconColor as a string for SVG; unavoidable inline */}
+            <ChipAmount
+              amount={pot}
+              prefix={<span className="text-[--gold] text-sm font-bold">+</span>}
+              iconSize={12}
+              iconColor="var(--gold)"
+              amountStyle={{ color: "var(--text-primary)", fontWeight: 600, fontSize: 13 }}
+              suffix={<span className="text-[--text-secondary] text-xs font-body">chips</span>}
+            />
 
-              {/* Hand name — "Won with X" */}
-              {handName ? (
-                <div
-                  data-testid="winner-hand-name"
-                  className="flex items-center gap-1.5 bg-[--bg-elevated] border border-[--gold]/35 rounded-lg px-[10px] py-1.5"
-                >
-                  <span className="text-[--gold] text-[10px] leading-none">♦</span>
-                  <span className="text-[--text-primary] font-body text-xs font-semibold tracking-[0.02em] whitespace-nowrap">
-                    Won with {handName}
-                  </span>
-                  <span className="text-[--gold] text-[10px] leading-none">♦</span>
-                </div>
-              ) : null}
-
-              {/* Auto-start hint */}
-              <p className="text-[--text-muted] text-[10px] font-body">
-                Next hand starting automatically…
-              </p>
-            </div>
+            {/* Hand name badge — omitted when undefined */}
+            {handName != null && (
+              <span
+                data-testid="winner-hand-name"
+                className="flex items-center gap-1 text-xs font-body text-[--text-secondary]"
+              >
+                <span className="text-[--gold] text-[10px] leading-none">♦</span>
+                <span>Won with {handName}</span>
+                <span className="text-[--gold] text-[10px] leading-none">♦</span>
+              </span>
+            )}
           </motion.div>
         )}
       </AnimatePresence>
     </div>
   );
 }
+
+const WinnerToast = React.memo(WinnerToastInner);
+export default WinnerToast;

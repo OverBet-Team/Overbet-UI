@@ -18,6 +18,8 @@ interface PokerTableProps {
   players: (PlayerData | undefined)[];
   dealerId: string;
   activePlayerId: string;
+  sbPlayerId?: string;
+  bbPlayerId?: string;
   userId: string;
   board: string[];
   pots: { amount: number; type: string }[];
@@ -78,6 +80,8 @@ export function PokerTable({
   players,
   dealerId,
   activePlayerId,
+  sbPlayerId,
+  bbPlayerId,
   userId,
   board,
   pots,
@@ -247,6 +251,8 @@ export function PokerTable({
                 isDealer={tableSeats[i]?.id === dealerId}
                 isActive={tableSeats[i]?.id === activePlayerId}
                 isSelf={tableSeats[i]?.id === userId}
+                isSB={tableSeats[i]?.id === (sbPlayerId ?? "")}
+                isBB={tableSeats[i]?.id === (bbPlayerId ?? "")}
                 onSeatClick={handleSeatClick}
                 timer={turnTimer}
                 centerOffset={CENTER_OFFSETS[i]}

@@ -55,6 +55,8 @@ interface GameState {
   sidePots?: { amount: number; eligiblePlayers: string[] }[];
   dealerId: string;
   activePlayerId: string;
+  sbPlayerId?: string;
+  bbPlayerId?: string;
   players: any[];
   currentBet?: number;
   minRaise?: number;
@@ -1061,6 +1063,7 @@ export default function RoomClient({ slug, initialRoom }: RoomProps) {
                   winnerId={winner?.winnerId}
                   winnerCards={winner?.winnerCards}
                   compactMode={isPortraitMobile}
+                  turnTimer={turnTimer}
                 />
                 {showShowAllButton && (
                   <button
@@ -1588,6 +1591,7 @@ export default function RoomClient({ slug, initialRoom }: RoomProps) {
           winner={winner.name}
           pot={winner.pot}
           handName={winner.handName}
+          compact={isPortraitMobile}
         />
       )}
 
