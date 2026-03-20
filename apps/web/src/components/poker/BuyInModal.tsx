@@ -151,16 +151,14 @@ export function BuyInModal({
 
                       <div>
                         <label className="label">{isRebuy ? 'Re-buy Amount' : 'Buy-In Amount'}</label>
-                        <div className="relative">
-                          <span className="absolute left-3.5 top-1/2 -translate-y-1/2 flex items-center justify-center">
-                            <ChipIcon size={16} color="rgba(255,255,255,0.4)" />
-                          </span>
+                        <div className="flex items-center gap-2.5 h-12 px-3.5 rounded-xl bg-white/[0.06] border border-white/10 transition-colors focus-within:[border-color:var(--accent)]">
+                          <ChipIcon size={16} color="rgba(255,255,255,0.4)" />
                           <input
                             type="text"
                             inputMode="numeric"
                             value={amountStr}
                             onChange={(e) => handleAmountChange(e.target.value)}
-                            className="input-field h-12 pl-11 text-lg font-bold font-mono num-font"
+                            className="flex-1 min-w-0 bg-transparent border-none outline-none text-white text-lg font-bold font-mono num-font"
                           />
                         </div>
                         <div className="flex justify-between mt-1.5">
