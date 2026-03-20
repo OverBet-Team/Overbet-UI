@@ -55,6 +55,7 @@
   * {
     box-sizing: border-box;
   }
+  /* Keep base body styles centralized so gameplay surfaces inherit shared tokens. */
   body {
     background: var(--bg-base);
     background-attachment: fixed;
