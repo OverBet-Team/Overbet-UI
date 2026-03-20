@@ -19,6 +19,7 @@ interface SettingsModalProps {
   isPortraitMobile: boolean;
 }
 
+// Keep the slider list centralized so the modal renders a single source of truth.
 const SETTINGS_FIELDS = [
   { key: "turnTimeout" as const, label: "Turn Time", min: 10, max: 120, step: 5, unit: "s", color: "#f87171" },
   { key: "timeBank" as const, label: "Time Bank", min: 0, max: 120, step: 5, unit: "s", color: "#fb923c" },
