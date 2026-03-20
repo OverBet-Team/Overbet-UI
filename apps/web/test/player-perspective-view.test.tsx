@@ -27,6 +27,8 @@ describe("PlayerPerspectiveView", () => {
               cards: [],
               isDealer: true,
               isActive: false,
+              isSB: false,
+              isBB: false,
             },
           ],
           board: ["2c", "7d", "Jh", null, null],
@@ -34,6 +36,8 @@ describe("PlayerPerspectiveView", () => {
           currentRoundAmount: 50,
           dealerId: "u2",
           activePlayerId: "u1",
+          sbPlayerId: "",
+          bbPlayerId: "",
           phase: "TURN_BETTING",
         }}
       />,

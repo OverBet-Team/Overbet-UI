@@ -199,6 +199,12 @@ function sanitizeState(state: any, targetUserId: string | null) {
         if (state.dealerIndex !== undefined && state.players[state.dealerIndex]) {
             sanitized.dealerId = state.players[state.dealerIndex].id;
         }
+        if (state.sbIndex !== undefined && state.players[state.sbIndex]) {
+            sanitized.sbPlayerId = state.players[state.sbIndex].id;
+        }
+        if (state.bbIndex !== undefined && state.players[state.bbIndex]) {
+            sanitized.bbPlayerId = state.players[state.bbIndex].id;
+        }
     }
 
     // 1. Never send the deck

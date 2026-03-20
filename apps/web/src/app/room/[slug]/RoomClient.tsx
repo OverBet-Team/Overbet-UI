@@ -6,19 +6,27 @@
 
 import { useEffect, useState, useRef } from "react";
 import { io, Socket } from "socket.io-client";
-import { Copy, Users, Play, Settings, Shield, HelpCircle, ScrollText, Lock } from "lucide-react";
+import Copy from 'lucide-react/dist/esm/icons/copy'
+import Users from 'lucide-react/dist/esm/icons/users'
+import Play from 'lucide-react/dist/esm/icons/play'
+import Settings from 'lucide-react/dist/esm/icons/settings'
+import Shield from 'lucide-react/dist/esm/icons/shield'
+import HelpCircle from 'lucide-react/dist/esm/icons/help-circle'
+import ScrollText from 'lucide-react/dist/esm/icons/scroll-text'
+import Lock from 'lucide-react/dist/esm/icons/lock'
 import { PokerTable } from "@/components/poker/PokerTable";
 import { PlayerPerspectiveView } from "@/components/poker/PlayerPerspectiveView";
 import { toPlayerViewState } from "@/lib/overbet-to-player-view";
 import { getPotDisplayAmounts } from "@/lib/pot-display";
 import { ActionBar } from "@/components/poker/ActionBar";
-import { BuyInModal } from "@/components/poker/BuyInModal";
+import dynamic from 'next/dynamic'
+const BuyInModal = dynamic(() => import('@/components/poker/BuyInModal').then(m => ({ default: m.BuyInModal })), { ssr: false })
 import { GameLog } from "@/components/poker/GameLog";
 import { ChipAmount } from "@/components/poker/ChipAmount";
 import { PlayerData, TurnTimer } from "@/components/poker/Seat";
 import WinnerToast from "@/components/poker/WinnerToast";
-import { SettingsModal as RoomSettingsModal } from "@/components/poker/SettingsModal";
-import { FairnessModal as RoomFairnessModal } from "@/components/poker/FairnessModal";
+const RoomSettingsModal = dynamic(() => import('@/components/poker/SettingsModal').then(m => ({ default: m.SettingsModal })), { ssr: false })
+const RoomFairnessModal = dynamic(() => import('@/components/poker/FairnessModal').then(m => ({ default: m.FairnessModal })), { ssr: false })
 import { useUser } from "@/hooks/useUser";
 
 // ── Types ─────────────────────────────────────────────────────────────────────
@@ -47,6 +55,8 @@ interface GameState {
   sidePots?: { amount: number; eligiblePlayers: string[] }[];
   dealerId: string;
   activePlayerId: string;
+  sbPlayerId?: string;
+  bbPlayerId?: string;
   players: any[];
   currentBet?: number;
   minRaise?: number;
@@ -1053,6 +1063,7 @@ export default function RoomClient({ slug, initialRoom }: RoomProps) {
                   winnerId={winner?.winnerId}
                   winnerCards={winner?.winnerCards}
                   compactMode={isPortraitMobile}
+                  turnTimer={turnTimer}
                 />
                 {showShowAllButton && (
                   <button
@@ -1580,6 +1591,7 @@ export default function RoomClient({ slug, initialRoom }: RoomProps) {
           winner={winner.name}
           pot={winner.pot}
           handName={winner.handName}
+          compact={isPortraitMobile}
         />
       )}
 

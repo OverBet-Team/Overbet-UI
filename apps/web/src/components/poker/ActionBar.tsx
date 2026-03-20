@@ -6,6 +6,7 @@
 
 import React, { useState, useEffect, useCallback } from "react";
 import { createPortal } from "react-dom";
+import { motion } from "framer-motion";
 import { ChipAmount, ChipIcon } from "./ChipAmount";
 
 /** All player action types the ActionBar can emit. */
@@ -21,7 +22,6 @@ interface ActionBarProps {
   compact?: boolean;
   onAction: (actionType: PlayerActionType, amount?: number) => void;
 }
-
 
 export function ActionBar({
   isActive,
@@ -86,17 +86,8 @@ export function ActionBar({
   // ── Inactive state ────────────────────────────────────────────────────────
   if (!isActive) {
     return (
-      <div data-testid="action-bar-inactive" style={{
-        display: "flex", width: "100%", gap: 12,
-        opacity: 0.35, pointerEvents: "none", filter: "grayscale(0.5)",
-      }}>
-        <div style={{
-          flex: 1, padding: "14px 0", textAlign: "center",
-          fontWeight: 600, fontSize: 14, color: "rgba(255,255,255,0.4)",
-          border: "1px solid rgba(255,255,255,0.07)", borderRadius: 999,
-          background: "rgba(255,255,255,0.03)", fontFamily: "Outfit, sans-serif",
-          letterSpacing: "0.01em",
-        }}>
+      <div data-testid="action-bar-inactive" className="flex w-full gap-3 opacity-35 pointer-events-none grayscale-[0.5]">
+        <div className="flex-1 py-3.5 text-center font-semibold text-sm text-white/40 border border-white/[0.07] rounded-full bg-white/[0.03] tracking-tight font-body">
           Waiting for turn…
         </div>
       </div>
@@ -105,19 +96,20 @@ export function ActionBar({
 
   const raisePanelNode = showRaisePanel && canRaise ? (
     <>
+      {/* Backdrop — compact uses blur, non-compact is lighter */}
       <div
         data-testid="raise-modal-backdrop"
         onClick={closeRaisePanel}
-        style={{
-          position: "fixed",
-          inset: 0,
-          zIndex: 999,
-          background: compact ? "rgba(0,0,0,0.45)" : "rgba(0,0,0,0.3)",
-          backdropFilter: compact ? "blur(2px)" : "none",
-        }}
+        className={compact
+          ? "fixed inset-0 z-[999] bg-black/45 backdrop-blur-sm"
+          : "fixed inset-0 z-[999] bg-black/30"}
       />
-      <div data-testid="raise-modal" style={{
-        ...(compact
+
+      {/* Panel — position varies by compact, layout classes are shared */}
+      <div
+        data-testid="raise-modal"
+        className="bg-[--bg-surface] border border-white/10 rounded-[18px] p-4 flex flex-col gap-3 shadow-[0_-8px_40px_rgba(0,0,0,0.5)] overflow-y-auto"
+        style={compact
           ? {
               position: "fixed",
               left: 10,
@@ -126,7 +118,6 @@ export function ActionBar({
               zIndex: 1000,
               borderRadius: 18,
               maxHeight: "66dvh",
-              overflowY: "auto",
             }
           : {
               position: "fixed",
@@ -137,151 +128,109 @@ export function ActionBar({
               zIndex: 1000,
               borderRadius: 18,
               maxHeight: "60dvh",
-              overflowY: "auto",
-            }),
-        background: "rgba(16,13,28,0.97)", border: "1px solid rgba(255,255,255,0.1)",
-        padding: compact ? "14px 14px" : "16px 18px", display: "flex", flexDirection: "column", gap: 12,
-        boxShadow: "0 -8px 40px rgba(0,0,0,0.5)",
-      }}>
-          <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center" }}>
-            <span style={{ color: "rgba(255,255,255,0.68)", fontSize: 11, fontWeight: 700, letterSpacing: "0.06em", textTransform: "uppercase" }}>
-              Raise Amount
-            </span>
-            <button
-              onClick={closeRaisePanel}
-              aria-label="Close raise panel"
-              style={{
-                width: 28,
-                height: 28,
-                borderRadius: 999,
-                border: "1px solid rgba(255,255,255,0.14)",
-                background: "rgba(255,255,255,0.05)",
-                color: "rgba(255,255,255,0.75)",
-                fontSize: 16,
-                lineHeight: "1",
-                cursor: "pointer",
-              }}
-            >
-              ×
-            </button>
-          </div>
-          {/* Amount display */}
-          <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between" }}>
-            <span style={{ color: "rgba(255,255,255,0.4)", fontSize: 11, fontWeight: 600, textTransform: "uppercase", letterSpacing: "0.08em" }}>
-              Raise To
-            </span>
-            <div style={{ display: "flex", alignItems: "center", gap: 6 }}>
-              <ChipIcon size={13} color="rgba(167,139,250,0.8)" />
-              <input
-                type="number"
-                value={raiseAmount}
-                min={minRaiseTo}
-                max={maxRaiseTo}
-                onChange={e => setRaiseAmount(Number(e.target.value))}
-                onBlur={() => setRaiseAmount(clampedRaise)}
-                style={{
-                  width: 80, padding: "4px 8px", textAlign: "right",
-                  fontFamily: "Outfit, sans-serif", fontWeight: 700, fontSize: 16,
-                  color: "#fff", background: "rgba(255,255,255,0.08)",
-                  border: "1px solid rgba(255,255,255,0.12)", borderRadius: 8, outline: "none",
-                  fontVariantNumeric: "tabular-nums",
-                }}
-                onFocus={e => { e.currentTarget.style.borderColor = "rgba(124,58,237,0.5)"; }}
-              />
-            </div>
-          </div>
+            }}
+      >
+        {/* Header */}
+        <div className="flex justify-between items-center">
+          <span className="text-white/[0.68] text-[11px] font-bold uppercase tracking-wider font-body">
+            Raise Amount
+          </span>
+          <button
+            onClick={closeRaisePanel}
+            aria-label="Close raise panel"
+            className="w-7 h-7 rounded-full border border-white/[0.14] bg-white/5 text-white/75 text-base cursor-pointer hover:bg-white/10 transition-colors"
+          >
+            ×
+          </button>
+        </div>
 
-          {/* Slider */}
-          <div style={{ position: "relative" }}>
+        {/* Amount display */}
+        <div className="flex items-center justify-between">
+          <span className="text-white/40 text-[11px] font-semibold uppercase tracking-wider font-body">
+            Raise To
+          </span>
+          <div className="flex items-center gap-1.5">
+            <ChipIcon size={13} color="rgba(167,139,250,0.8)" />
             <input
-              type="range"
+              type="number"
+              value={raiseAmount}
               min={minRaiseTo}
               max={maxRaiseTo}
-              value={raiseAmount}
-              step={Math.max(1, Math.round((maxRaiseTo - minRaiseTo) / 100))}
               onChange={e => setRaiseAmount(Number(e.target.value))}
-              style={{
-                width: "100%", accentColor: "#7c3aed",
-                background: `linear-gradient(to right, #7c3aed ${((raiseAmount - minRaiseTo) / (maxRaiseTo - minRaiseTo)) * 100}%, rgba(255,255,255,0.1) 0%)`,
-              }}
+              onBlur={() => setRaiseAmount(clampedRaise)}
+              className="w-20 px-2 py-1 text-right font-bold text-base text-white bg-white/[0.08] border border-white/12 rounded-lg outline-none font-body num-font focus:border-[--accent]/50 transition-colors"
             />
-            <div style={{ display: "flex", justifyContent: "space-between", marginTop: 4 }}>
-              <span style={{ color: "rgba(255,255,255,0.25)", fontSize: 10 }}>{minRaiseTo}</span>
-              <span style={{ color: "rgba(255,255,255,0.25)", fontSize: 10 }}>{maxRaiseTo}</span>
-            </div>
           </div>
+        </div>
 
-          {/* Quick-bet presets */}
-          {presets.length > 0 && (
-            <div style={{ display: "flex", gap: 6 }}>
-              {presets.map(({ label, value }) => (
-                <button
-                  key={label}
-                  onClick={() => setRaiseAmount(value)}
-                  style={{
-                    flex: 1, padding: "6px 0", borderRadius: 10, border: "none",
-                    background: raiseAmount === value ? "rgba(124,58,237,0.35)" : "rgba(255,255,255,0.06)",
-                    color: raiseAmount === value ? "#c4b5fd" : "rgba(255,255,255,0.5)",
-                    fontSize: 11, fontWeight: 600, cursor: "pointer",
-                    fontFamily: "Outfit, sans-serif", transition: "all 0.15s",
-                  }}
-                  onMouseEnter={e => { e.currentTarget.style.background = "rgba(124,58,237,0.2)"; e.currentTarget.style.color = "#c4b5fd"; }}
-                  onMouseLeave={e => {
-                    e.currentTarget.style.background = raiseAmount === value ? "rgba(124,58,237,0.35)" : "rgba(255,255,255,0.06)";
-                    e.currentTarget.style.color = raiseAmount === value ? "#c4b5fd" : "rgba(255,255,255,0.5)";
-                  }}
-                >
-                  {label}
-                </button>
-              ))}
-            </div>
-          )}
-
-          {/* Confirm raise */}
-          <button
-            onClick={handleRaise}
+        {/* Slider — keep inline style for dynamic gradient and accent */}
+        <div className="relative">
+          <input
+            type="range"
+            min={minRaiseTo}
+            max={maxRaiseTo}
+            value={raiseAmount}
+            step={Math.max(1, Math.round((maxRaiseTo - minRaiseTo) / 100))}
+            onChange={e => setRaiseAmount(Number(e.target.value))}
             style={{
-              padding: "12px 0", borderRadius: 14, border: "none",
-              background: "linear-gradient(135deg, #7c3aed, #a855f7)",
-              color: "#fff", fontFamily: "Outfit, sans-serif",
-              fontSize: 14, fontWeight: 700, cursor: "pointer",
-              boxShadow: "0 4px 20px rgba(124,58,237,0.35)", transition: "all 0.15s",
+              width: "100%", accentColor: "#7c3aed",
+              background: `linear-gradient(to right, #7c3aed ${((raiseAmount - minRaiseTo) / (maxRaiseTo - minRaiseTo)) * 100}%, rgba(255,255,255,0.1) 0%)`,
             }}
-            onMouseEnter={e => { e.currentTarget.style.boxShadow = "0 4px 28px rgba(124,58,237,0.5)"; }}
-            onMouseLeave={e => { e.currentTarget.style.boxShadow = "0 4px 20px rgba(124,58,237,0.35)"; }}
-          >
-            <span style={{ display: "inline-flex", alignItems: "center", gap: 6 }}>
-              <span>Raise to</span>
-              <ChipAmount
-                amount={clampedRaise}
-                iconSize={12}
-                iconColor="#ffffff"
-                amountStyle={{ color: "inherit", fontSize: 14, fontWeight: 700 }}
-              />
-              <span>↵</span>
-            </span>
-          </button>
+          />
+          <div className="flex justify-between mt-1">
+            <span className="text-[10px] text-white/25">{minRaiseTo}</span>
+            <span className="text-[10px] text-white/25">{maxRaiseTo}</span>
+          </div>
+        </div>
+
+        {/* Quick-bet presets */}
+        {presets.length > 0 && (
+          <div className="flex gap-1.5">
+            {presets.map(({ label, value }) => (
+              <button
+                key={label}
+                onClick={() => setRaiseAmount(value)}
+                className={`flex-1 py-1.5 rounded-[10px] border-0 text-[11px] font-semibold cursor-pointer font-body transition-all hover:bg-[--accent]/20 hover:text-violet-300 ${
+                  raiseAmount === value
+                    ? "bg-[--accent]/35 text-violet-300"
+                    : "bg-white/[0.06] text-white/50"
+                }`}
+              >
+                {label}
+              </button>
+            ))}
+          </div>
+        )}
+
+        {/* Confirm raise */}
+        <button
+          onClick={handleRaise}
+          className="w-full py-3 rounded-[14px] border-0 bg-[--accent] text-white font-bold text-sm font-body hover:bg-[--accent-hover] transition-colors shadow-[0_4px_20px_rgba(59,130,246,0.35)] hover:shadow-[0_4px_28px_rgba(59,130,246,0.5)] cursor-pointer"
+        >
+          <span className="inline-flex items-center gap-1.5">
+            <span>Raise to</span>
+            <ChipAmount
+              amount={clampedRaise}
+              iconSize={12}
+              iconColor="#ffffff"
+              amountStyle={{ color: "inherit", fontSize: 14, fontWeight: 700 }}
+            />
+            <span>↵</span>
+          </span>
+        </button>
       </div>
     </>
   ) : null;
 
   // ── Active state ──────────────────────────────────────────────────────────
   return (
-    <div data-testid="action-bar" style={{ display: "flex", flexDirection: "column", width: "100%", gap: 8, fontFamily: "Outfit, sans-serif" }}>
+    <div data-testid="action-bar" className="flex flex-col w-full gap-2 font-body">
 
       {/* Raise panel (shown when raise button clicked) */}
       {typeof document !== "undefined" ? createPortal(raisePanelNode, document.body) : raisePanelNode}
 
       {/* Main action row — Moon Poker pill buttons */}
-      <div style={{
-        display: "flex", alignItems: "center", justifyContent: "center",
-        flexWrap: compact ? "wrap" : "nowrap",
-        gap: compact ? 4 : 6,
-        padding: compact ? "4px 8px" : "6px 12px",
-        background: "rgba(10,8,20,0.85)", border: "1px solid rgba(255,255,255,0.08)",
-        borderRadius: 999, backdropFilter: "blur(20px)",
-        boxShadow: "0 8px 40px rgba(0,0,0,0.5)",
-      }}>
+      <div className="flex items-center justify-center flex-nowrap gap-1.5 px-3 py-1.5 bg-[--bg-surface]/85 border border-white/[0.08] rounded-full backdrop-blur-xl shadow-[0_8px_40px_rgba(0,0,0,0.5)]">
 
         {/* Fold */}
         <ActionPill
@@ -290,13 +239,14 @@ export function ActionBar({
           testId="action-fold"
           shortcut="F"
           color="#f87171"
-          hoverBg="rgba(248,113,113,0.1)"
+          hoverClass="hover:bg-[--danger]/10"
           compact={compact}
           onClick={() => { setShowRaisePanel(false); onAction("FOLD"); }}
         />
 
-        <div style={{ width: 1, height: 28, background: "rgba(255,255,255,0.07)" }} />
+        <div className="w-px h-7 bg-white/[0.07]" />
 
+        {/* Call / Check */}
         <ActionPill
           label={toCall > 0 ? (
             <>
@@ -313,22 +263,24 @@ export function ActionBar({
           testId="action-check-call"
           shortcut="C"
           color={toCall > 0 ? "#93c5fd" : "rgba(255,255,255,0.7)"}
-          hoverBg={toCall > 0 ? "rgba(147,197,253,0.1)" : "rgba(255,255,255,0.07)"}
+          hoverClass={toCall > 0 ? "hover:bg-[--accent]/10" : "hover:bg-white/[0.07]"}
           compact={compact}
           onClick={() => { setShowRaisePanel(false); onAction(toCall > 0 ? "CALL" : "CHECK"); }}
         />
 
         {canRaise && (
           <>
-            <div style={{ width: 1, height: 28, background: "rgba(255,255,255,0.07)" }} />
+            <div className="w-px h-7 bg-white/[0.07]" />
 
+            {/* Raise — active when panel is open */}
             <ActionPill
               label={showRaisePanel ? "▲ Raise" : "Raise"}
               ariaLabel={showRaisePanel ? "Close raise panel" : "Open raise panel"}
               testId="action-raise"
               shortcut="R"
               color="#6ee7b7"
-              hoverBg="rgba(110,231,183,0.1)"
+              hoverClass="hover:bg-[--success]/10"
+              activeClass="bg-[--success]/10"
               active={showRaisePanel}
               compact={compact}
               onClick={() => setShowRaisePanel(v => !v)}
@@ -336,15 +288,16 @@ export function ActionBar({
           </>
         )}
 
-        <div style={{ width: 1, height: 28, background: "rgba(255,255,255,0.07)" }} />
+        <div className="w-px h-7 bg-white/[0.07]" />
 
+        {/* All-In */}
         <ActionPill
           label="All-In"
           ariaLabel="All in"
           testId="action-all-in"
           shortcut="A"
           color="#a78bfa"
-          hoverBg="rgba(167,139,250,0.12)"
+          hoverClass="hover:bg-violet-500/12"
           compact={compact}
           onClick={() => { setShowRaisePanel(false); onAction("ALL_IN"); }}
         />
@@ -354,42 +307,41 @@ export function ActionBar({
 }
 
 // ── Pill button ───────────────────────────────────────────────────────────────
-function ActionPill({
-  label, ariaLabel, shortcut, color, hoverBg, onClick, active = false, compact = false, testId,
+// Hover state is handled entirely via Tailwind `hover:` classes — no JS state needed.
+// `activeClass` applies the hover background permanently (used when raise panel is open).
+const ActionPill = React.memo(function ActionPill({
+  label, ariaLabel, shortcut, color, hoverClass, activeClass, onClick, active = false, compact = false, testId,
 }: {
   label: React.ReactNode;
   ariaLabel?: string;
   shortcut: string;
   color: string;
-  hoverBg: string;
+  hoverClass: string;
+  /** Background class applied permanently when active=true (same color as hover bg). */
+  activeClass?: string;
   onClick: () => void;
   active?: boolean;
   compact?: boolean;
   testId?: string;
 }) {
-  const [hovered, setHovered] = useState(false);
-
   return (
-    <button
+    <motion.button
       data-testid={testId}
       aria-label={ariaLabel}
       onClick={onClick}
-      onMouseEnter={() => setHovered(true)}
-      onMouseLeave={() => setHovered(false)}
-      style={{
-        display: "inline-flex", alignItems: "center", gap: 6,
-        minHeight: compact ? 42 : 40,
-        padding: compact ? "8px 12px" : "10px 20px", borderRadius: 999, border: "none",
-        background: active ? hoverBg : hovered ? hoverBg : "transparent",
-        color, fontFamily: "Outfit, sans-serif", fontSize: compact ? 13 : 14, fontWeight: 600,
-        cursor: "pointer", transition: "all 0.15s", whiteSpace: "nowrap",
-        letterSpacing: "0.01em",
-      }}
+      whileTap={{ scale: 0.95 }}
+      className={[
+        "inline-flex items-center gap-1.5 rounded-full border-0 cursor-pointer transition-colors whitespace-nowrap font-semibold tracking-tight",
+        compact ? "min-h-[42px] px-3 py-2 text-[13px]" : "min-h-[40px] px-5 py-2.5 text-[14px]",
+        hoverClass,
+        active && activeClass ? activeClass : "bg-transparent",
+      ].join(" ")}
+      style={{ color }}
     >
       {label}
-      <span style={{ fontSize: 9, fontWeight: 400, opacity: 0.35, fontFamily: "monospace" }}>
+      <span className="text-[9px] font-normal opacity-35 font-mono">
         {shortcut}
       </span>
-    </button>
+    </motion.button>
   );
-}
+});

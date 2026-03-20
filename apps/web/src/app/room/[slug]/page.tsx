@@ -19,9 +19,9 @@ export default async function RoomPage({ params }: PageProps) {
 
   return (
     <div className="min-h-screen">
-      <nav className="flex items-center justify-between h-14 sm:h-20 px-3 sm:px-8 border-b border-white/5 bg-surface/50 backdrop-blur-md sticky top-0 z-50">
+      <nav className="flex items-center justify-between h-14 sm:h-20 px-3 sm:px-8 border-b border-white/[0.05] bg-[--bg-surface]/50 backdrop-blur-md sticky top-0 z-50">
         <div className="flex items-center gap-3">
-          <div className="flex items-center justify-center w-8 h-8 sm:w-10 sm:h-10 rounded-full bg-accent-1 shadow-lg shadow-accent-1/20">
+          <div className="flex items-center justify-center w-8 h-8 sm:w-10 sm:h-10 rounded-full bg-[--accent] shadow-lg shadow-[--accent]/20">
             <svg
               xmlns="http://www.w3.org/2000/svg"
               width="20"
@@ -37,10 +37,10 @@ export default async function RoomPage({ params }: PageProps) {
               <path d="M5 11a7 7 0 0 1 14 0c0 4.418-7 11-7 11s-7-6.582-7-11Z" />
             </svg>
           </div>
-          <span className="text-base sm:text-xl font-bold tracking-tight">OverBet</span>     
+          <span className="text-base sm:text-xl font-bold tracking-tight font-display text-[--text-primary]">OverBet</span>
         </div>
         <div className="flex items-center gap-2 sm:gap-4">
-          <div className="hidden sm:flex items-center gap-2 px-3 py-1.5 rounded-lg bg-white/5 border border-white/10 text-xs font-semibold uppercase tracking-wider text-white/50">
+          <div className="hidden sm:flex items-center gap-2 px-3 py-1.5 rounded-lg bg-white/[0.05] border border-white/10 text-xs font-semibold uppercase tracking-wider text-[--text-secondary]">
             <span>NLH</span>
             <ChipAmount
               amount={settings.smallBlind ?? 10}
@@ -54,7 +54,7 @@ export default async function RoomPage({ params }: PageProps) {
               amountStyle={{ color: "rgba(255,255,255,0.85)", fontSize: 12, fontWeight: 700 }}
             />
           </div>
-          <div className="w-8 h-8 sm:w-10 sm:h-10 rounded-full border border-white/10 bg-surface flex items-center justify-center font-bold text-accent-2 text-xs sm:text-sm">
+          <div className="w-8 h-8 sm:w-10 sm:h-10 rounded-full border border-white/10 bg-[--bg-elevated] flex items-center justify-center font-bold text-[--accent] text-xs sm:text-sm">
             JD
           </div>
         </div>

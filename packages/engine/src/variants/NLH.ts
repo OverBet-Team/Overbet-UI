@@ -20,6 +20,8 @@ export class NLHMachine implements PokerEngine {
             players: [],
             dealerIndex: 0,
             activePlayerIndex: 0,
+            sbIndex: 0,
+            bbIndex: 0,
             currentBet: 0,
             minRaise: 0,
             smallBlind: 10,
@@ -121,6 +123,10 @@ export class NLHMachine implements PokerEngine {
         while (this.state.players[bbIndex].status !== "ACTIVE") {
             bbIndex = (bbIndex + 1) % this.state.players.length;
         }
+
+        // Persist blind seat indices so the gateway can expose sbPlayerId/bbPlayerId.
+        this.state.sbIndex = sbIndex;
+        this.state.bbIndex = bbIndex;
 
         // Apply Antes (if any)
         if (this.state.ante > 0) {

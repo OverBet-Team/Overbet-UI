@@ -35,6 +35,8 @@ export interface GameState {
     players: Player[];
     dealerIndex: number;
     activePlayerIndex: number; // whose turn is it
+    sbIndex: number; // small blind seat index for current hand
+    bbIndex: number; // big blind seat index for current hand
     currentBet: number; // the highest bet so far in the round
     minRaise: number;
     smallBlind: number;
