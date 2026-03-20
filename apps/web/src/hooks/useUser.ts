@@ -7,6 +7,7 @@ export function useUser() {
 
     useEffect(() => {
         if (typeof window === "undefined") return;
+        // Persist the anonymous client id across refreshes when storage is available.
         const storage = window.localStorage;
         const canUseStorage =
             storage &&
