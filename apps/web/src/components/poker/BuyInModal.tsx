@@ -160,7 +160,7 @@ export function BuyInModal({
                             inputMode="numeric"
                             value={amountStr}
                             onChange={(e) => handleAmountChange(e.target.value)}
-                            className="input-field h-12 pl-9 text-lg font-bold font-mono num-font"
+                            className="input-field h-12 pl-11 text-lg font-bold font-mono num-font"
                           />
                         </div>
                         <div className="flex justify-between mt-1.5">
