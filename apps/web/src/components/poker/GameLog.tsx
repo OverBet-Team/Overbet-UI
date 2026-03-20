@@ -5,6 +5,13 @@
 
 import React, { useEffect, useRef } from "react";
 import { ChipAmount } from "./ChipAmount";
+import {
+  SUIT_SYMBOLS,
+  PHASE_NAMES,
+  ACTION_COLORS,
+  ACTION_CLASS,
+  getActionLabel,
+} from "@/lib/gameLogFormatters";
 
 interface GameLogEntry {
   type: string;
@@ -23,12 +30,6 @@ interface GameLogProps {
 }
 
 // ── Card formatter ────────────────────────────────────────────────────────────
-const SUIT_SYMBOLS: Record<string, { symbol: string; color: string }> = {
-  h: { symbol: "♥", color: "#ef4444" },
-  d: { symbol: "♦", color: "#ef4444" },
-  s: { symbol: "♠", color: "rgba(255,255,255,0.9)" },
-  c: { symbol: "♣", color: "rgba(255,255,255,0.9)" },
-};
 
 function CardChip({ card }: { card: string }) {
   if (!card || card.length < 2) return <span className="text-[--text-secondary]">{card}</span>;
@@ -45,34 +46,6 @@ function CardChip({ card }: { card: string }) {
     </span>
   );
 }
-
-// ── Phase display names ───────────────────────────────────────────────────────
-const PHASE_NAMES: Record<string, string> = {
-  PRE_FLOP_BETTING: "Pre-Flop",
-  FLOP_BETTING: "Flop",
-  TURN_BETTING: "Turn",
-  RIVER_BETTING: "River",
-  SHOWDOWN: "Showdown",
-  CLEANUP: "Hand Over",
-};
-
-// ── Action colors (used by ChipAmount iconColor / amountStyle) ────────────────
-const ACTION_COLORS: Record<string, string> = {
-  FOLD: "#f87171",
-  CALL: "#93c5fd",
-  CHECK: "rgba(255,255,255,0.6)",
-  RAISE: "#6ee7b7",
-  ALL_IN: "#a78bfa",
-};
-
-// ── Action Tailwind classes for label spans ───────────────────────────────────
-const ACTION_CLASS: Record<string, string> = {
-  FOLD: "text-[--danger]",
-  CALL: "text-[--accent]",
-  CHECK: "text-[--text-secondary]",
-  RAISE: "text-[--success]",
-  ALL_IN: "text-purple-400",
-};
 
 export const GameLog: React.FC<GameLogProps> = ({ logs, players }) => {
   const scrollRef = useRef<HTMLDivElement>(null);
@@ -139,13 +112,7 @@ export const GameLog: React.FC<GameLogProps> = ({ logs, players }) => {
         const name = getUsername(payload.playerId);
         const color = ACTION_COLORS[payload.action] ?? "rgba(255,255,255,0.6)";
         const actionClass = ACTION_CLASS[payload.action] ?? "text-[--text-secondary]";
-        const label =
-          payload.action === "FOLD" ? "folds" :
-          payload.action === "CHECK" ? "checks" :
-          payload.action === "CALL" ? "calls" :
-          payload.action === "RAISE" ? "raises to" :
-          payload.action === "ALL_IN" ? "goes ALL-IN" :
-          payload.action.toLowerCase();
+        const label = getActionLabel(payload.action);
         return (
           <Row key={index}>
             <Name>{name}</Name>

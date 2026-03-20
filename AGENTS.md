@@ -24,6 +24,19 @@ Important architectural boundaries:
 - `apps/web` owns rendering, local UI state, and server-side room CRUD.
 - `packages/db` owns Prisma schema/client only.
 
+## Subdirectory Navigation
+
+Each key directory has a `README.md` with a file inventory and local conventions. Read these before exploring the files within:
+
+- `apps/web/src/README.md` — web source structure map
+- `apps/web/src/components/poker/README.md` — all 11 poker components with purpose + line count
+- `apps/web/src/app/room/README.md` — room flow, socket lifecycle, RoomClient responsibilities
+- `apps/web/src/hooks/README.md` — hook inventory
+- `apps/web/src/lib/README.md` — adapter/formatter inventory
+- `apps/gateway/src/README.md` — gateway architecture, socket event map, timer/sanitization location
+- `packages/engine/src/README.md` — engine module layout, event-sourcing pattern, test commands
+- `packages/db/README.md` — schema summary (5 models), event-sourcing pattern, Prisma usage
+
 ## Key Directories
 - `apps/web/src/app/`: Next.js routes, layouts, and server actions
 - `apps/web/src/components/poker/`: poker-specific UI components
