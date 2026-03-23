@@ -68,6 +68,7 @@ const roomStates: Record<string, {
     settings?: { turnTimeoutMs: number; timeBankMs: number; autoStartDelay: number };
     isPaused?: boolean;
 }> = {};
+const roomSockets: Record<string, Set<any>> = {};
 const roomHydrations: Record<string, Promise<any> | undefined> = {};
 
 if (TEST_TIMER_MODE) {
@@ -413,7 +414,7 @@ async function autoAct(roomId: string, playerId: string, currentBet: number) {
         const rd = roomStates[roomId];
         if (rd?.currentHandId) {
             const refreshedState = rd.engine.getState();
-            const sockets = await io.in(roomId).fetchSockets();
+            const sockets = roomSockets[roomId] || new Set();
             for (const s of sockets) {
                 const uId = s.handshake.query.userId as string;
                 s.emit('EVENT_STATE_UPDATE', {
@@ -493,7 +494,7 @@ async function startHand(roomId: string, schema_version: number = 1) {
             }
         });
 
-        const sockets = await io.in(roomId).fetchSockets();
+        const sockets = roomSockets[roomId] || new Set();
         for (const s of sockets) {
             const uId = s.handshake.query.userId as string;
             s.emit('EVENT_HAND_LOG', {
@@ -505,7 +506,7 @@ async function startHand(roomId: string, schema_version: number = 1) {
         }
     }
 
-    const sockets = await io.in(roomId).fetchSockets();
+    const sockets = roomSockets[roomId] || new Set();
     for (const s of sockets) {
         const uId = s.handshake.query.userId as string;
         s.emit('EVENT_STATE_UPDATE', {
@@ -595,7 +596,7 @@ async function performPlayerAction(roomId: string, userId: string, action: any, 
     }
 
     const state = roomData.engine.getState();
-    const sockets = await io.in(roomId).fetchSockets();
+    const sockets = roomSockets[roomId] || new Set();
     for (const s of sockets) {
         const uId = s.handshake.query.userId as string;
         s.emit('EVENT_STATE_UPDATE', {
@@ -662,6 +663,11 @@ io.on('connection', (socket) => {
     socket.on('INTENT_JOIN_ROOM', async (data: IntentJoinRoom) => {
         console.log(`Socket ${socket.id} joining room ${data.room_id}`);
         socket.join(data.room_id);
+
+        if (!roomSockets[data.room_id]) {
+            roomSockets[data.room_id] = new Set();
+        }
+        roomSockets[data.room_id].add(socket);
     });
 
     socket.on('INTENT_REQUEST_SNAPSHOT', async (data: IntentRequestSnapshot) => {
@@ -833,7 +839,7 @@ io.on('connection', (socket) => {
 
             io.to(data.room_id).emit('EVENT_SEAT_APPROVED', approvedEvent);
 
-            const sockets = await io.in(data.room_id).fetchSockets();
+            const sockets = roomSockets[data.room_id] || new Set();
             for (const s of sockets) {
                 const uId = s.handshake.query.userId as string;
                 s.emit('EVENT_STATE_UPDATE', {
@@ -970,7 +976,7 @@ io.on('connection', (socket) => {
             const roomData = roomStates[data.room_id];
             if (roomData?.currentHandId) {
                 const state = roomData.engine.getState();
-                const sockets = await io.in(data.room_id).fetchSockets();
+                const sockets = roomSockets[data.room_id] || new Set();
                 for (const s of sockets) {
                     const uId = s.handshake.query.userId as string;
                     s.emit('EVENT_STATE_UPDATE', {
@@ -983,6 +989,17 @@ io.on('connection', (socket) => {
                     });
                 }
                 if (state.phase?.endsWith('BETTING')) startTurnTimer(data.room_id);
+            }
+        }
+    });
+
+    socket.on('disconnecting', () => {
+        for (const room of socket.rooms) {
+            if (room !== socket.id && roomSockets[room]) {
+                roomSockets[room].delete(socket);
+                if (roomSockets[room].size === 0) {
+                    delete roomSockets[room];
+                }
             }
         }
     });
