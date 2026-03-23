@@ -472,6 +472,8 @@ async function startHand(roomId: string, schema_version: number = 1) {
         ante: dbSettings?.ante ?? 0,
     });
 
+    const sockets = await io.in(roomId).fetchSockets();
+
     for (const ev of engineEvents) {
         roomData.seq++;
         await prisma.handEvent.upsert({
@@ -493,7 +495,6 @@ async function startHand(roomId: string, schema_version: number = 1) {
             }
         });
 
-        const sockets = await io.in(roomId).fetchSockets();
         for (const s of sockets) {
             const uId = s.handshake.query.userId as string;
             s.emit('EVENT_HAND_LOG', {
@@ -505,7 +506,6 @@ async function startHand(roomId: string, schema_version: number = 1) {
         }
     }
 
-    const sockets = await io.in(roomId).fetchSockets();
     for (const s of sockets) {
         const uId = s.handshake.query.userId as string;
         s.emit('EVENT_STATE_UPDATE', {
