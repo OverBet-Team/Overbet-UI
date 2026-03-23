@@ -472,28 +472,34 @@ async function startHand(roomId: string, schema_version: number = 1) {
         ante: dbSettings?.ante ?? 0,
     });
 
-    for (const ev of engineEvents) {
-        roomData.seq++;
-        await prisma.handEvent.upsert({
+    const operations = engineEvents.map((ev, i) => {
+        const sequence = roomData.seq + i + 1;
+        return prisma.handEvent.upsert({
             where: {
                 handId_sequence: {
                     handId: hand.id,
-                    sequence: roomData.seq
+                    sequence: sequence
                 }
             },
             update: {
                 type: ev.type,
-                payload: ev.payload
+                payload: ev.payload as any
             },
             create: {
                 handId: hand.id,
-                sequence: roomData.seq,
+                sequence: sequence,
                 type: ev.type,
-                payload: ev.payload
+                payload: ev.payload as any
             }
         });
+    });
+    if (operations.length > 0) {
+        await prisma.$transaction(operations);
+    }
 
-        const sockets = await io.in(roomId).fetchSockets();
+    const sockets = await io.in(roomId).fetchSockets();
+    for (const ev of engineEvents) {
+        roomData.seq++;
         for (const s of sockets) {
             const uId = s.handshake.query.userId as string;
             s.emit('EVENT_HAND_LOG', {
@@ -505,7 +511,6 @@ async function startHand(roomId: string, schema_version: number = 1) {
         }
     }
 
-    const sockets = await io.in(roomId).fetchSockets();
     for (const s of sockets) {
         const uId = s.handshake.query.userId as string;
         s.emit('EVENT_STATE_UPDATE', {
@@ -552,13 +557,13 @@ async function performPlayerAction(roomId: string, userId: string, action: any, 
     }
     const engineEvents = roomData.engine.handleAction(userId, action as any);
 
-    for (const ev of engineEvents) {
-        roomData.seq++;
-        await prisma.handEvent.upsert({
+    const operations = engineEvents.map((ev, i) => {
+        const sequence = roomData.seq + i + 1;
+        return prisma.handEvent.upsert({
             where: {
                 handId_sequence: {
-                    handId: roomData.currentHandId,
-                    sequence: roomData.seq
+                    handId: roomData.currentHandId!,
+                    sequence: sequence
                 }
             },
             update: {
@@ -566,13 +571,19 @@ async function performPlayerAction(roomId: string, userId: string, action: any, 
                 payload: ev.payload as any
             },
             create: {
-                handId: roomData.currentHandId,
-                sequence: roomData.seq,
+                handId: roomData.currentHandId!,
+                sequence: sequence,
                 type: ev.type,
                 payload: ev.payload as any
             }
         });
+    });
+    if (operations.length > 0) {
+        await prisma.$transaction(operations);
+    }
 
+    for (const ev of engineEvents) {
+        roomData.seq++;
         io.to(roomId).emit('EVENT_HAND_LOG', {
             ...ev,
             room_id: roomId,
