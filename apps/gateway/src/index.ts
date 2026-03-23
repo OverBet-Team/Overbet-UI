@@ -851,7 +851,12 @@ io.on('connection', (socket) => {
 
     socket.on('INTENT_SEAT_REJECT', async (data: IntentSeatReject) => {
         let roomData = roomStates[data.room_id];
-        if (!roomData) return;
+        if (!roomData) return emitError(socket, 'ERR_ROOM_NOT_FOUND', 'Room not found');
+
+        const room = await prisma.room.findUnique({ where: { slug: data.room_id } });
+        if (!room) return emitError(socket, 'ERR_ROOM_NOT_FOUND', 'Room not found');
+        if (room.hostId !== userId) return emitError(socket, 'ERR_NOT_HOST', 'Only the host can reject seat requests');
+
         delete roomData.pendingSeats[data.targetPlayerId];
         // Could emit a rejection to the specific player here
     });
