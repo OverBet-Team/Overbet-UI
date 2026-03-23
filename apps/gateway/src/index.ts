@@ -14,7 +14,7 @@ import {
     EventSeatApproved,
     EventError
 } from './types';
-import { NLHMachine, HandEvent } from '@overbet/engine';
+import { NLHMachine, HandEvent, GameState } from '@overbet/engine';
 import { PrismaClient } from '@overbet/db';
 
 const prisma = new PrismaClient();
@@ -188,7 +188,7 @@ function emitErrorToRoom(roomId: string, code: string, message: string) {
     io.to(roomId).emit('EVENT_ERROR', err);
 }
 
-function sanitizeState(state: any, targetUserId: string | null) {
+function sanitizeState(state: GameState, targetUserId: string | null) {
     const sanitized = JSON.parse(JSON.stringify(state));
 
     // Add helper IDs for the frontend
