@@ -1,36 +1,41 @@
-This is a [Next.js](https://nextjs.org) project bootstrapped with [`create-next-app`](https://nextjs.org/docs/app/api-reference/cli/create-next-app).
+# apps/web — Next.js Frontend
 
-## Getting Started
+Next.js 15 App Router frontend for Overbet. **Rendering-only client** — all game logic lives in `apps/gateway` and `packages/engine`.
 
-First, run the development server:
+- **Port:** 3000 (local dev)
+- **Package name:** `web`
+- **Framework:** Next.js 15, React 19, Tailwind CSS 4
 
-```bash
-npm run dev
-# or
-yarn dev
-# or
-pnpm dev
-# or
-bun dev
+## Source Structure
+
+See `src/README.md` for a full directory map. Quick overview:
+
+```
+src/
+├── app/                  # Next.js routes + server actions
+│   ├── actions/room.ts   # Room CRUD (create, load) via Prisma
+│   ├── room/[slug]/      # Realtime game room (RoomClient.tsx is the main entry)
+│   ├── HomeClient.tsx    # Lobby / room creation UI
+│   └── globals.css
+├── components/
+│   ├── poker/            # All poker-specific UI components (11 files)
+│   └── ui/               # Shared primitives (Modal, Popover, Tooltip)
+├── hooks/                # Client hooks (useUser, game hooks)
+├── lib/                  # Adapters and formatters
+└── types/
 ```
 
-Open [http://localhost:3000](http://localhost:3000) with your browser to see the result.
+## Commands
 
-You can start editing the page by modifying `app/page.tsx`. The page auto-updates as you edit the file.
+```bash
+pnpm --filter web dev     # Dev server on :3000
+pnpm --filter web test    # Vitest + Testing Library
+pnpm --filter web build   # Production build
+```
 
-This project uses [`next/font`](https://nextjs.org/docs/app/building-your-application/optimizing/fonts) to automatically optimize and load [Geist](https://vercel.com/font), a new font family for Vercel.
+## Environment Variables
 
-## Learn More
-
-To learn more about Next.js, take a look at the following resources:
-
-- [Next.js Documentation](https://nextjs.org/docs) - learn about Next.js features and API.
-- [Learn Next.js](https://nextjs.org/learn) - an interactive Next.js tutorial.
-
-You can check out [the Next.js GitHub repository](https://github.com/vercel/next.js) - your feedback and contributions are welcome!
-
-## Deploy on Vercel
-
-The easiest way to deploy your Next.js app is to use the [Vercel Platform](https://vercel.com/new?utm_medium=default-template&filter=next.js&utm_source=create-next-app&utm_campaign=create-next-app-readme) from the creators of Next.js.
-
-Check out our [Next.js deployment documentation](https://nextjs.org/docs/app/building-your-application/deploying) for more details.
+Requires `apps/web/.env.local`:
+- `DATABASE_URL` — pooled Postgres connection string
+- `DIRECT_URL` — direct (non-pooled) for migrations
+- `NEXT_PUBLIC_GATEWAY_URL` — Socket.IO gateway URL (default: `http://localhost:4000`)
