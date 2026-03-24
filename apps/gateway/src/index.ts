@@ -862,7 +862,6 @@ io.on('connection', (socket) => {
 
     socket.on('INTENT_START_GAME', async (data: any) => {
         try {
-            // BUG-04: Only the host may start a hand
             let roomData = roomStates[data.room_id];
             if (!roomData) {
                 roomData = await getOrHydrateRoom(data.room_id) as any;
