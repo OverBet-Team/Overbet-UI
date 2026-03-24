@@ -67,6 +67,20 @@ async function readPotIndicators(page: Page) {
   };
 }
 
+async function waitForPotIndicators(page: Page, totalPot: number, roundAmount: number, timeoutMs = 10_000) {
+  const deadline = Date.now() + timeoutMs;
+  let last = await readPotIndicators(page);
+
+  while (Date.now() < deadline) {
+    if (last.totalPot === totalPot && last.roundAmount === roundAmount) return;
+    await page.waitForTimeout(250);
+    last = await readPotIndicators(page);
+  }
+
+  expect(last.totalPot).toBe(totalPot);
+  expect(last.roundAmount).toBe(roundAmount);
+}
+
 async function expectPotIndicators(page: Page, totalPot: number, roundAmount: number) {
   const indicators = await readPotIndicators(page);
   expect(indicators.totalPot).toBe(totalPot);
@@ -189,16 +203,16 @@ test.describe("moon poker bugfixes", () => {
     actingPage = await waitForActivePage(players);
     await actingPage.getByTestId("action-check-call").click();
 
-    await expectPotIndicators(joinerOnePage, 20, 0);
-    await expectPotIndicators(joinerTwoPage, 20, 0);
+    await waitForPotIndicators(joinerOnePage, 20, 0);
+    await waitForPotIndicators(joinerTwoPage, 20, 0);
 
     actingPage = await waitForActivePage(players);
     await actingPage.getByTestId("action-raise").click();
     await expect(actingPage.getByTestId("raise-modal")).toBeVisible();
     await actingPage.getByRole("button", { name: /Raise to/i }).click();
 
-    await expect(joinerOnePage.getByTestId("current-round-indicator")).toBeVisible();
-    await expect(joinerTwoPage.getByTestId("current-round-indicator")).toBeVisible();
+    await expect(joinerOnePage.getByTestId("current-round-indicator")).toContainText(/Round/i);
+    await expect(joinerTwoPage.getByTestId("current-round-indicator")).toContainText(/Round/i);
 
     actingPage = await waitForActivePage(players);
     await actingPage.getByTestId("action-check-call").click();

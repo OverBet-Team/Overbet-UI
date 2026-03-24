@@ -1,15 +1,9 @@
 "use client";
 
-// OverBet — ActionBar
-// Moon Poker action zone: ghost pill buttons, raise slider, quick-bet presets.
-// Keyboard shortcuts: F=fold, C=call/check, R=raise, A=all-in
-
-import React, { useState, useEffect, useCallback } from "react";
-import { createPortal } from "react-dom";
-import { motion } from "framer-motion";
+import React, { useCallback, useEffect, useMemo, useState } from "react";
+import { AnimatePresence, motion } from "framer-motion";
 import { ChipAmount, ChipIcon } from "./ChipAmount";
 
-/** All player action types the ActionBar can emit. */
 export type PlayerActionType = "FOLD" | "CALL" | "CHECK" | "RAISE" | "ALL_IN";
 
 interface ActionBarProps {
@@ -23,6 +17,65 @@ interface ActionBarProps {
   onAction: (actionType: PlayerActionType, amount?: number) => void;
 }
 
+function SurfaceButton({
+  children,
+  onClick,
+  testId,
+  ariaLabel,
+  emphasized,
+  danger,
+  compact,
+}: {
+  children: React.ReactNode;
+  onClick: () => void;
+  testId?: string;
+  ariaLabel?: string;
+  emphasized?: boolean;
+  danger?: boolean;
+  compact?: boolean;
+}) {
+  return (
+    <motion.button
+      type="button"
+      data-testid={testId}
+      aria-label={ariaLabel}
+      whileTap={{ scale: 0.97 }}
+      onClick={onClick}
+      style={{
+        display: "inline-flex",
+        alignItems: "center",
+        justifyContent: "center",
+        gap: 8,
+        width: "100%",
+        minHeight: compact ? 44 : 52,
+        padding: compact ? "0 14px" : "0 18px",
+        borderRadius: 18,
+        border: emphasized
+          ? "1px solid rgba(129,236,255,0.36)"
+          : danger
+            ? "1px solid rgba(244,63,94,0.22)"
+            : "1px solid rgba(255,255,255,0.08)",
+        background: emphasized
+          ? "linear-gradient(180deg, rgba(129,236,255,0.96) 0%, rgba(0,212,236,0.82) 100%)"
+          : danger
+            ? "linear-gradient(180deg, rgba(244,63,94,0.14) 0%, rgba(79,18,32,0.14) 100%)"
+            : "linear-gradient(180deg, rgba(255,255,255,0.07) 0%, rgba(255,255,255,0.03) 100%)",
+        color: emphasized ? "#0e0e10" : danger ? "#ffadc0" : "#f6f3f5",
+        fontSize: compact ? 12 : 13,
+        fontWeight: 700,
+        letterSpacing: emphasized ? "-0.02em" : "0.01em",
+        cursor: "pointer",
+        boxShadow: emphasized
+          ? "0 16px 34px rgba(0, 227, 253, 0.2), inset 0 1px 0 rgba(255,255,255,0.18)"
+          : "inset 0 1px 0 rgba(255,255,255,0.04), 0 14px 30px rgba(0,0,0,0.18)",
+        whiteSpace: "nowrap",
+      }}
+    >
+      {children}
+    </motion.button>
+  );
+}
+
 export function ActionBar({
   isActive,
   stack,
@@ -34,314 +87,376 @@ export function ActionBar({
   onAction,
 }: ActionBarProps) {
   const minRaiseTo = Math.max(currentBet + minRaise, currentBet * 2, 1);
-  const maxRaiseTo = stack + playerBet;
+  const maxRaiseTo = Math.max(minRaiseTo, stack + playerBet);
   const toCall = Math.max(0, currentBet - playerBet);
   const canRaise = maxRaiseTo > minRaiseTo;
 
   const [raiseAmount, setRaiseAmount] = useState<number>(minRaiseTo);
   const [showRaisePanel, setShowRaisePanel] = useState(false);
+  const [actionPending, setActionPending] = useState(false);
 
-  // Keep raiseAmount in valid range when game state changes
   useEffect(() => {
-    setRaiseAmount((prev) => Math.min(Math.max(prev, minRaiseTo), maxRaiseTo));
+    setRaiseAmount((previous) => Math.min(Math.max(previous, minRaiseTo), maxRaiseTo));
   }, [minRaiseTo, maxRaiseTo]);
 
   const clampedRaise = Math.min(Math.max(raiseAmount, minRaiseTo), maxRaiseTo);
+  const sliderDisabled = minRaiseTo >= maxRaiseTo;
+  const sliderPct = sliderDisabled ? 0 : ((clampedRaise - minRaiseTo) / (maxRaiseTo - minRaiseTo)) * 100;
 
-  // Quick-bet presets
-  const presets = pot > 0 ? [
-    { label: "½ Pot", value: Math.min(Math.max(Math.round(pot * 0.5), minRaiseTo), maxRaiseTo) },
-    { label: "Pot",   value: Math.min(Math.max(pot, minRaiseTo), maxRaiseTo) },
-    { label: "2× Pot", value: Math.min(Math.max(pot * 2, minRaiseTo), maxRaiseTo) },
-  ] : [];
+  const presets = useMemo(() => {
+    if (pot <= 0) return [];
+    return [
+      { label: "1/2 Pot", value: Math.min(Math.max(Math.round(pot * 0.5), minRaiseTo), maxRaiseTo) },
+      { label: "Pot", value: Math.min(Math.max(Math.round(pot), minRaiseTo), maxRaiseTo) },
+      { label: "2x Pot", value: Math.min(Math.max(Math.round(pot * 2), minRaiseTo), maxRaiseTo) },
+    ];
+  }, [pot, minRaiseTo, maxRaiseTo]);
 
-  const handleRaise = useCallback(() => {
+  const confirmRaise = useCallback(() => {
+    setActionPending(true);
     onAction("RAISE", clampedRaise);
     setShowRaisePanel(false);
-  }, [onAction, clampedRaise]);
+  }, [clampedRaise, onAction]);
 
-  const closeRaisePanel = useCallback(() => {
-    setShowRaisePanel(false);
-  }, []);
-
-  // Keyboard shortcuts
   useEffect(() => {
-    if (!isActive) return;
-    const handler = (e: KeyboardEvent) => {
-      const tag = (e.target as HTMLElement).tagName;
+    if (!actionPending) return;
+    if (!isActive) {
+      setActionPending(false);
+      return;
+    }
+
+    const timeout = window.setTimeout(() => setActionPending(false), 1500);
+    return () => window.clearTimeout(timeout);
+  }, [actionPending, isActive]);
+
+  useEffect(() => {
+    if (!isActive || actionPending) return;
+
+    const onKeyDown = (event: KeyboardEvent) => {
+      const target = event.target as HTMLElement | null;
+      const tag = target?.tagName;
       if (tag === "INPUT" || tag === "TEXTAREA") return;
-      switch (e.key.toLowerCase()) {
-        case "f": onAction("FOLD"); break;
-        case "c": onAction(toCall > 0 ? "CALL" : "CHECK"); break;
-        case "r": setShowRaisePanel(v => !v); break;
-        case "a": onAction("ALL_IN"); break;
-        case "escape": setShowRaisePanel(false); break;
-        case "enter": if (showRaisePanel) handleRaise(); break;
+
+      switch (event.key.toLowerCase()) {
+        case "f":
+          setActionPending(true);
+          onAction("FOLD");
+          break;
+        case "c":
+          setActionPending(true);
+          onAction(toCall > 0 ? "CALL" : "CHECK");
+          break;
+        case "r":
+          if (canRaise) setShowRaisePanel((previous) => !previous);
+          break;
+        case "a":
+          setActionPending(true);
+          onAction("ALL_IN");
+          break;
+        case "escape":
+          setShowRaisePanel(false);
+          break;
+        case "enter":
+          if (showRaisePanel && canRaise) {
+            confirmRaise();
+          }
+          break;
       }
     };
-    window.addEventListener("keydown", handler);
-    return () => window.removeEventListener("keydown", handler);
-  }, [isActive, toCall, showRaisePanel, handleRaise, onAction]);
 
-  // ── Inactive state ────────────────────────────────────────────────────────
-  if (!isActive) {
+    window.addEventListener("keydown", onKeyDown);
+    return () => window.removeEventListener("keydown", onKeyDown);
+  }, [actionPending, canRaise, confirmRaise, isActive, onAction, showRaisePanel, toCall]);
+
+  if (!isActive || actionPending) {
     return (
-      <div data-testid="action-bar-inactive" className="flex w-full gap-3 opacity-35 pointer-events-none grayscale-[0.5]">
-        <div className="flex-1 py-3.5 text-center font-semibold text-sm text-white/40 border border-white/[0.07] rounded-full bg-white/[0.03] tracking-tight font-body">
-          Waiting for turn…
-        </div>
+      <div
+        data-testid="action-bar-inactive"
+        style={{
+          width: "100%",
+          display: "flex",
+          alignItems: "center",
+          justifyContent: "center",
+          minHeight: compact ? 50 : 58,
+          borderRadius: 24,
+          border: "1px solid rgba(255,255,255,0.06)",
+          background: "linear-gradient(180deg, rgba(255,255,255,0.05) 0%, rgba(255,255,255,0.025) 100%)",
+          color: "rgba(255,255,255,0.4)",
+          fontSize: compact ? 11 : 12,
+          fontWeight: 800,
+          letterSpacing: "0.14em",
+          textTransform: "uppercase",
+          boxShadow: "inset 0 1px 0 rgba(255,255,255,0.04)",
+        }}
+      >
+        Waiting for turn
       </div>
     );
   }
 
-  const raisePanelNode = showRaisePanel && canRaise ? (
-    <>
-      {/* Backdrop — compact uses blur, non-compact is lighter */}
-      <div
-        data-testid="raise-modal-backdrop"
-        onClick={closeRaisePanel}
-        className={compact
-          ? "fixed inset-0 z-[999] bg-black/45 backdrop-blur-sm"
-          : "fixed inset-0 z-[999] bg-black/30"}
-      />
-
-      {/* Panel — position varies by compact, layout classes are shared */}
-      <div
-        data-testid="raise-modal"
-        className="bg-[--bg-surface] border border-white/10 rounded-[18px] p-4 flex flex-col gap-3 shadow-[0_-8px_40px_rgba(0,0,0,0.5)] overflow-y-auto"
-        style={compact
-          ? {
-              position: "fixed",
-              left: 10,
-              right: 10,
-              bottom: "calc(86px + env(safe-area-inset-bottom, 0px))",
-              zIndex: 1000,
-              borderRadius: 18,
-              maxHeight: "66dvh",
-            }
-          : {
-              position: "fixed",
-              left: "50%",
-              transform: "translateX(-50%)",
-              width: "min(560px, calc(100vw - 24px))",
-              bottom: 84,
-              zIndex: 1000,
-              borderRadius: 18,
-              maxHeight: "60dvh",
-            }}
-      >
-        {/* Header */}
-        <div className="flex justify-between items-center">
-          <span className="text-white/[0.68] text-[11px] font-bold uppercase tracking-wider font-body">
-            Raise Amount
-          </span>
-          <button
-            onClick={closeRaisePanel}
-            aria-label="Close raise panel"
-            className="w-7 h-7 rounded-full border border-white/[0.14] bg-white/5 text-white/75 text-base cursor-pointer hover:bg-white/10 transition-colors"
-          >
-            ×
-          </button>
-        </div>
-
-        {/* Amount display */}
-        <div className="flex items-center justify-between">
-          <span className="text-white/40 text-[11px] font-semibold uppercase tracking-wider font-body">
-            Raise To
-          </span>
-          <div className="flex items-center gap-1.5">
-            <ChipIcon size={13} color="rgba(167,139,250,0.8)" />
-            <input
-              type="number"
-              value={raiseAmount}
-              min={minRaiseTo}
-              max={maxRaiseTo}
-              onChange={e => setRaiseAmount(Number(e.target.value))}
-              onBlur={() => setRaiseAmount(clampedRaise)}
-              className="w-20 px-2 py-1 text-right font-bold text-base text-white bg-white/[0.08] border border-white/12 rounded-lg outline-none font-body num-font focus:border-[--accent]/50 transition-colors"
-            />
-          </div>
-        </div>
-
-        {/* Slider — keep inline style for dynamic gradient and accent */}
-        <div className="relative">
-          <input
-            type="range"
-            min={minRaiseTo}
-            max={maxRaiseTo}
-            value={raiseAmount}
-            step={Math.max(1, Math.round((maxRaiseTo - minRaiseTo) / 100))}
-            onChange={e => setRaiseAmount(Number(e.target.value))}
-            style={{
-              width: "100%", accentColor: "#7c3aed",
-              background: `linear-gradient(to right, #7c3aed ${((raiseAmount - minRaiseTo) / (maxRaiseTo - minRaiseTo)) * 100}%, rgba(255,255,255,0.1) 0%)`,
-            }}
-          />
-          <div className="flex justify-between mt-1">
-            <span className="text-[10px] text-white/25">{minRaiseTo}</span>
-            <span className="text-[10px] text-white/25">{maxRaiseTo}</span>
-          </div>
-        </div>
-
-        {/* Quick-bet presets */}
-        {presets.length > 0 && (
-          <div className="flex gap-1.5">
-            {presets.map(({ label, value }) => (
-              <button
-                key={label}
-                onClick={() => setRaiseAmount(value)}
-                className={`flex-1 py-1.5 rounded-[10px] border-0 text-[11px] font-semibold cursor-pointer font-body transition-all hover:bg-[--accent]/20 hover:text-violet-300 ${
-                  raiseAmount === value
-                    ? "bg-[--accent]/35 text-violet-300"
-                    : "bg-white/[0.06] text-white/50"
-                }`}
-              >
-                {label}
-              </button>
-            ))}
-          </div>
-        )}
-
-        {/* Confirm raise */}
-        <button
-          onClick={handleRaise}
-          className="w-full py-3 rounded-[14px] border-0 bg-[--accent] text-white font-bold text-sm font-body hover:bg-[--accent-hover] transition-colors shadow-[0_4px_20px_rgba(59,130,246,0.35)] hover:shadow-[0_4px_28px_rgba(59,130,246,0.5)] cursor-pointer"
-        >
-          <span className="inline-flex items-center gap-1.5">
-            <span>Raise to</span>
-            <ChipAmount
-              amount={clampedRaise}
-              iconSize={12}
-              iconColor="#ffffff"
-              amountStyle={{ color: "inherit", fontSize: 14, fontWeight: 700 }}
-            />
-            <span>↵</span>
-          </span>
-        </button>
-      </div>
-    </>
-  ) : null;
-
-  // ── Active state ──────────────────────────────────────────────────────────
   return (
-    <div data-testid="action-bar" className="flex flex-col w-full gap-2 font-body">
-
-      {/* Raise panel (shown when raise button clicked) */}
-      {typeof document !== "undefined" ? createPortal(raisePanelNode, document.body) : raisePanelNode}
-
-      {/* Main action row — Moon Poker pill buttons */}
-      <div className="flex items-center justify-center flex-nowrap gap-1.5 px-3 py-1.5 bg-[--bg-surface]/85 border border-white/[0.08] rounded-full backdrop-blur-xl shadow-[0_8px_40px_rgba(0,0,0,0.5)]">
-
-        {/* Fold */}
-        <ActionPill
-          label="Fold"
-          ariaLabel="Fold"
+    <div data-testid="action-bar" style={{ width: "100%", display: "flex", flexDirection: "column", gap: 12 }}>
+      <div
+        style={{
+          display: "grid",
+          gridTemplateColumns: compact ? "repeat(2, minmax(0, 1fr))" : `repeat(${canRaise ? 4 : 3}, minmax(0, 1fr))`,
+          gap: 8,
+          alignItems: "center",
+        }}
+      >
+        <SurfaceButton
           testId="action-fold"
-          shortcut="F"
-          color="#f87171"
-          hoverClass="hover:bg-[--danger]/10"
+          ariaLabel="Fold"
+          onClick={() => {
+            setActionPending(true);
+            setShowRaisePanel(false);
+            onAction("FOLD");
+          }}
+          danger
           compact={compact}
-          onClick={() => { setShowRaisePanel(false); onAction("FOLD"); }}
-        />
+        >
+          <span style={{ fontSize: 14 }}>Fold</span>
+        </SurfaceButton>
 
-        <div className="w-px h-7 bg-white/[0.07]" />
-
-        {/* Call / Check */}
-        <ActionPill
-          label={toCall > 0 ? (
+        <SurfaceButton
+          testId="action-check-call"
+          ariaLabel={toCall > 0 ? `Call ${toCall}` : "Check"}
+          onClick={() => {
+            setActionPending(true);
+            setShowRaisePanel(false);
+            onAction(toCall > 0 ? "CALL" : "CHECK");
+          }}
+          compact={compact}
+        >
+          {toCall > 0 ? (
             <>
               <span>Call</span>
               <ChipAmount
                 amount={toCall}
                 iconSize={10}
-                iconColor="#93c5fd"
-                amountStyle={{ color: "inherit", fontSize: compact ? 12 : 13, fontWeight: 600 }}
+                iconColor="rgba(255,255,255,0.68)"
+                amountStyle={{ color: "inherit", fontSize: compact ? 12 : 13, fontWeight: 700 }}
               />
             </>
-          ) : "Check"}
-          ariaLabel={toCall > 0 ? `Call ${toCall}` : "Check"}
-          testId="action-check-call"
-          shortcut="C"
-          color={toCall > 0 ? "#93c5fd" : "rgba(255,255,255,0.7)"}
-          hoverClass={toCall > 0 ? "hover:bg-[--accent]/10" : "hover:bg-white/[0.07]"}
-          compact={compact}
-          onClick={() => { setShowRaisePanel(false); onAction(toCall > 0 ? "CALL" : "CHECK"); }}
-        />
+          ) : (
+            <span>Check</span>
+          )}
+        </SurfaceButton>
 
-        {canRaise && (
-          <>
-            <div className="w-px h-7 bg-white/[0.07]" />
-
-            {/* Raise — active when panel is open */}
-            <ActionPill
-              label={showRaisePanel ? "▲ Raise" : "Raise"}
-              ariaLabel={showRaisePanel ? "Close raise panel" : "Open raise panel"}
-              testId="action-raise"
-              shortcut="R"
-              color="#6ee7b7"
-              hoverClass="hover:bg-[--success]/10"
-              activeClass="bg-[--success]/10"
-              active={showRaisePanel}
-              compact={compact}
-              onClick={() => setShowRaisePanel(v => !v)}
+        {canRaise ? (
+          <SurfaceButton
+            testId="action-raise"
+            ariaLabel={showRaisePanel ? "Close raise panel" : "Open raise panel"}
+            onClick={() => setShowRaisePanel((previous) => !previous)}
+            emphasized={showRaisePanel}
+            compact={compact}
+          >
+            <span>Raise</span>
+            <ChipAmount
+              amount={clampedRaise}
+              iconSize={10}
+              iconColor={showRaisePanel ? "#0e0e10" : "rgba(255,255,255,0.68)"}
+              amountStyle={{
+                color: "inherit",
+                fontSize: compact ? 12 : 13,
+                fontWeight: 700,
+              }}
             />
-          </>
-        )}
+          </SurfaceButton>
+        ) : null}
 
-        <div className="w-px h-7 bg-white/[0.07]" />
-
-        {/* All-In */}
-        <ActionPill
-          label="All-In"
-          ariaLabel="All in"
+        <SurfaceButton
           testId="action-all-in"
-          shortcut="A"
-          color="#a78bfa"
-          hoverClass="hover:bg-violet-500/12"
+          ariaLabel="All in"
+          onClick={() => {
+            setActionPending(true);
+            setShowRaisePanel(false);
+            onAction("ALL_IN");
+          }}
+          emphasized={!canRaise}
           compact={compact}
-          onClick={() => { setShowRaisePanel(false); onAction("ALL_IN"); }}
-        />
+        >
+          <span>All in</span>
+        </SurfaceButton>
       </div>
+
+      <AnimatePresence>
+        {showRaisePanel && canRaise ? (
+          <motion.div
+            data-testid="raise-modal"
+            initial={{ opacity: 0, y: 10, height: 0 }}
+            animate={{ opacity: 1, y: 0, height: "auto" }}
+            exit={{ opacity: 0, y: 10, height: 0 }}
+            transition={{ duration: 0.16 }}
+            style={{ overflow: "hidden" }}
+          >
+            <div
+              className="stage-panel"
+              style={{
+                display: "grid",
+                gridTemplateColumns: compact ? "1fr" : "auto minmax(160px, 1fr) auto",
+                gap: compact ? 10 : 12,
+                alignItems: "center",
+                padding: compact ? 12 : 14,
+              }}
+            >
+              <div
+                style={{
+                  display: "flex",
+                  flexDirection: "column",
+                  gap: 8,
+                }}
+              >
+                <div
+                  style={{
+                    color: "rgba(255,255,255,0.5)",
+                    fontSize: 10,
+                    fontWeight: 800,
+                    letterSpacing: "0.14em",
+                    textTransform: "uppercase",
+                  }}
+                >
+                  Raise to
+                </div>
+                <div
+                  style={{
+                    display: "flex",
+                    alignItems: "center",
+                    gap: 8,
+                    padding: "0 12px",
+                    minHeight: compact ? 44 : 52,
+                    borderRadius: 18,
+                    border: "1px solid rgba(255,255,255,0.08)",
+                    background: "linear-gradient(180deg, rgba(255,255,255,0.06) 0%, rgba(255,255,255,0.03) 100%)",
+                  }}
+                >
+                  <ChipIcon size={12} color="#81ecff" />
+                  <input
+                    type="number"
+                    value={raiseAmount}
+                    min={minRaiseTo}
+                    max={maxRaiseTo}
+                    onChange={(event) => setRaiseAmount(Number(event.target.value))}
+                    onBlur={() => setRaiseAmount(clampedRaise)}
+                    style={{
+                      width: compact ? 96 : 112,
+                      background: "transparent",
+                      border: "none",
+                      outline: "none",
+                      color: "#f6f3f5",
+                      fontSize: compact ? 16 : 18,
+                      fontWeight: 700,
+                      fontVariantNumeric: "tabular-nums",
+                      textAlign: "right",
+                    }}
+                  />
+                </div>
+              </div>
+
+              <div style={{ display: "flex", flexDirection: "column", gap: 10, minWidth: 0 }}>
+                <div
+                  style={{
+                    display: "grid",
+                    gridTemplateColumns: "repeat(3, minmax(0, 1fr))",
+                    gap: 8,
+                    color: "rgba(255,255,255,0.5)",
+                    fontSize: 10,
+                    fontWeight: 800,
+                    letterSpacing: "0.12em",
+                    textTransform: "uppercase",
+                  }}
+                >
+                  <span>Min {minRaiseTo}</span>
+                  <span style={{ textAlign: "center" }}>Pot {pot}</span>
+                  <span style={{ textAlign: "right" }}>Max {maxRaiseTo}</span>
+                </div>
+                <input
+                  type="range"
+                  min={minRaiseTo}
+                  max={maxRaiseTo}
+                  step={Math.max(1, Math.round((maxRaiseTo - minRaiseTo) / 100))}
+                  value={raiseAmount}
+                  disabled={sliderDisabled}
+                  onChange={(event) => setRaiseAmount(Number(event.target.value))}
+                  style={{
+                    width: "100%",
+                    accentColor: "#00e3fd",
+                    background: sliderDisabled
+                      ? "rgba(255,255,255,0.05)"
+                      : `linear-gradient(to right, #00e3fd ${sliderPct}%, rgba(255,255,255,0.12) 0%)`,
+                  }}
+                />
+
+                {presets.length > 0 ? (
+                  <div style={{ display: "flex", alignItems: "center", gap: 8, flexWrap: "wrap" }}>
+                    {presets.map((preset) => {
+                      const active = clampedRaise === preset.value;
+                      return (
+                        <button
+                          key={preset.label}
+                          type="button"
+                          onClick={() => setRaiseAmount(preset.value)}
+                          style={{
+                            display: "inline-flex",
+                            alignItems: "center",
+                            justifyContent: "center",
+                            minHeight: 34,
+                            padding: "0 12px",
+                            borderRadius: 999,
+                            border: active
+                              ? "1px solid rgba(129,236,255,0.32)"
+                              : "1px solid rgba(255,255,255,0.08)",
+                            background: active
+                              ? "linear-gradient(180deg, rgba(129,236,255,0.16) 0%, rgba(255,255,255,0.05) 100%)"
+                              : "linear-gradient(180deg, rgba(255,255,255,0.04) 0%, rgba(255,255,255,0.02) 100%)",
+                            color: active ? "#81ecff" : "rgba(255,255,255,0.72)",
+                            fontSize: 11,
+                            fontWeight: 700,
+                            letterSpacing: "0.08em",
+                            textTransform: "uppercase",
+                            cursor: "pointer",
+                          }}
+                        >
+                          {preset.label}
+                        </button>
+                      );
+                    })}
+                  </div>
+                ) : null}
+              </div>
+
+              <div style={{ display: "flex", alignItems: "center", gap: 8, justifyContent: compact ? "space-between" : "flex-end" }}>
+                <button
+                  type="button"
+                  onClick={() => setShowRaisePanel(false)}
+                  style={{
+                    height: compact ? 44 : 52,
+                    padding: compact ? "0 14px" : "0 16px",
+                    borderRadius: 18,
+                    border: "1px solid rgba(255,255,255,0.08)",
+                    background: "linear-gradient(180deg, rgba(255,255,255,0.04) 0%, rgba(255,255,255,0.02) 100%)",
+                    color: "rgba(255,255,255,0.72)",
+                    fontSize: 12,
+                    fontWeight: 700,
+                    cursor: "pointer",
+                  }}
+                >
+                  Cancel
+                </button>
+                <SurfaceButton emphasized compact={compact} onClick={confirmRaise}>
+                  <span>Raise to</span>
+                  <ChipAmount
+                    amount={clampedRaise}
+                    iconSize={10}
+                    iconColor="#0e0e10"
+                    amountStyle={{ color: "inherit", fontSize: compact ? 12 : 13, fontWeight: 700 }}
+                  />
+                </SurfaceButton>
+              </div>
+            </div>
+          </motion.div>
+        ) : null}
+      </AnimatePresence>
     </div>
   );
 }
-
-// ── Pill button ───────────────────────────────────────────────────────────────
-// Hover state is handled entirely via Tailwind `hover:` classes — no JS state needed.
-// `activeClass` applies the hover background permanently (used when raise panel is open).
-const ActionPill = React.memo(function ActionPill({
-  label, ariaLabel, shortcut, color, hoverClass, activeClass, onClick, active = false, compact = false, testId,
-}: {
-  label: React.ReactNode;
-  ariaLabel?: string;
-  shortcut: string;
-  color: string;
-  hoverClass: string;
-  /** Background class applied permanently when active=true (same color as hover bg). */
-  activeClass?: string;
-  onClick: () => void;
-  active?: boolean;
-  compact?: boolean;
-  testId?: string;
-}) {
-  return (
-    <motion.button
-      data-testid={testId}
-      aria-label={ariaLabel}
-      onClick={onClick}
-      whileTap={{ scale: 0.95 }}
-      className={[
-        "inline-flex items-center gap-1.5 rounded-full border-0 cursor-pointer transition-colors whitespace-nowrap font-semibold tracking-tight",
-        compact ? "min-h-[42px] px-3 py-2 text-[13px]" : "min-h-[40px] px-5 py-2.5 text-[14px]",
-        hoverClass,
-        active && activeClass ? activeClass : "bg-transparent",
-      ].join(" ")}
-      style={{ color }}
-    >
-      {label}
-      <span className="text-[9px] font-normal opacity-35 font-mono">
-        {shortcut}
-      </span>
-    </motion.button>
-  );
-});

@@ -41,11 +41,11 @@ const SIZES: Record<
   Size,
   { w: number; h: number; r: number; rankSize: number; suitCorner: number; suitCenter: number }
 > = {
-  xs: { w: 34, h: 46, r: 5, rankSize: 10, suitCorner: 8, suitCenter: 16 },
-  sm: { w: 48, h: 66, r: 7, rankSize: 13, suitCorner: 10, suitCenter: 22 },
-  md: { w: 72, h: 100, r: 10, rankSize: 18, suitCorner: 13, suitCenter: 34 },
-  lg: { w: 96, h: 132, r: 12, rankSize: 22, suitCorner: 16, suitCenter: 46 },
-  xl: { w: 130, h: 178, r: 16, rankSize: 30, suitCorner: 22, suitCenter: 64 },
+  xs: { w: 34, h: 46, r: 6, rankSize: 10, suitCorner: 8, suitCenter: 16 },
+  sm: { w: 48, h: 66, r: 8, rankSize: 13, suitCorner: 10, suitCenter: 22 },
+  md: { w: 72, h: 100, r: 12, rankSize: 18, suitCorner: 13, suitCenter: 34 },
+  lg: { w: 96, h: 132, r: 14, rankSize: 22, suitCorner: 16, suitCenter: 46 },
+  xl: { w: 130, h: 178, r: 18, rankSize: 30, suitCorner: 22, suitCenter: 64 },
 };
 
 const SUIT_SYMBOLS: Record<Suit, string> = {
@@ -57,8 +57,8 @@ const SUIT_SYMBOLS: Record<Suit, string> = {
 
 const SUIT_COLORS: Record<Suit, string> = {
   spades: '#111827',
-  hearts: '#ef4444',
-  diamonds: '#ef4444',
+  hearts: '#f43f5e',
+  diamonds: '#f43f5e',
   clubs: '#111827',
 };
 
