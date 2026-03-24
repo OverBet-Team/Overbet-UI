@@ -15,8 +15,10 @@ model User {
   isGuest   Boolean      @default(false)
   createdAt DateTime     @default(now())
   updatedAt DateTime     @updatedAt
-  rooms     Room[]
-  members   RoomMember[]
+  rooms               Room[]
+  members             RoomMember[]
+  ledgerEntries       LedgerEntry[]       @relation("UserLedgerEntries")
+  ledgerConfirmations LedgerConfirmation[] @relation("UserLedgerConfirmations")
 }
 
 model RoomMember {
@@ -39,14 +41,16 @@ model Room {
   id        String       @id @default(uuid())
   slug      String       @unique
   name      String
-  status    String       @default("LOBBY") // LOBBY, IN_PROGRESS
+  status    String       @default("LOBBY") // LOBBY | IN_PROGRESS | FINISHED | SETTLED
   hostId    String
   host      User         @relation(fields: [hostId], references: [id])
   settings  Json?        // Variant & modding configuration
   createdAt DateTime     @default(now())
   updatedAt DateTime     @updatedAt
   hands     Hand[]
-  members   RoomMember[]
+  members             RoomMember[]
+  ledgerEntries       LedgerEntry[]       @relation("RoomLedgerEntries")
+  ledgerConfirmations LedgerConfirmation[] @relation("RoomLedgerConfirmations")
 }
 
 model Hand {
@@ -68,4 +72,44 @@ model HandEvent {
   createdAt DateTime @default(now())
 
   @@unique([handId, sequence])
+}
+
+
+model LedgerEntry {
+  id        String          @id @default(uuid())
+  roomId    String
+  room      Room            @relation("RoomLedgerEntries", fields: [roomId], references: [id])
+  userId    String
+  user      User            @relation("UserLedgerEntries", fields: [userId], references: [id])
+  type      String          // BUY_IN | ADD_ON | CASH_OUT | ADJUSTMENT | VOID
+  amount    Int             // always positive; type determines direction semantics
+  authorId  String          // who recorded this (player self-report or host); raw FK, no Prisma relation to avoid triple-relation
+  parentId  String?         // for ADJUSTMENT/VOID: references the entry being corrected
+  note      String?         // required for ADJUSTMENT/VOID; optional otherwise
+  createdAt DateTime        @default(now())
+
+  disputes  LedgerDispute[]
+}
+
+model LedgerDispute {
+  id               String       @id @default(uuid())
+  ledgerEntryId    String
+  ledgerEntry      LedgerEntry  @relation(fields: [ledgerEntryId], references: [id])
+  raisedByUserId   String
+  note             String
+  status           String       @default("OPEN") // OPEN | ACKNOWLEDGED | OVERRIDDEN | DISMISSED
+  resolvedByUserId String?
+  resolvedAt       DateTime?
+  createdAt        DateTime     @default(now())
+}
+
+model LedgerConfirmation {
+  id          String   @id @default(uuid())
+  roomId      String
+  room        Room     @relation("RoomLedgerConfirmations", fields: [roomId], references: [id])
+  userId      String
+  user        User     @relation("UserLedgerConfirmations", fields: [userId], references: [id])
+  confirmedAt DateTime @default(now())
+
+  @@unique([roomId, userId])
 }

@@ -1,19 +1,24 @@
 
-> web@0.1.0 build /Users/ayan/Desktop/Manus Poker/apps/web
+> web@0.1.0 build /Users/ayan/Desktop/Overbet Ledger/apps/web
 > next build
 
+⚠ No build cache found. Please configure build caching for faster rebuilds. Read more: https://nextjs.org/docs/messages/no-cache
+Attention: Next.js now collects completely anonymous telemetry regarding usage.
+This information is used to shape Next.js' roadmap and prioritize features.
+You can learn more, including how to opt-out if you'd not like to participate in this anonymous program, by visiting the following URL:
+https://nextjs.org/telemetry
+
 ▲ Next.js 16.1.6 (Turbopack)
-- Environments: .env.local
 
   Creating an optimized production build ...
-✓ Compiled successfully in 2.1s
+✓ Compiled successfully in 2.3s
   Running TypeScript ...
-  Collecting page data using 1 worker ...
-  Generating static pages using 1 worker (0/4) ...
-  Generating static pages using 1 worker (1/4)
-  Generating static pages using 1 worker (2/4)
-  Generating static pages using 1 worker (3/4)
-✓ Generating static pages using 1 worker (4/4) in 71.8ms
+  Collecting page data using 9 workers ...
+  Generating static pages using 9 workers (0/4) ...
+  Generating static pages using 9 workers (1/4) 
+  Generating static pages using 9 workers (2/4) 
+  Generating static pages using 9 workers (3/4) 
+✓ Generating static pages using 9 workers (4/4) in 242.5ms
   Finalizing page optimization ...
 
 Route (app)

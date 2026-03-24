@@ -57,11 +57,14 @@ Each key directory has a `README.md` with a file inventory and local conventions
 - `playwright.config.ts`: starts gateway on `4000` and web on `3000`
 - `vitest.workspace.ts`: Vitest workspace across `apps/*` and `packages/*`
 - `apps/gateway/src/index.ts`: core authoritative server implementation
-- `apps/gateway/src/types.ts`: socket intent/event contracts
+- `apps/gateway/src/types.ts`: socket intent/event contracts (includes all ledger INTENT_*/EVENT_* types)
+- `apps/gateway/src/ledger.ts`: ledger DB write helpers — writeLedgerEntry, writeSessionEndEntries, loadLedgerEntries, loadConfirmations, loadOpenDisputes
 - `apps/web/src/app/room/[slug]/RoomClient.tsx`: main client realtime room flow
 - `apps/web/src/app/actions/room.ts`: room creation/loading on the web side
+- `apps/web/src/app/actions/ledger.ts`: ledger server actions — getLedger, exportLedgerCSV/JSON/Text
 - `packages/db/index.ts`: shared Prisma singleton export
-- `packages/db/prisma/schema.prisma`: `User`, `Room`, `RoomMember`, `Hand`, `HandEvent`
+- `packages/db/prisma/schema.prisma`: `User`, `Room`, `RoomMember`, `Hand`, `HandEvent`, `LedgerEntry`, `LedgerDispute`, `LedgerConfirmation`
+- `packages/engine/src/math/Ledger.ts`: pure ledger computation — LedgerMath, computeLedgerSnapshot (no I/O)
 
 ## Development Commands
 Run commands from repository root unless a package-specific command is clearer.
