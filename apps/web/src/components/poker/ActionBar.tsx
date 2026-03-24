@@ -108,7 +108,7 @@ export function ActionBar({
       {/* Panel — position varies by compact, layout classes are shared */}
       <div
         data-testid="raise-modal"
-        className="bg-[--bg-surface] border border-white/10 rounded-[18px] p-4 flex flex-col gap-3 shadow-[0_-8px_40px_rgba(0,0,0,0.5)] overflow-y-auto"
+        className="glass-panel rounded-[18px] p-4 flex flex-col gap-3 shadow-[0_-8px_40px_rgba(0,0,0,0.5)] overflow-y-auto"
         style={compact
           ? {
               position: "fixed",
@@ -150,7 +150,7 @@ export function ActionBar({
             Raise To
           </span>
           <div className="flex items-center gap-1.5">
-            <ChipIcon size={13} color="rgba(167,139,250,0.8)" />
+            <ChipIcon size={13} color="var(--primary)" />
             <input
               type="number"
               value={raiseAmount}
@@ -158,7 +158,7 @@ export function ActionBar({
               max={maxRaiseTo}
               onChange={e => setRaiseAmount(Number(e.target.value))}
               onBlur={() => setRaiseAmount(clampedRaise)}
-              className="w-20 px-2 py-1 text-right font-bold text-base text-white bg-white/[0.08] border border-white/12 rounded-lg outline-none font-body num-font focus:border-[--accent]/50 transition-colors"
+              className="w-20 px-2 py-1 text-right font-bold text-base text-white bg-white/[0.08] border border-white/12 rounded-lg outline-none font-body num-font focus:border-[--tertiary]/50 transition-colors"
             />
           </div>
         </div>
@@ -173,8 +173,8 @@ export function ActionBar({
             step={Math.max(1, Math.round((maxRaiseTo - minRaiseTo) / 100))}
             onChange={e => setRaiseAmount(Number(e.target.value))}
             style={{
-              width: "100%", accentColor: "#7c3aed",
-              background: `linear-gradient(to right, #7c3aed ${((raiseAmount - minRaiseTo) / (maxRaiseTo - minRaiseTo)) * 100}%, rgba(255,255,255,0.1) 0%)`,
+              width: "100%", accentColor: "var(--tertiary)",
+              background: `linear-gradient(to right, var(--tertiary) ${((raiseAmount - minRaiseTo) / (maxRaiseTo - minRaiseTo)) * 100}%, rgba(255,255,255,0.1) 0%)`,
             }}
           />
           <div className="flex justify-between mt-1">
@@ -190,9 +190,9 @@ export function ActionBar({
               <button
                 key={label}
                 onClick={() => setRaiseAmount(value)}
-                className={`flex-1 py-1.5 rounded-[10px] border-0 text-[11px] font-semibold cursor-pointer font-body transition-all hover:bg-[--accent]/20 hover:text-violet-300 ${
+                className={`flex-1 py-1.5 rounded-[10px] border-0 text-[11px] font-semibold cursor-pointer font-body transition-all hover:bg-[--tertiary]/20 hover:text-[--tertiary] ${
                   raiseAmount === value
-                    ? "bg-[--accent]/35 text-violet-300"
+                    ? "bg-[--tertiary]/35 text-[--tertiary]"
                     : "bg-white/[0.06] text-white/50"
                 }`}
               >
@@ -205,7 +205,7 @@ export function ActionBar({
         {/* Confirm raise */}
         <button
           onClick={handleRaise}
-          className="w-full py-3 rounded-[14px] border-0 bg-[--accent] text-white font-bold text-sm font-body hover:bg-[--accent-hover] transition-colors shadow-[0_4px_20px_rgba(59,130,246,0.35)] hover:shadow-[0_4px_28px_rgba(59,130,246,0.5)] cursor-pointer"
+          className="w-full py-3 rounded-[14px] border-0 bg-[--tertiary] text-white font-bold text-sm font-body hover:bg-[--tertiary-dim] transition-colors shadow-[0_4px_20px_rgba(129,236,255,0.35)] hover:shadow-[0_4px_28px_rgba(129,236,255,0.5)] cursor-pointer"
         >
           <span className="inline-flex items-center gap-1.5">
             <span>Raise to</span>
@@ -230,7 +230,7 @@ export function ActionBar({
       {typeof document !== "undefined" ? createPortal(raisePanelNode, document.body) : raisePanelNode}
 
       {/* Main action row — Moon Poker pill buttons */}
-      <div className="flex items-center justify-center flex-nowrap gap-1.5 px-3 py-1.5 bg-[--bg-surface]/85 border border-white/[0.08] rounded-full backdrop-blur-xl shadow-[0_8px_40px_rgba(0,0,0,0.5)]">
+      <div className="flex items-center justify-center flex-nowrap gap-1.5 px-3 py-1.5 glass-panel rounded-full shadow-[0_8px_40px_rgba(0,0,0,0.5)] max-w-[600px] mx-auto">
 
         {/* Fold */}
         <ActionPill
@@ -238,8 +238,8 @@ export function ActionBar({
           ariaLabel="Fold"
           testId="action-fold"
           shortcut="F"
-          color="#f87171"
-          hoverClass="hover:bg-[--danger]/10"
+          color="var(--secondary)"
+          hoverClass="hover:bg-[--secondary]/10"
           compact={compact}
           onClick={() => { setShowRaisePanel(false); onAction("FOLD"); }}
         />
@@ -254,7 +254,7 @@ export function ActionBar({
               <ChipAmount
                 amount={toCall}
                 iconSize={10}
-                iconColor="#93c5fd"
+                iconColor="var(--tertiary)"
                 amountStyle={{ color: "inherit", fontSize: compact ? 12 : 13, fontWeight: 600 }}
               />
             </>
@@ -262,8 +262,8 @@ export function ActionBar({
           ariaLabel={toCall > 0 ? `Call ${toCall}` : "Check"}
           testId="action-check-call"
           shortcut="C"
-          color={toCall > 0 ? "#93c5fd" : "rgba(255,255,255,0.7)"}
-          hoverClass={toCall > 0 ? "hover:bg-[--accent]/10" : "hover:bg-white/[0.07]"}
+          color={toCall > 0 ? "var(--tertiary)" : "rgba(255,255,255,0.7)"}
+          hoverClass={toCall > 0 ? "hover:bg-[--tertiary]/10" : "hover:bg-white/[0.07]"}
           compact={compact}
           onClick={() => { setShowRaisePanel(false); onAction(toCall > 0 ? "CALL" : "CHECK"); }}
         />
@@ -278,9 +278,9 @@ export function ActionBar({
               ariaLabel={showRaisePanel ? "Close raise panel" : "Open raise panel"}
               testId="action-raise"
               shortcut="R"
-              color="#6ee7b7"
-              hoverClass="hover:bg-[--success]/10"
-              activeClass="bg-[--success]/10"
+              color="var(--tertiary)"
+              hoverClass="hover:bg-[--tertiary]/10"
+              activeClass="bg-[--tertiary]/10"
               active={showRaisePanel}
               compact={compact}
               onClick={() => setShowRaisePanel(v => !v)}
@@ -296,8 +296,8 @@ export function ActionBar({
           ariaLabel="All in"
           testId="action-all-in"
           shortcut="A"
-          color="#a78bfa"
-          hoverClass="hover:bg-violet-500/12"
+          color="var(--gold)"
+          hoverClass="hover:bg-[--gold]/12"
           compact={compact}
           onClick={() => { setShowRaisePanel(false); onAction("ALL_IN"); }}
         />

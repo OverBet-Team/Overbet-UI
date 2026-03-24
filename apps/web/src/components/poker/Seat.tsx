@@ -83,7 +83,7 @@ const SeatTimer = React.memo(function SeatTimer({ timer, playerId }: SeatTimerPr
         : '#f97316'
       : progress < 0.2
         ? '#ef4444'
-        : '#22c55e';
+        : '#81ecff';
 
   return (
     <>
@@ -122,7 +122,7 @@ const SeatTimer = React.memo(function SeatTimer({ timer, playerId }: SeatTimerPr
         className="absolute -top-1.5 -right-1.5 min-w-5 h-5 px-1 rounded-full flex items-center justify-center text-[9px] font-black text-white z-10 shadow-md"
         style={{
           border: `1px solid ${timerColor}`,
-          background: timerPhase === 'timebank' ? 'rgba(249,115,22,0.9)' : 'rgba(34,197,94,0.9)',
+          background: timerPhase === 'timebank' ? 'rgba(249,115,22,0.9)' : 'rgba(129,236,255,0.9)',
         }}
       >
         {timeLeftSecs}
@@ -201,7 +201,7 @@ export const Seat = React.memo(function Seat({
       <button
         data-testid={`seat-empty-${seatIndex}`}
         onClick={() => onSeatClick(seatIndex)}
-        className="flex flex-col items-center justify-center min-w-[44px] min-h-[44px] rounded-full border-2 border-dashed border-white/[0.18] bg-black/25 cursor-pointer transition-all duration-200 text-white/20 font-bold hover:border-[--accent] hover:bg-[--accent]/10 hover:text-[--accent]"
+        className="flex flex-col items-center justify-center min-w-[44px] min-h-[44px] rounded-full border-2 border-dashed border-[--outline-variant]/20 bg-black/25 cursor-pointer transition-all duration-200 text-white/20 font-bold hover:border-[--tertiary] hover:bg-[--tertiary]/10 hover:text-[--tertiary]"
         style={{
           width: emptySeatSize,
           height: emptySeatSize,

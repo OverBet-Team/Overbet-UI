@@ -24,7 +24,7 @@ const AvatarPlaceholder = React.memo(function AvatarPlaceholder({
   const initials = name.slice(0, 2).toUpperCase();
   return (
     <div
-      className="rounded-full bg-[--bg-elevated] border-2 border-white/[0.14] flex items-center justify-center text-white/90 font-bold font-body"
+      className="rounded-full bg-[--surface-container-high] border-2 border-[--outline-variant] flex items-center justify-center text-white/90 font-bold font-body"
       style={{ width: size, height: size, fontSize: size * 0.4 }}
     >
       {initials}
@@ -45,7 +45,7 @@ function DealerChip({ size = 18 }: { size?: number }) {
 
 const SBChip = React.memo(function SBChip() {
   return (
-    <div className="w-[22px] h-[22px] rounded-full bg-[--accent] text-white text-[9px] font-black flex items-center justify-center flex-shrink-0 z-10 shadow-md">
+    <div className="w-[22px] h-[22px] rounded-full bg-[--tertiary] text-white text-[9px] font-black flex items-center justify-center flex-shrink-0 z-10 shadow-md">
       SB
     </div>
   );
@@ -130,7 +130,7 @@ const OpponentSeat = React.memo(function OpponentSeat({
             )}
             {player.isActive && (
               <div
-                className="absolute rounded-full ring-[3px] ring-[--accent]/75 shadow-[0_0_12px_rgba(59,130,246,0.5)] pointer-events-none"
+                className="absolute rounded-full ring-[3px] ring-[--tertiary]/75 shadow-[0_0_12px_rgba(129,236,255,0.5)] pointer-events-none"
                 style={{
                   left: -avSize * 0.08,
                   top: -avSize * 0.08,
@@ -151,7 +151,7 @@ const OpponentSeat = React.memo(function OpponentSeat({
         )}
       </div>
       <div className="flex flex-col items-center gap-[3px] mt-1.5">
-        <div className={player.isActive ? "shadow-[0_0_12px_rgba(59,130,246,0.4)]" : undefined}>
+        <div className={player.isActive ? "shadow-[0_0_12px_rgba(129,236,255,0.4)]" : undefined}>
           <span
             className="font-bold font-body whitespace-nowrap text-white/90"
             style={{ fontSize: size === "lg" ? 14 : size === "md" ? 12 : 11 }}
@@ -165,11 +165,11 @@ const OpponentSeat = React.memo(function OpponentSeat({
           amountStyle={{ color: "rgba(255,255,255,0.5)", fontSize: 11, fontWeight: 500 }}
         />
         {player.bet > 0 && (
-          <div className="inline-flex items-center gap-[3px] px-[7px] py-[2px] rounded-full bg-[--accent]/20 border border-[--accent]/30 text-[--accent]">
+          <div className="inline-flex items-center gap-[3px] px-[7px] py-[2px] rounded-full bg-[--tertiary]/20 border border-[--tertiary]/30 text-[--tertiary]">
             <ChipAmount
               amount={player.bet}
               iconSize={9}
-              iconColor="var(--accent)"
+              iconColor="var(--tertiary)"
               amountStyle={{ color: "inherit", fontSize: 10, fontWeight: 600 }}
             />
           </div>
@@ -183,7 +183,7 @@ const OpponentSeat = React.memo(function OpponentSeat({
               animate={{ scale: 1, opacity: 1 }}
               exit={{ scale: 0, opacity: 0 }}
               transition={{ type: "spring", stiffness: 400, damping: 20 }}
-              className="inline-flex rounded-full px-2 py-0.5 text-[10px] font-semibold tracking-wider bg-white/10 border border-white/[0.08] text-white/50"
+              className="inline-flex rounded-full px-2 py-0.5 text-[10px] font-semibold tracking-wider bg-white/5 border border-[--outline-variant]/20 text-[--on-surface-variant]/40"
             >
               Folded
             </motion.span>
@@ -195,7 +195,7 @@ const OpponentSeat = React.memo(function OpponentSeat({
               animate={{ scale: 1, opacity: 1 }}
               exit={{ scale: 0, opacity: 0 }}
               transition={{ type: "spring", stiffness: 400, damping: 20 }}
-              className="inline-flex rounded-full px-2 py-0.5 text-[10px] font-semibold tracking-wider bg-[--accent]/15 border border-[--accent]/25 text-[--accent]"
+              className="inline-flex rounded-full px-2 py-0.5 text-[10px] font-semibold tracking-wider bg-[--tertiary]/15 border border-[--tertiary] text-[--tertiary]"
             >
               Called
             </motion.span>
@@ -420,8 +420,7 @@ export const PlayerPerspectiveView = React.memo(function PlayerPerspectiveView({
         }}
       >
         <div data-testid="total-pot-indicator" className="flex flex-col items-center gap-2">
-          <div className="flex items-center gap-[5px] text-[--text-secondary]">
-            <ChipIcon size={11} />
+          <div className="flex items-center gap-[5px]" style={{ color: "var(--on-surface-variant)", opacity: 0.4 }}>
             <span className="text-[10px] font-semibold uppercase tracking-widest">
               Total Pot
             </span>
@@ -431,8 +430,9 @@ export const PlayerPerspectiveView = React.memo(function PlayerPerspectiveView({
               amount={totalPot}
               iconSize={compactMode ? 20 : 24}
               amountStyle={{
-                color: "var(--text-primary)",
-                fontSize: "clamp(2.8rem, 5vw, 4.5rem)",
+                color: "var(--on-surface)",
+                opacity: 0.8,
+                fontSize: "clamp(3rem, 6vw, 6.25rem)",
                 fontWeight: 800,
                 fontFamily: "var(--font-display)",
                 lineHeight: 1,
@@ -442,7 +442,7 @@ export const PlayerPerspectiveView = React.memo(function PlayerPerspectiveView({
           </div>
           <div
             data-testid="current-round-indicator"
-            className="inline-flex items-center gap-2 rounded-full bg-black/45 border border-[--accent]/24 text-white/[0.78] shadow-[0_2px_10px_rgba(0,0,0,0.35)]"
+            className="inline-flex items-center gap-2 rounded-full bg-black/45 border border-[--tertiary]/24 text-white/[0.78] shadow-[0_2px_10px_rgba(0,0,0,0.35)]"
             style={{ padding: compactMode ? "5px 10px" : "6px 12px" }}
           >
             <span className="text-[10px] font-bold uppercase tracking-[0.08em] text-white/40">
@@ -452,9 +452,9 @@ export const PlayerPerspectiveView = React.memo(function PlayerPerspectiveView({
               <ChipAmount
                 amount={currentRoundAmount}
                 iconSize={compactMode ? 10 : 11}
-                iconColor="var(--accent)"
+                iconColor="var(--tertiary)"
                 amountStyle={{
-                  color: "var(--accent)",
+                  color: "var(--tertiary)",
                   fontSize: compactMode ? 11 : 12,
                   fontWeight: 700,
                 }}

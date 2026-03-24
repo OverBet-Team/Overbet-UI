@@ -2,29 +2,48 @@
 
 /* ============================================================
    OVERBET — Poker UI Visual Refactor
-   Design System: Dark Premium with Sharp Accents
+   Design System: Lunar Orbit (Google Stitch)
    ============================================================ */
 
 @theme inline {
-  /* New Color Palette Variables */
-  --bg-base: #0a0a0f;
-  --bg-surface: #13131a;
-  --bg-elevated: #1c1c28;
-  --table-felt: #0f1923;
-  --table-rail: #1a2535;
-  --accent: #3b82f6;
-  --accent-hover: #2563eb;
+  /* Lunar Orbit Color Palette */
+  --bg-base: #0e0e10;
+  --bg-surface: #131315;
+  --bg-elevated: #1f1f22;
+  --table-felt: #0e0e10;
+  --table-rail: #19191c;
+  --accent: #81ecff;
+  --accent-hover: #00d4ec;
   --gold: #f59e0b;
   --success: #22c55e;
-  --danger: #ef4444;
-  --text-primary: #f1f5f9;
-  --text-secondary: #64748b;
-  --text-muted: #334155;
-  --ring-active: #3b82f6;
+  --danger: #ff6d8b;
+  --text-primary: #f6f3f5;
+  --text-secondary: #acaaad;
+  --text-muted: #48474a;
+  --ring-active: #81ecff;
+
+  /* Extended Lunar Orbit Tokens */
+  --primary: #e4d7fd;
+  --primary-container: #a79bbe;
+  --secondary: #ff6d8b;
+  --tertiary: #81ecff;
+  --tertiary-dim: #00d4ec;
+  --tertiary-container: #00e3fd;
+  --error: #ff6e84;
+  --surface-container-lowest: #000000;
+  --surface-container-low: #131315;
+  --surface-container: #19191c;
+  --surface-container-high: #1f1f22;
+  --surface-container-highest: #262528;
+  --surface-variant: #262528;
+  --outline: #767577;
+  --outline-variant: #48474a;
+  --on-surface: #f6f3f5;
+  --on-surface-variant: #acaaad;
 
   /* Typography */
-  --font-display: var(--font-syne);
-  --font-body: var(--font-dm-sans);
+  --font-display: var(--font-space-grotesk);
+  --font-body: var(--font-inter);
 
   /* Spacing */
   --space-unit: 8px;
@@ -32,19 +51,13 @@
 }
 
 :root {
-  /* Map to Tailwind-compatible color tokens */
+  /* Tailwind-compatible aliases - DO NOT override Lunar Orbit tokens */
   --background: var(--bg-base);
   --foreground: var(--text-primary);
   --card: var(--bg-surface);
   --card-foreground: var(--text-primary);
-  --primary: var(--accent);
-  --primary-foreground: var(--text-primary);
-  --secondary: var(--bg-elevated);
-  --secondary-foreground: var(--text-secondary);
   --muted: var(--bg-elevated);
   --muted-foreground: var(--text-muted);
-  --accent: var(--accent);
-  --accent-foreground: var(--text-primary);
   --destructive: var(--danger);
   --border: rgba(255, 255, 255, 0.08);
   --input: rgba(255, 255, 255, 0.1);
@@ -60,7 +73,7 @@
     background: var(--bg-base);
     background-attachment: fixed;
     color: var(--text-primary);
-    font-family: var(--font-body), 'DM Sans', system-ui, sans-serif;
+    font-family: var(--font-body), 'Inter', system-ui, sans-serif;
     margin: 0;
     padding: 0;
     -webkit-font-smoothing: antialiased;
@@ -75,10 +88,10 @@
 /* Face-up card with white background and subtle shine */
 .card-face {
   background: #ffffff;
-  border-radius: 12px;
-  box-shadow: 0 8px 32px rgba(0, 0, 0, 0.55), 0 2px 8px rgba(0, 0, 0, 0.35),
-    inset 0 1px 0 rgba(255, 255, 255, 0.95);
-  border: 1px solid rgba(0, 0, 0, 0.06);
+  border-radius: 8px;
+  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.4), 0 1px 4px rgba(0, 0, 0, 0.25),
+    inset 0 1px 0 rgba(255, 255, 255, 0.9);
+  border: 1px solid rgba(255, 255, 255, 0.9);
   position: relative;
   overflow: hidden;
   flex-shrink: 0;
@@ -89,22 +102,22 @@
   inset: 0;
   background: linear-gradient(135deg, rgba(255, 255, 255, 0.35) 0%, transparent 50%);
   pointer-events: none;
-  border-radius: 12px;
+  border-radius: 8px;
 }
 
 /* Face-down card with elevated background and diagonal pattern */
 .card-back {
-  background: var(--bg-elevated);
+  background: var(--surface-container-highest);
   background-image: repeating-linear-gradient(
     45deg,
     transparent,
     transparent 10px,
-    rgba(255, 255, 255, 0.03) 10px,
-    rgba(255, 255, 255, 0.03) 20px
+    rgba(255, 255, 255, 0.05) 10px,
+    rgba(255, 255, 255, 0.05) 20px
   );
-  border-radius: 12px;
-  border: 2px dashed rgba(255, 255, 255, 0.16);
-  box-shadow: 0 6px 24px rgba(0, 0, 0, 0.5);
+  border-radius: 8px;
+  border: 1px solid rgba(255, 255, 255, 0.1);
+  box-shadow: 0 4px 16px rgba(0, 0, 0, 0.4);
   position: relative;
   overflow: hidden;
   flex-shrink: 0;
@@ -112,8 +125,8 @@
 
 /* Dashed placeholder for empty card slots */
 .card-placeholder {
-  border-radius: 12px;
-  border: 2px dashed var(--bg-elevated);
+  border-radius: 8px;
+  border: 2px dashed rgba(72, 71, 74, 0.2);
   background: transparent;
   flex-shrink: 0;
 }
@@ -153,10 +166,10 @@
 @keyframes active-pulse {
   0%,
   100% {
-    box-shadow: 0 0 0 0 rgba(59, 130, 246, 0.5);
+    box-shadow: 0 0 0 0 rgba(129, 236, 255, 0.5);
   }
   50% {
-    box-shadow: 0 0 0 6px rgba(59, 130, 246, 0);
+    box-shadow: 0 0 0 6px rgba(129, 236, 255, 0);
   }
 }
 .active-ring {
@@ -219,13 +232,38 @@
 
 /* Table felt with radial gradient for depth */
 .table-felt {
-  background: radial-gradient(ellipse 90% 70% at 50% 100%, #1a2535 0%, #14202e 30%, #0f1923 60%, #0a1219 100%);
+  background: radial-gradient(circle at center, rgba(30, 30, 35, 0.4) 0%, rgba(14, 14, 16, 1) 80%);
 }
 
 /* Table rail with inset shadow for depth */
 .table-rail {
   border: 12px solid var(--table-rail);
   box-shadow: inset 0 2px 20px rgba(0, 0, 0, 0.5);
+}
+
+/* Lunar Orbit utility classes */
+.table-gradient {
+  background: radial-gradient(circle at center, rgba(30, 30, 35, 0.4) 0%, rgba(14, 14, 16, 1) 80%);
+}
+
+.glass-panel {
+  background: rgba(25, 25, 28, 0.4);
+  backdrop-filter: blur(24px);
+  -webkit-backdrop-filter: blur(24px);
+  border: 1px solid rgba(255, 255, 255, 0.05);
+}
+
+.grain-overlay {
+  background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='300' height='300'%3E%3Cfilter id='noise'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.9' numOctaves='4' /%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23noise)' opacity='0.02'/%3E%3C/svg%3E");
+  opacity: 0.02;
+  position: fixed;
+  inset: 0;
+  pointer-events: none;
+  z-index: 10;
+}
+
+.avatar-glow-active {
+  box-shadow: 0 0 0 2px #00e3fd, 0 0 25px rgba(0, 227, 253, 0.3);
 }
 
 /* ============================================================
@@ -288,9 +326,9 @@
   min-width: 36px;
   min-height: 36px;
   border-radius: 50%;
-  border: 1px solid rgba(255, 255, 255, 0.1);
-  background: rgba(16, 13, 28, 0.8);
-  color: rgba(255, 255, 255, 0.4);
+  border: 1px solid var(--outline-variant);
+  background: var(--surface-container-high);
+  color: var(--on-surface-variant);
   display: flex;
   align-items: center;
   justify-content: center;
@@ -299,8 +337,8 @@
   transition: color 0.15s, border-color 0.15s;
 }
 .icon-btn:hover {
-  color: var(--accent);
-  border-color: rgba(59, 130, 246, 0.3);
+  color: var(--tertiary);
+  border-color: var(--tertiary);
 }
 
 /* Ghost pill button */
@@ -310,9 +348,9 @@
   gap: 6px;
   padding: 6px 12px;
   border-radius: 999px;
-  border: 1px solid rgba(255, 255, 255, 0.12);
+  border: 1px solid var(--outline-variant);
   background: transparent;
-  color: rgba(255, 255, 255, 0.7);
+  color: var(--on-surface-variant);
   font-family: var(--font-body);
   font-size: 12px;
   font-weight: 600;
@@ -368,18 +406,18 @@
   padding: 12px 20px;
   border-radius: 14px;
   border: none;
-  background: var(--accent);
-  color: #fff;
+  background: linear-gradient(135deg, var(--tertiary-container) 0%, var(--tertiary-dim) 100%);
+  color: #000;
   font-size: 14px;
   font-weight: 600;
   font-family: var(--font-body);
   cursor: pointer;
   transition: background 0.15s, box-shadow 0.15s;
-  box-shadow: 0 4px 20px rgba(59, 130, 246, 0.25);
+  box-shadow: 0 4px 24px rgba(129, 236, 255, 0.35);
 }
 .btn-primary:hover {
-  background: var(--accent-hover);
-  box-shadow: 0 4px 28px rgba(59, 130, 246, 0.4);
+  background: linear-gradient(135deg, var(--tertiary-dim) 0%, var(--tertiary-container) 100%);
+  box-shadow: 0 4px 32px rgba(129, 236, 255, 0.55);
 }
 .btn-primary:disabled {
   background: rgba(255, 255, 255, 0.06);
@@ -396,9 +434,9 @@
   gap: 8px;
   padding: 12px 20px;
   border-radius: 14px;
-  border: 1px solid rgba(255, 255, 255, 0.1);
+  border: 1px solid var(--outline-variant);
   background: transparent;
-  color: rgba(255, 255, 255, 0.7);
+  color: var(--on-surface-variant);
   font-size: 14px;
   font-weight: 600;
   font-family: var(--font-body);
@@ -407,8 +445,8 @@
 }
 .btn-ghost:hover {
   background: rgba(255, 255, 255, 0.06);
-  color: rgba(255, 255, 255, 0.9);
-  border-color: rgba(255, 255, 255, 0.18);
+  color: var(--on-surface);
+  border-color: var(--outline);
 }
 
 /* ============================================================
@@ -430,19 +468,19 @@ input[type='range']::-webkit-slider-thumb {
   width: 16px;
   height: 16px;
   border-radius: 50%;
-  background: var(--accent);
+  background: var(--tertiary);
   cursor: pointer;
   border: 2px solid white;
-  box-shadow: 0 2px 6px rgba(0, 0, 0, 0.4);
+  box-shadow: 0 0 10px rgba(129, 236, 255, 0.8), 0 2px 6px rgba(0, 0, 0, 0.4);
 }
 input[type='range']::-moz-range-thumb {
   width: 16px;
   height: 16px;
   border-radius: 50%;
-  background: var(--accent);
+  background: var(--tertiary);
   cursor: pointer;
   border: 2px solid white;
-  box-shadow: 0 2px 6px rgba(0, 0, 0, 0.4);
+  box-shadow: 0 0 10px rgba(129, 236, 255, 0.8), 0 2px 6px rgba(0, 0, 0, 0.4);
 }
 
 /* ============================================================

@@ -56,10 +56,10 @@ const SUIT_SYMBOLS: Record<Suit, string> = {
 };
 
 const SUIT_COLORS: Record<Suit, string> = {
-  spades: '#111827',
-  hearts: '#ef4444',
-  diamonds: '#ef4444',
-  clubs: '#111827',
+  spades: '#18181b',
+  hearts: '#f43f5e',
+  diamonds: '#f43f5e',
+  clubs: '#18181b',
 };
 
 // Engine uses single-char suit codes: s h d c

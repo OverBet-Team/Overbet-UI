@@ -64,9 +64,9 @@ export function BuyInModal({
       <div
         className="relative w-full max-w-[380px] p-7 rounded-2xl pointer-events-auto font-body"
         style={{
-          background: 'var(--bg-surface)',
-          border: isRebuy ? '1px solid rgba(239,68,68,0.25)' : '1px solid rgba(255,255,255,0.1)',
-          boxShadow: isRebuy ? '0 24px 80px rgba(239,68,68,0.15)' : '0 24px 80px rgba(0,0,0,0.7)',
+          background: 'var(--surface-container-low)',
+          border: isRebuy ? '1px solid var(--secondary)/25' : '1px solid var(--outline-variant)',
+          boxShadow: isRebuy ? '0 24px 80px rgba(255,109,139,0.15)' : '0 24px 80px rgba(0,0,0,0.7)',
         }}
       >
         {/* Close button */}
@@ -109,7 +109,7 @@ export function BuyInModal({
 
           {isRebuy && initialDisplayName && (
             <div className="flex items-center gap-2.5">
-              <div className="w-9 h-9 rounded-full bg-[--accent] flex items-center justify-center text-white text-sm font-bold">
+              <div className="w-9 h-9 rounded-full bg-[--primary] flex items-center justify-center text-black text-sm font-bold">
                 {initialDisplayName.charAt(0).toUpperCase()}
               </div>
               <div>
@@ -121,7 +121,7 @@ export function BuyInModal({
 
           <div>
             <label className="label">{isRebuy ? 'Re-buy Amount' : 'Buy-In Amount'}</label>
-            <div className="flex items-center gap-2.5 h-12 px-3.5 rounded-xl bg-white/[0.06] border border-white/10 transition-colors focus-within:[border-color:var(--accent)]">
+            <div className="flex items-center gap-2.5 h-12 px-3.5 rounded-xl bg-[--surface-container-lowest] border border-white/10 transition-colors focus-within:border-[--primary]">
               <ChipIcon size={16} color="rgba(255,255,255,0.4)" />
               <input
                 type="text"
@@ -173,13 +173,13 @@ export function BuyInModal({
             disabled={!isValid}
             className="flex-[2] py-3 rounded-[14px] border-none font-body text-sm font-bold transition-all"
             style={{
-              background: isValid ? (isRebuy ? 'var(--danger)' : 'var(--accent)') : 'rgba(255,255,255,0.06)',
-              color: isValid ? '#fff' : 'rgba(255,255,255,0.2)',
+              background: isValid ? (isRebuy ? 'var(--secondary)' : 'linear-gradient(135deg, var(--primary) 0%, var(--primary-container) 100%)') : 'rgba(255,255,255,0.06)',
+              color: isValid ? (isRebuy ? '#fff' : '#000') : 'rgba(255,255,255,0.2)',
               cursor: isValid ? 'pointer' : 'not-allowed',
               boxShadow: isValid
                 ? isRebuy
-                  ? '0 4px 20px rgba(239,68,68,0.25)'
-                  : '0 4px 20px rgba(59,130,246,0.25)'
+                  ? '0 4px 20px rgba(255,109,139,0.25)'
+                  : '0 4px 20px rgba(228,215,253,0.25)'
                 : 'none',
             }}
           >

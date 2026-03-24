@@ -24,21 +24,21 @@ export const PHASE_NAMES: Record<string, string> = {
 // ── Action colors (for ChipAmount iconColor / amountStyle) ────────────────────
 
 export const ACTION_COLORS: Record<string, string> = {
-  FOLD: "#f87171",
-  CALL: "#93c5fd",
+  FOLD: "#ff6d8b",
+  CALL: "#81ecff",
   CHECK: "rgba(255,255,255,0.6)",
-  RAISE: "#6ee7b7",
-  ALL_IN: "#a78bfa",
+  RAISE: "#81ecff",
+  ALL_IN: "#f59e0b",
 };
 
 // ── Action Tailwind classes for label spans ────────────────────────────────────
 
 export const ACTION_CLASS: Record<string, string> = {
-  FOLD: "text-[--danger]",
-  CALL: "text-[--accent]",
+  FOLD: "text-[--secondary]",
+  CALL: "text-[--tertiary]",
   CHECK: "text-[--text-secondary]",
-  RAISE: "text-[--success]",
-  ALL_IN: "text-purple-400",
+  RAISE: "text-[--tertiary]",
+  ALL_IN: "text-[--gold]",
 };
 
 // ── Action label text ──────────────────────────────────────────────────────────

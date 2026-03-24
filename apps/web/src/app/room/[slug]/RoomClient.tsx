@@ -682,7 +682,7 @@ export default function RoomClient({ slug, initialRoom }: RoomProps) {
                         onClick={() => approveSeat(req.playerId)}
                         style={{
                           padding: "4px 10px", borderRadius: 8, border: "none",
-                          background: "linear-gradient(135deg, #22c55e, #16a34a)", color: "#fff",
+                          background: "linear-gradient(135deg, var(--success), #16a34a)", color: "#fff",
                           fontSize: 11, fontWeight: 700, cursor: "pointer", fontFamily: "Outfit, sans-serif",
                         }}
                       >
@@ -693,8 +693,8 @@ export default function RoomClient({ slug, initialRoom }: RoomProps) {
                         onClick={() => rejectSeat(req.playerId)}
                         style={{
                           padding: "3px 10px", borderRadius: 8,
-                          border: "1px solid rgba(239,68,68,0.5)", background: "transparent",
-                          color: "#fca5a5", fontSize: 10, fontWeight: 600, cursor: "pointer", fontFamily: "Outfit, sans-serif",
+                          border: "1px solid var(--secondary)", background: "transparent",
+                          color: "var(--secondary)", fontSize: 10, fontWeight: 600, cursor: "pointer", fontFamily: "Outfit, sans-serif",
                         }}
                       >
                         Reject
@@ -742,7 +742,7 @@ export default function RoomClient({ slug, initialRoom }: RoomProps) {
         {/* Lobby card */}
         <div style={{
           width: "100%", maxWidth: 640, padding: 32,
-          background: "rgba(16,13,28,0.92)", border: "1px solid rgba(255,255,255,0.08)",
+          background: "var(--surface-container)", border: "1px solid rgba(72, 71, 74, 0.3)",
           borderRadius: 24, boxShadow: "0 24px 80px rgba(0,0,0,0.6)",
           backdropFilter: "blur(20px)",
         }}>
@@ -755,9 +755,9 @@ export default function RoomClient({ slug, initialRoom }: RoomProps) {
               <div style={{ display: "flex", alignItems: "center", gap: 8, marginTop: 6 }}>
                 <span style={{ color: "rgba(255,255,255,0.3)", fontSize: 12 }}>Room Code:</span>
                 <span style={{
-                  color: "#a78bfa", fontFamily: "monospace", fontSize: 14, fontWeight: 700,
-                  letterSpacing: "0.15em", background: "rgba(167,139,250,0.1)",
-                  padding: "2px 10px", borderRadius: 6, border: "1px solid rgba(167,139,250,0.2)",
+                  color: "var(--primary)", fontFamily: "monospace", fontSize: 14, fontWeight: 700,
+                  letterSpacing: "0.15em", background: "rgba(228,215,253,0.1)",
+                  padding: "2px 10px", borderRadius: 6, border: "1px solid rgba(228, 215, 253, 0.2)",
                 }}>
                   {slug.toUpperCase()}
                 </span>
@@ -768,9 +768,9 @@ export default function RoomClient({ slug, initialRoom }: RoomProps) {
               onClick={copyLink}
               style={{
                 display: "flex", alignItems: "center", gap: 6, padding: "8px 14px",
-                borderRadius: 10, border: copied ? "1px solid rgba(110,231,183,0.4)" : "1px solid rgba(255,255,255,0.1)",
-                background: copied ? "rgba(110,231,183,0.08)" : "rgba(255,255,255,0.04)",
-                color: copied ? "#6ee7b7" : "rgba(255,255,255,0.6)",
+                borderRadius: 10, border: copied ? "1px solid var(--success)" : "1px solid var(--outline-variant)",
+                background: copied ? "rgba(34,197,94,0.08)" : "rgba(255,255,255,0.04)",
+                color: copied ? "var(--success)" : "rgba(255,255,255,0.6)",
                 fontFamily: "Outfit, sans-serif", fontSize: 12, fontWeight: 600, cursor: "pointer",
                 transition: "all 0.2s",
               }}
@@ -784,11 +784,11 @@ export default function RoomClient({ slug, initialRoom }: RoomProps) {
           <div className="lobby-info-grid">
             {/* Players */}
             <div style={{
-              padding: 18, borderRadius: 16, background: "rgba(255,255,255,0.03)",
-              border: "1px solid rgba(255,255,255,0.07)",
+              padding: 18, borderRadius: 16, background: "var(--surface-container)",
+              border: "1px solid rgba(72, 71, 74, 0.3)",
             }}>
               <div style={{ display: "flex", alignItems: "center", gap: 7, marginBottom: 14 }}>
-                <Users size={15} color="rgba(167,139,250,0.8)" />
+                <Users size={15} color="var(--primary)" />
                 <span data-testid="lobby-player-count" style={{ color: "rgba(255,255,255,0.6)", fontSize: 11, fontWeight: 700, textTransform: "uppercase", letterSpacing: "0.08em" }}>
                   Players ({players.length})
                 </span>
@@ -807,13 +807,13 @@ export default function RoomClient({ slug, initialRoom }: RoomProps) {
                         <ChipAmount
                           amount={p.chips}
                           iconSize={11}
-                          amountStyle={{ color: "#a78bfa", fontSize: 11, fontWeight: 700, fontFamily: "monospace" }}
+                          amountStyle={{ color: "var(--primary)", fontSize: 11, fontWeight: 700, fontFamily: "monospace" }}
                         />
                         {room.hostId === p.id && (
                           <span style={{
                             fontSize: 9, padding: "1px 6px", borderRadius: 999,
-                            background: "rgba(239,68,68,0.15)", color: "#f87171",
-                            border: "1px solid rgba(239,68,68,0.25)", fontWeight: 700,
+                            background: "rgba(255,109,139,0.15)", color: "var(--secondary)",
+                            border: "1px solid var(--secondary)", fontWeight: 700,
                           }}>
                             HOST
                           </span>
@@ -827,12 +827,12 @@ export default function RoomClient({ slug, initialRoom }: RoomProps) {
 
             {/* Settings */}
             <div style={{
-              padding: 18, borderRadius: 16, background: "rgba(255,255,255,0.03)",
-              border: "1px solid rgba(255,255,255,0.07)",
+              padding: 18, borderRadius: 16, background: "var(--surface-container)",
+              border: "1px solid rgba(72, 71, 74, 0.3)",
             }}>
               <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", marginBottom: 14 }}>
                 <div style={{ display: "flex", alignItems: "center", gap: 7 }}>
-                  <Settings size={15} color="rgba(167,139,250,0.8)" />
+                  <Settings size={15} color="var(--primary)" />
                   <span style={{ color: "rgba(255,255,255,0.6)", fontSize: 11, fontWeight: 700, textTransform: "uppercase", letterSpacing: "0.08em" }}>
                     Settings
                   </span>
@@ -841,8 +841,8 @@ export default function RoomClient({ slug, initialRoom }: RoomProps) {
                   <button
                     onClick={handleOpenSettings}
                     style={{
-                      padding: "3px 10px", borderRadius: 6, border: "1px solid rgba(167,139,250,0.3)",
-                      background: "rgba(167,139,250,0.1)", color: "#a78bfa",
+                      padding: "3px 10px", borderRadius: 6, border: "1px solid var(--primary)",
+                      background: "rgba(228,215,253,0.1)", color: "var(--primary)",
                       fontSize: 10, fontWeight: 700, cursor: "pointer", fontFamily: "Outfit, sans-serif",
                     }}
                   >
@@ -883,14 +883,14 @@ export default function RoomClient({ slug, initialRoom }: RoomProps) {
           {!isHost && !!myPendingRequest && (
             <div style={{
               display: "flex", alignItems: "center", gap: 10, padding: "12px 16px",
-              borderRadius: 12, background: "rgba(167,139,250,0.06)",
-              border: "1px solid rgba(167,139,250,0.2)", marginTop: 16,
+              borderRadius: 12, background: "rgba(228,215,253,0.06)",
+              border: "1px solid rgba(228, 215, 253, 0.2)", marginTop: 16,
             }}>
               <div style={{
-                width: 8, height: 8, borderRadius: "50%", background: "#a78bfa",
-                boxShadow: "0 0 8px rgba(167,139,250,0.6)", animation: "pulse 2s infinite",
+                width: 8, height: 8, borderRadius: "50%", background: "var(--primary)",
+                boxShadow: "0 0 8px rgba(228,215,253,0.6)", animation: "pulse 2s infinite",
               }} />
-              <span style={{ color: "#a78bfa", fontSize: 12, fontWeight: 600 }}>
+              <span style={{ color: "var(--primary)", fontSize: 12, fontWeight: 600 }}>
                 {myPendingRequest?.requestType === "REBUY"
                   ? "Waiting for host re-buy approval…"
                   : "Waiting for host approval…"}
@@ -909,12 +909,12 @@ export default function RoomClient({ slug, initialRoom }: RoomProps) {
                   width: "100%", padding: "15px 0", borderRadius: 16, border: "none",
                   background: players.length < 2
                     ? "rgba(255,255,255,0.06)"
-                    : "linear-gradient(135deg, #ef4444, #dc2626)",
+                    : "linear-gradient(135deg, var(--secondary), #dc2626)",
                   color: players.length < 2 ? "rgba(255,255,255,0.25)" : "#fff",
                   fontFamily: "Outfit, sans-serif", fontSize: 16, fontWeight: 700,
                   cursor: players.length < 2 ? "not-allowed" : "pointer",
                   display: "flex", alignItems: "center", justifyContent: "center", gap: 8,
-                  boxShadow: players.length >= 2 ? "0 6px 24px rgba(239,68,68,0.3)" : "none",
+                  boxShadow: players.length >= 2 ? "0 6px 24px rgba(255,109,139,0.3)" : "none",
                   transition: "all 0.2s",
                 }}
               >
@@ -1028,9 +1028,9 @@ export default function RoomClient({ slug, initialRoom }: RoomProps) {
               zIndex: 26,
               padding: "6px 10px",
               borderRadius: 10,
-              background: "rgba(220,38,38,0.15)",
-              border: "1px solid rgba(248,113,113,0.4)",
-              color: "#fecaca",
+              background: "rgba(255,110,132,0.15)",
+              border: "1px solid var(--error)",
+              color: "var(--error)",
               fontSize: 11,
               fontWeight: 600,
             }}
@@ -1122,12 +1122,12 @@ export default function RoomClient({ slug, initialRoom }: RoomProps) {
             alignItems: "center",
             justifyContent: "space-between",
             padding: "6px 10px",
-            background: "linear-gradient(180deg, rgba(11,9,20,0.88) 0%, rgba(11,9,20,0.2) 100%)",
+            background: "linear-gradient(180deg, rgba(19,19,21,0.88) 0%, rgba(19,19,21,0.2) 100%)",
             borderBottom: "1px solid rgba(255,255,255,0.05)",
             backdropFilter: "blur(8px)",
           }}>
             <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
-              <span style={{ color: "rgba(255,255,255,0.6)", fontSize: 10, fontWeight: 700, letterSpacing: "0.08em", textTransform: "uppercase" }}>
+              <span style={{ color: "var(--on-surface-variant)", opacity: 0.6, fontSize: 10, fontWeight: 700, letterSpacing: "0.08em", textTransform: "uppercase" }}>
               <span data-testid="phase-label-visual">
                 {gameState?.phase?.replaceAll("_", " ") || "Waiting"}
               </span>
@@ -1138,8 +1138,8 @@ export default function RoomClient({ slug, initialRoom }: RoomProps) {
                   style={{
                     display: "inline-flex", alignItems: "center", gap: 4,
                     padding: "3px 8px", borderRadius: 999,
-                    border: "1px solid rgba(255,255,255,0.14)",
-                    background: "rgba(255,255,255,0.04)", color: "rgba(255,255,255,0.72)",
+                    border: "1px solid var(--outline-variant)",
+                    background: "rgba(255,255,255,0.04)", color: "var(--on-surface-variant)",
                     fontSize: 10, fontWeight: 700, cursor: "pointer", fontFamily: "Outfit, sans-serif",
                   }}
                 >
@@ -1151,11 +1151,11 @@ export default function RoomClient({ slug, initialRoom }: RoomProps) {
             <div style={{ display: "flex", alignItems: "center", gap: 10 }}>
               <div style={{ display: "flex", alignItems: "center", gap: 4 }}>
                 <span style={{ color: "rgba(255,255,255,0.55)", fontSize: 10, fontWeight: 700, textTransform: "uppercase", letterSpacing: "0.08em" }}>Pot</span>
-                <ChipAmount amount={totalPot} iconSize={11} iconColor="#fbbf24" amountStyle={{ color: "#fbbf24", fontSize: 12, fontWeight: 700 }} />
+                <ChipAmount amount={totalPot} iconSize={11} iconColor="var(--tertiary)" amountStyle={{ color: "var(--tertiary)", fontSize: 12, fontWeight: 700 }} />
               </div>
               <div style={{ display: "flex", alignItems: "center", gap: 4 }}>
                 <span style={{ color: "rgba(255,255,255,0.45)", fontSize: 10, fontWeight: 700, textTransform: "uppercase", letterSpacing: "0.08em" }}>Round</span>
-                <ChipAmount amount={currentRoundAmount} iconSize={10} iconColor="#a78bfa" amountStyle={{ color: "#a78bfa", fontSize: 11, fontWeight: 700 }} />
+                <ChipAmount amount={currentRoundAmount} iconSize={10} iconColor="var(--primary)" amountStyle={{ color: "var(--primary)", fontSize: 11, fontWeight: 700 }} />
               </div>
             </div>
           </div>
@@ -1167,14 +1167,14 @@ export default function RoomClient({ slug, initialRoom }: RoomProps) {
             <button
               onClick={handleOpenSettings}
               style={{
-                width: 36, height: 36, borderRadius: "50%", border: "1px solid rgba(255,255,255,0.1)",
-                background: "rgba(16,13,28,0.8)", color: "rgba(255,255,255,0.4)",
+                width: 36, height: 36, borderRadius: "50%", border: "1px solid var(--outline-variant)",
+                background: "var(--surface-container-high)", color: "var(--on-surface-variant)",
                 display: "flex", alignItems: "center", justifyContent: "center",
                 cursor: "pointer", backdropFilter: "blur(8px)", transition: "all 0.15s",
               }}
               title="Room Settings"
-              onMouseEnter={(e) => { e.currentTarget.style.color = "#a78bfa"; e.currentTarget.style.borderColor = "rgba(167,139,250,0.3)"; }}
-              onMouseLeave={(e) => { e.currentTarget.style.color = "rgba(255,255,255,0.4)"; e.currentTarget.style.borderColor = "rgba(255,255,255,0.1)"; }}
+              onMouseEnter={(e) => { e.currentTarget.style.color = "var(--tertiary)"; e.currentTarget.style.borderColor = "var(--tertiary)"; }}
+              onMouseLeave={(e) => { e.currentTarget.style.color = "var(--on-surface-variant)"; e.currentTarget.style.borderColor = "var(--outline-variant)"; }}
             >
               <Settings size={16} />
             </button>
@@ -1182,15 +1182,15 @@ export default function RoomClient({ slug, initialRoom }: RoomProps) {
           <button
             onClick={() => setShowFairnessModal(true)}
             style={{
-              width: 36, height: 36, borderRadius: "50%", border: "1px solid rgba(255,255,255,0.1)",
-              background: "rgba(16,13,28,0.8)", color: "rgba(255,255,255,0.4)",
+              width: 36, height: 36, borderRadius: "50%", border: "1px solid var(--outline-variant)",
+              background: "var(--surface-container-high)", color: "var(--on-surface-variant)",
               display: "flex", alignItems: "center", justifyContent: "center",
               cursor: "pointer", backdropFilter: "blur(8px)", transition: "all 0.15s",
               fontSize: 16,
             }}
             title="Provably Fair"
-            onMouseEnter={(e) => { e.currentTarget.style.color = "#6ee7b7"; e.currentTarget.style.borderColor = "rgba(110,231,183,0.3)"; }}
-            onMouseLeave={(e) => { e.currentTarget.style.color = "rgba(255,255,255,0.4)"; e.currentTarget.style.borderColor = "rgba(255,255,255,0.1)"; }}
+            onMouseEnter={(e) => { e.currentTarget.style.color = "var(--tertiary)"; e.currentTarget.style.borderColor = "var(--tertiary)"; }}
+            onMouseLeave={(e) => { e.currentTarget.style.color = "var(--on-surface-variant)"; e.currentTarget.style.borderColor = "var(--outline-variant)"; }}
           >
             <Shield size={16} />
           </button>
@@ -1223,16 +1223,16 @@ export default function RoomClient({ slug, initialRoom }: RoomProps) {
             left: "50%",
             transform: "translateX(-50%)",
             display: "flex", alignItems: "center", gap: 12, padding: "14px 18px",
-            borderRadius: 16, background: "rgba(167,139,250,0.06)",
-            border: "1px solid rgba(167,139,250,0.15)", zIndex: 20,
+            borderRadius: 16, background: "rgba(228,215,253,0.06)",
+            border: "1px solid var(--primary)", zIndex: 20,
           }}>
             <div style={{
               width: 8, height: 8, borderRadius: "50%", flexShrink: 0,
-              background: "#a78bfa", boxShadow: "0 0 10px rgba(167,139,250,0.6)",
+              background: "var(--primary)", boxShadow: "0 0 10px rgba(228,215,253,0.6)",
               animation: "pulse 2s infinite",
             }} />
             <div>
-              <div style={{ color: "#a78bfa", fontSize: 13, fontWeight: 700 }}>
+              <div style={{ color: "var(--primary)", fontSize: 13, fontWeight: 700 }}>
                 {isHost ? "Ready to start" : "Waiting for host to start the game"}
               </div>
               <div style={{ color: "rgba(255,255,255,0.3)", fontSize: 11, marginTop: 2 }}>
@@ -1249,7 +1249,7 @@ export default function RoomClient({ slug, initialRoom }: RoomProps) {
                 onClick={handleStartGame}
                 style={{
                   marginLeft: "auto", padding: "9px 18px", borderRadius: 12, border: "none",
-                  background: "linear-gradient(135deg, #ef4444, #dc2626)",
+                  background: "linear-gradient(135deg, var(--secondary), #dc2626)",
                   color: "#fff", fontSize: 13, fontWeight: 700, cursor: "pointer",
                   fontFamily: "Outfit, sans-serif",
                   boxShadow: "0 4px 16px rgba(239,68,68,0.25)", flexShrink: 0,
@@ -1271,10 +1271,10 @@ export default function RoomClient({ slug, initialRoom }: RoomProps) {
             transform: "translateX(-50%)",
             display: "flex", alignItems: "center", justifyContent: "space-between",
             padding: "14px 18px", borderRadius: 16, zIndex: 20,
-            background: "rgba(239,68,68,0.06)", border: "1px solid rgba(239,68,68,0.2)",
+            background: "rgba(255,109,139,0.06)", border: "1px solid var(--secondary)",
           }}>
             <div>
-              <div style={{ color: "#f87171", fontSize: 13, fontWeight: 700 }}>You're out of chips</div>
+              <div style={{ color: "var(--secondary)", fontSize: 13, fontWeight: 700 }}>You're out of chips</div>
               <div style={{ color: "rgba(255,255,255,0.35)", fontSize: 11, marginTop: 2 }}>Re-buy to stay in the game</div>
             </div>
             <button
@@ -1282,7 +1282,7 @@ export default function RoomClient({ slug, initialRoom }: RoomProps) {
               onClick={() => setIsRebuyOpen(true)}
               style={{
                 marginLeft: 16, padding: "9px 18px", borderRadius: 12, border: "none",
-                background: "linear-gradient(135deg, #ef4444, #dc2626)",
+                background: "linear-gradient(135deg, var(--secondary), #dc2626)",
                 color: "#fff", fontSize: 13, fontWeight: 700, cursor: "pointer",
                 fontFamily: "Outfit, sans-serif",
                 boxShadow: "0 4px 16px rgba(239,68,68,0.25)",
@@ -1302,14 +1302,14 @@ export default function RoomClient({ slug, initialRoom }: RoomProps) {
             left: "50%",
             transform: "translateX(-50%)",
             display: "flex", alignItems: "center", gap: 10, padding: "12px 16px",
-            borderRadius: 12, background: "rgba(167,139,250,0.06)",
-            border: "1px solid rgba(167,139,250,0.2)", zIndex: 20,
+            borderRadius: 12, background: "rgba(228,215,253,0.06)",
+            border: "1px solid rgba(228, 215, 253, 0.2)", zIndex: 20,
           }}>
             <div style={{
-              width: 8, height: 8, borderRadius: "50%", background: "#a78bfa",
-              boxShadow: "0 0 8px rgba(167,139,250,0.6)",
+              width: 8, height: 8, borderRadius: "50%", background: "var(--primary)",
+              boxShadow: "0 0 8px rgba(228,215,253,0.6)",
             }} />
-            <span style={{ color: "#a78bfa", fontSize: 12, fontWeight: 600 }}>
+            <span style={{ color: "var(--primary)", fontSize: 12, fontWeight: 600 }}>
               {myPendingRequest?.requestType === "REBUY"
                 ? "Waiting for host re-buy approval…"
                 : "Waiting for host approval…"}
@@ -1328,17 +1328,14 @@ export default function RoomClient({ slug, initialRoom }: RoomProps) {
           flexDirection: "column",
           gap: 8,
           padding: "8px 10px calc(8px + env(safe-area-inset-bottom, 0px))",
-          background: "rgba(10, 8, 20, 0.92)",
-          backdropFilter: "blur(20px)",
-          borderTop: "1px solid rgba(255,255,255,0.05)",
-        }}>
+        }} className="glass-panel rounded-t-[1.5rem] border-t border-[--outline-variant]/20">
           <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", gap: 8 }}>
             <div style={{ display: "flex", alignItems: "center", gap: 6 }}>
               <button
                 onClick={() => setShowHelpOverlay((v) => !v)}
                 style={{
                   display: "flex", alignItems: "center", gap: 5, padding: "6px 10px",
-                  borderRadius: 999, border: "1px solid rgba(255,255,255,0.12)",
+                  borderRadius: 999, border: "1px solid var(--outline-variant)",
                   background: showHelpOverlay ? "rgba(255,255,255,0.08)" : "transparent",
                   color: "rgba(255,255,255,0.7)", fontSize: 12, fontWeight: 600,
                   cursor: "pointer", fontFamily: "Outfit, sans-serif",
@@ -1351,7 +1348,7 @@ export default function RoomClient({ slug, initialRoom }: RoomProps) {
                 onClick={() => setShowLogOverlay((v) => !v)}
                 style={{
                   display: "flex", alignItems: "center", gap: 5, padding: "6px 10px",
-                  borderRadius: 999, border: "1px solid rgba(255,255,255,0.12)",
+                  borderRadius: 999, border: "1px solid var(--outline-variant)",
                   background: showLogOverlay ? "rgba(255,255,255,0.08)" : "transparent",
                   color: "rgba(255,255,255,0.7)", fontSize: 12, fontWeight: 600,
                   cursor: "pointer", fontFamily: "Outfit, sans-serif",
@@ -1363,9 +1360,9 @@ export default function RoomClient({ slug, initialRoom }: RoomProps) {
             </div>
             <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
               {myStack != null ? (
-                <ChipAmount amount={myStack} iconSize={12} amountStyle={{ color: "#a78bfa", fontSize: 14, fontWeight: 800 }} />
+                <ChipAmount amount={myStack} iconSize={12} amountStyle={{ color: "var(--primary)", fontSize: 14, fontWeight: 800 }} />
               ) : (
-                <span style={{ color: "#a78bfa", fontSize: 14, fontWeight: 800, fontVariantNumeric: "tabular-nums" }}>—</span>
+                <span style={{ color: "var(--primary)", fontSize: 14, fontWeight: 800, fontVariantNumeric: "tabular-nums" }}>—</span>
               )}
               {turnTimer && turnTimer.playerId === userId && <TurnTimerPill timer={turnTimer} />}
             </div>
@@ -1397,19 +1394,16 @@ export default function RoomClient({ slug, initialRoom }: RoomProps) {
           alignItems: "center",
           justifyContent: "space-between",
           padding: "0 20px",
-          background: "rgba(10, 8, 20, 0.88)",
-          backdropFilter: "blur(20px)",
-          borderTop: "1px solid rgba(255,255,255,0.05)",
-        }}>
+        }} className="glass-panel border-t border-[--outline-variant]/20">
           <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
             <button
               onClick={() => setShowHelpOverlay((v) => !v)}
               style={{
                 display: "flex", alignItems: "center", gap: 6, padding: "8px 14px",
-                borderRadius: 999, border: "1px solid rgba(255,255,255,0.1)",
+                borderRadius: 999, border: "1px solid var(--outline-variant)",
                 background: showHelpOverlay ? "rgba(255,255,255,0.08)" : "transparent",
-                color: "rgba(255,255,255,0.7)", fontSize: 13, fontWeight: 600,
-                cursor: "pointer", fontFamily: "Outfit, sans-serif",
+                color: "var(--on-surface-variant)", fontSize: 13, fontWeight: 600,
+                cursor: "pointer",
               }}
             >
               <HelpCircle size={16} />
@@ -1419,10 +1413,10 @@ export default function RoomClient({ slug, initialRoom }: RoomProps) {
               onClick={() => setShowLogOverlay((v) => !v)}
               style={{
                 display: "flex", alignItems: "center", gap: 6, padding: "8px 14px",
-                borderRadius: 999, border: "1px solid rgba(255,255,255,0.1)",
+                borderRadius: 999, border: "1px solid var(--outline-variant)",
                 background: showLogOverlay ? "rgba(255,255,255,0.08)" : "transparent",
-                color: "rgba(255,255,255,0.7)", fontSize: 13, fontWeight: 600,
-                cursor: "pointer", fontFamily: "Outfit, sans-serif",
+                color: "var(--on-surface-variant)", fontSize: 13, fontWeight: 600,
+                cursor: "pointer",
               }}
             >
               <ScrollText size={16} />
@@ -1465,10 +1459,10 @@ export default function RoomClient({ slug, initialRoom }: RoomProps) {
                   <ChipAmount
                     amount={myStack}
                     iconSize={16}
-                    amountStyle={{ color: "#a78bfa", fontSize: 18, fontWeight: 800 }}
+                    amountStyle={{ color: "var(--primary)", fontSize: 18, fontWeight: 800 }}
                   />
                 ) : (
-                  <span style={{ color: "#a78bfa", fontSize: 18, fontWeight: 800, fontVariantNumeric: "tabular-nums" }}>—</span>
+                  <span style={{ color: "var(--primary)", fontSize: 18, fontWeight: 800, fontVariantNumeric: "tabular-nums" }}>—</span>
                 )}
                 {playerBet > 0 && (
                   <span style={{
@@ -1477,8 +1471,8 @@ export default function RoomClient({ slug, initialRoom }: RoomProps) {
                     gap: 4,
                     padding: "2px 6px",
                     borderRadius: 6,
-                    background: "rgba(167,139,250,0.2)",
-                    color: "#a78bfa",
+                    background: "rgba(228, 215, 253, 0.2)",
+                    color: "var(--primary)",
                     fontSize: 10,
                     fontWeight: 700,
                   }}>
@@ -1486,7 +1480,7 @@ export default function RoomClient({ slug, initialRoom }: RoomProps) {
                     <ChipAmount
                       amount={playerBet}
                       iconSize={10}
-                      iconColor="#a78bfa"
+                      iconColor="var(--primary)"
                       amountStyle={{ color: "inherit", fontSize: 10, fontWeight: 700 }}
                     />
                   </span>
@@ -1512,10 +1506,10 @@ export default function RoomClient({ slug, initialRoom }: RoomProps) {
         }} onClick={() => setShowLogOverlay(false)}>
           <div style={{
             width: "100%", maxWidth: isPortraitMobile ? "100%" : 420, maxHeight: isPortraitMobile ? "78dvh" : "70vh", overflow: "hidden",
-            background: "rgba(16,13,28,0.98)", borderRadius: isPortraitMobile ? "18px 18px 0 0" : 20,
-            border: "1px solid rgba(255,255,255,0.1)", boxShadow: "0 24px 80px rgba(0,0,0,0.6)",
+            background: "var(--surface-container-low)", borderRadius: isPortraitMobile ? "1.5rem 1.5rem 0 0" : 20,
+            border: "1px solid rgba(72, 71, 74, 0.3)", boxShadow: "0 24px 80px rgba(0,0,0,0.6)",
           }} onClick={(e) => e.stopPropagation()}>
-            <div style={{ padding: 16, borderBottom: "1px solid rgba(255,255,255,0.08)", display: "flex", justifyContent: "space-between", alignItems: "center" }}>
+            <div style={{ padding: 16, borderBottom: "1px solid rgba(72, 71, 74, 0.3)", display: "flex", justifyContent: "space-between", alignItems: "center" }}>
               <span style={{ color: "#fff", fontSize: 16, fontWeight: 700 }}>Hand Log</span>
               <button onClick={() => setShowLogOverlay(false)} style={{ background: "none", border: "none", color: "rgba(255,255,255,0.5)", cursor: "pointer", fontSize: 18 }}>✕</button>
             </div>
@@ -1539,9 +1533,9 @@ export default function RoomClient({ slug, initialRoom }: RoomProps) {
           <div
             style={{
               width: "100%", maxHeight: "78dvh", overflowY: "auto",
-              borderRadius: "18px 18px 0 0",
-              background: "rgba(16,13,28,0.98)",
-              border: "1px solid rgba(255,255,255,0.1)",
+              borderRadius: "1.5rem 1.5rem 0 0",
+              background: "var(--surface-container-low)",
+              border: "1px solid rgba(72, 71, 74, 0.3)",
               boxShadow: "0 24px 80px rgba(0,0,0,0.6)",
               padding: "12px 12px calc(12px + env(safe-area-inset-bottom, 0px))",
             }}
@@ -1568,8 +1562,8 @@ export default function RoomClient({ slug, initialRoom }: RoomProps) {
         }} onClick={() => setShowHelpOverlay(false)}>
           <div style={{
             width: "100%", maxWidth: isPortraitMobile ? "100%" : 360, padding: isPortraitMobile ? "18px 16px 24px" : 24,
-            background: "rgba(16,13,28,0.98)", borderRadius: isPortraitMobile ? "18px 18px 0 0" : 20,
-            border: "1px solid rgba(255,255,255,0.1)", boxShadow: "0 24px 80px rgba(0,0,0,0.6)",
+            background: "var(--surface-container-low)", borderRadius: isPortraitMobile ? "1.5rem 1.5rem 0 0" : 20,
+            border: "1px solid rgba(72, 71, 74, 0.3)", boxShadow: "0 24px 80px rgba(0,0,0,0.6)",
           }} onClick={(e) => e.stopPropagation()}>
             <h3 style={{ color: "#fff", fontSize: 18, fontWeight: 700, margin: "0 0 16px 0" }}>
               {isPortraitMobile ? "Quick Actions" : "Keyboard Shortcuts"}

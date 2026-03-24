@@ -47,7 +47,7 @@ function WinnerToastInner({ winner, pot, handName, compact = false }: WinnerToas
             animate={motionVariants.animate}
             exit={motionVariants.exit}
             transition={{ type: "spring", stiffness: 320, damping: 28 }}
-            className="flex items-center gap-2.5 h-11 px-4 bg-[--bg-surface] border border-[--gold]/30 rounded-full shadow-[0_4px_24px_rgba(245,158,11,0.15)] backdrop-blur-md whitespace-nowrap"
+            className="flex items-center gap-2.5 h-11 px-4 glass-panel border-[--gold]/30 rounded-full shadow-[0_4px_24px_rgba(245,158,11,0.15)] whitespace-nowrap"
           >
             {/* Trophy marker */}
             <Trophy size={15} color="var(--gold)" aria-hidden="true" />
