@@ -224,7 +224,7 @@ function sanitizeState(state: any, targetUserId: string | null) {
     return sanitized;
 }
 
-function sanitizeEvent(event: any, targetUserId: string) {
+function sanitizeEvent(event: HandEvent, targetUserId: string) {
     const sanitized = JSON.parse(JSON.stringify(event));
 
     if (sanitized.type === 'DEAL_PRIVATE' && sanitized.payload?.dealtCards) {
