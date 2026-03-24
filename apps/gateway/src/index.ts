@@ -21,6 +21,24 @@ const prisma = new PrismaClient();
 
 const app = express();
 
+const allowedOrigins = process.env.ALLOWED_ORIGINS
+    ? process.env.ALLOWED_ORIGINS.split(',').map(o => o.trim())
+    : '*';
+
+// Apply CORS headers to all Express HTTP responses
+app.use((req, res, next) => {
+    const requestOrigin = req.headers.origin;
+    if (allowedOrigins === '*') {
+        res.setHeader('Access-Control-Allow-Origin', '*');
+    } else if (requestOrigin && (allowedOrigins as string[]).includes(requestOrigin)) {
+        res.setHeader('Access-Control-Allow-Origin', requestOrigin);
+        res.setHeader('Vary', 'Origin');
+    }
+    res.setHeader('Access-Control-Allow-Methods', 'GET,POST,OPTIONS');
+    res.setHeader('Access-Control-Allow-Headers', 'Content-Type');
+    next();
+});
+
 app.get("/", (_req, res) => {
     res.status(200).send("ok");
 });
@@ -32,7 +50,7 @@ app.get("/healthz", (_req, res) => {
 const httpServer = createServer(app);
 const io = new Server(httpServer, {
     cors: {
-        origin: '*', // Adjust this in production
+        origin: allowedOrigins,
         methods: ['GET', 'POST']
     }
 });
@@ -1004,6 +1022,15 @@ io.on('connection', (socket) => {
 const PORT = process.env.PORT || 4000;
 httpServer.listen(PORT, () => {
     console.log(`Gateway realtime server listening on port ${PORT}`);
+
+    // Keep-alive: ping own healthz every 14 minutes to prevent Render free-tier sleep
+    if (process.env.NODE_ENV === 'production' && process.env.RENDER_EXTERNAL_URL) {
+        const keepAliveUrl = `${process.env.RENDER_EXTERNAL_URL}/healthz`;
+        setInterval(() => {
+            fetch(keepAliveUrl).catch(() => { /* ignore */ });
+        }, 14 * 60 * 1000);
+        console.log(`[gateway] keep-alive pinging ${keepAliveUrl} every 14m`);
+    }
 });
 
 
