@@ -36,10 +36,15 @@ export async function createRoom(
     // The Supabase user ID is the canonical identity.
     const host = await prisma.user.upsert({
         where: { id: hostId },
-        update: {},
+        update: {
+            email: user.email ?? undefined,
+            isGuest: user.is_anonymous ?? false,
+        },
         create: {
             id: hostId,
             username: user.user_metadata?.display_name || `Player_${slug}`,
+            email: user.email ?? null,
+            isGuest: user.is_anonymous ?? false,
         },
     });
 

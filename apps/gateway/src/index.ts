@@ -46,6 +46,13 @@ const supabaseAdmin = supabaseUrl && supabaseServiceKey
     ? createClient(supabaseUrl, supabaseServiceKey, { auth: { autoRefreshToken: false, persistSession: false } })
     : null;
 
+if (!supabaseAdmin) {
+    console.error('[gateway] SUPABASE_URL or SUPABASE_SERVICE_ROLE_KEY is not set. Refusing to start in production.');
+    if (process.env.NODE_ENV === 'production') {
+        process.exit(1);
+    }
+}
+
 // Socket.IO middleware: verify JWT and attach userId to socket.data.
 // Falls back to query.userId when Supabase is not configured (local dev).
 io.use(async (socket, next) => {

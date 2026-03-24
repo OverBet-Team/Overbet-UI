@@ -1,7 +1,8 @@
 "use client";
 
-import { useState, type FormEvent } from "react";
+import { useState, useEffect, type FormEvent } from "react";
 import { useRouter } from "next/navigation";
+import Link from "next/link";
 import { createClient } from "@/lib/supabase/client";
 
 const inputStyle: React.CSSProperties = {
@@ -37,6 +38,31 @@ export default function UpdatePasswordPage() {
   const [error, setError] = useState<string | null>(null);
   const [success, setSuccess] = useState(false);
   const [loading, setLoading] = useState(false);
+  // Recovery session must be confirmed before the form is usable.
+  const [isRecoverySession, setIsRecoverySession] = useState(false);
+  const [sessionCheckDone, setSessionCheckDone] = useState(false);
+
+  useEffect(() => {
+    const supabase = createClient();
+
+    // Supabase fires PASSWORD_RECOVERY when the user arrives via the reset
+    // email link. Without this event the page is not safe to use.
+    const { data: { subscription } } = supabase.auth.onAuthStateChange((event) => {
+      if (event === "PASSWORD_RECOVERY") {
+        setIsRecoverySession(true);
+      }
+      setSessionCheckDone(true);
+    });
+
+    // Fallback: if onAuthStateChange doesn't fire quickly (direct navigation
+    // without a recovery token), mark check as done after a short wait.
+    const timeout = setTimeout(() => setSessionCheckDone(true), 1500);
+
+    return () => {
+      subscription.unsubscribe();
+      clearTimeout(timeout);
+    };
+  }, []);
 
   async function handleSubmit(e: FormEvent) {
     e.preventDefault();
@@ -58,9 +84,7 @@ export default function UpdatePasswordPage() {
 
     try {
       const supabase = createClient();
-      const { error: authError } = await supabase.auth.updateUser({
-        password,
-      });
+      const { error: authError } = await supabase.auth.updateUser({ password });
 
       if (authError) {
         setError(authError.message);
@@ -74,6 +98,29 @@ export default function UpdatePasswordPage() {
     } finally {
       setLoading(false);
     }
+  }
+
+  if (!sessionCheckDone) {
+    return null;
+  }
+
+  if (!isRecoverySession) {
+    return (
+      <div style={{ textAlign: "center", display: "flex", flexDirection: "column", gap: 16 }}>
+        <h1 style={{ color: "#fff", fontSize: 22, fontWeight: 700, margin: 0 }}>
+          Invalid or expired link
+        </h1>
+        <p style={{ color: "rgba(255,255,255,0.6)", fontSize: 15, margin: 0, lineHeight: 1.5 }}>
+          This password reset link is invalid or has already been used.
+        </p>
+        <Link
+          href="/auth/forgot-password"
+          style={{ color: "#eab308", textDecoration: "none", fontWeight: 600, fontSize: 14 }}
+        >
+          Request a new reset link
+        </Link>
+      </div>
+    );
   }
 
   if (success) {
