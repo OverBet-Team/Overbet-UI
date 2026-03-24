@@ -59,6 +59,7 @@ const roomStates: Record<string, {
     seq: number;
     currentHandId?: string;
     dbRoomId?: string;
+    hostId?: string;
     pendingSeats: Record<string, { seatIndex: number, stack: number, displayName?: string, requestType?: 'SEAT' | 'REBUY' }>,
     approvedRebuys: Record<string, ApprovedRebuy>;
     turnTimer?: NodeJS.Timeout;
@@ -156,6 +157,7 @@ async function hydrateRoom(roomId: string) {
         seq,
         currentHandId,
         dbRoomId: room.id,
+        hostId: room.hostId,
         pendingSeats: {},
         approvedRebuys: {},
         turnTimerToken: 0,
@@ -765,9 +767,7 @@ io.on('connection', (socket) => {
         console.log(`[INTENT_SEAT_APPROVE] room=${data.room_id} host=${userId} target=${data.targetPlayerId}`);
 
         // BUG-05: Only the host may approve seat requests
-        const room = await prisma.room.findUnique({ where: { slug: data.room_id } });
-        if (!room) return emitError(socket, 'ERR_ROOM_NOT_FOUND', 'Room not found');
-        if (room.hostId !== userId) return emitError(socket, 'ERR_NOT_HOST', 'Only the host can approve seat requests');
+        if (roomData.hostId !== userId) return emitError(socket, 'ERR_NOT_HOST', 'Only the host can approve seat requests');
 
         const pending = roomData.pendingSeats[data.targetPlayerId];
         if (!pending) return emitError(socket, 'ERR_NO_PENDING_REQUEST', 'No pending request found for player');
@@ -858,11 +858,14 @@ io.on('connection', (socket) => {
     socket.on('INTENT_START_GAME', async (data: any) => {
         try {
             // BUG-04: Only the host may start a hand
-            const room = await prisma.room.findUnique({ where: { slug: data.room_id } });
-            if (!room) return emitError(socket, 'ERR_ROOM_NOT_FOUND', 'Room not found');
-            if (room.hostId !== userId) return emitError(socket, 'ERR_NOT_HOST', 'Only the host can start the game');
-            const roomData = roomStates[data.room_id];
-            if (roomData) roomData.isPaused = false;
+            let roomData = roomStates[data.room_id];
+            if (!roomData) {
+                roomData = await getOrHydrateRoom(data.room_id) as any;
+            }
+            if (!roomData) return emitError(socket, 'ERR_ROOM_NOT_FOUND', 'Room not found');
+            if (roomData.hostId !== userId) return emitError(socket, 'ERR_NOT_HOST', 'Only the host can start the game');
+
+            roomData.isPaused = false;
             await startHand(data.room_id, data.schema_version);
         } catch (err: any) {
             emitError(socket, 'ERR_START_GAME', err.message);
@@ -877,9 +880,7 @@ io.on('connection', (socket) => {
             }
             if (!roomData) return emitError(socket, 'ERR_ROOM_NOT_FOUND', 'Room not found');
 
-            const room = await prisma.room.findUnique({ where: { slug: data.room_id } });
-            if (!room) return emitError(socket, 'ERR_ROOM_NOT_FOUND', 'Room not found');
-            if (room.hostId !== userId) return emitError(socket, 'ERR_NOT_HOST', 'Only the host can pause the game');
+            if (roomData.hostId !== userId) return emitError(socket, 'ERR_NOT_HOST', 'Only the host can pause the game');
 
             roomData.isPaused = true;
             clearTurnTimer(data.room_id);
@@ -903,9 +904,7 @@ io.on('connection', (socket) => {
             }
             if (!roomData) return emitError(socket, 'ERR_ROOM_NOT_FOUND', 'Room not found');
 
-            const room = await prisma.room.findUnique({ where: { slug: data.room_id } });
-            if (!room) return emitError(socket, 'ERR_ROOM_NOT_FOUND', 'Room not found');
-            if (room.hostId !== userId) return emitError(socket, 'ERR_NOT_HOST', 'Only the host can resume the game');
+            if (roomData.hostId !== userId) return emitError(socket, 'ERR_NOT_HOST', 'Only the host can resume the game');
 
             roomData.isPaused = false;
             const state = roomData.engine.getState();
@@ -927,9 +926,16 @@ io.on('connection', (socket) => {
     socket.on('INTENT_UPDATE_SETTINGS', async (data: any) => {
         // Only host can update settings
         try {
+            let roomData = roomStates[data.room_id];
+            if (!roomData) {
+                roomData = await getOrHydrateRoom(data.room_id) as any;
+            }
+            if (!roomData) return emitError(socket, 'ERR_ROOM_NOT_FOUND', 'Room not found');
+
+            if (roomData.hostId !== userId) return emitError(socket, 'ERR_NOT_HOST', 'Only the host can update settings');
+
             const room = await prisma.room.findUnique({ where: { slug: data.room_id } });
             if (!room) return emitError(socket, 'ERR_ROOM_NOT_FOUND', 'Room not found');
-            if (room.hostId !== userId) return emitError(socket, 'ERR_NOT_HOST', 'Only the host can update settings');
 
             const newSettings = {
                 ...(room.settings as any || {}),
@@ -942,7 +948,6 @@ io.on('connection', (socket) => {
             });
 
             // Update in-memory cache
-            const roomData = roomStates[data.room_id];
             if (roomData) {
                 roomData.settings = {
                     turnTimeoutMs: Number.isFinite(newSettings.turnTimeout) ? newSettings.turnTimeout * 1000 : DEFAULT_TURN_TIMEOUT_MS,
