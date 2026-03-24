@@ -28,6 +28,7 @@ import WinnerToast from "@/components/poker/WinnerToast";
 const RoomSettingsModal = dynamic(() => import('@/components/poker/SettingsModal').then(m => ({ default: m.SettingsModal })), { ssr: false })
 const RoomFairnessModal = dynamic(() => import('@/components/poker/FairnessModal').then(m => ({ default: m.FairnessModal })), { ssr: false })
 import { useUser } from "@/hooks/useUser";
+import { PADDING, RADIUS, CONTAINERS, COLORS } from './roomStyles';
 
 // ── Types ─────────────────────────────────────────────────────────────────────
 interface RoomSettings {
@@ -596,7 +597,7 @@ export default function RoomClient({ slug, initialRoom }: RoomProps) {
           onClick={() => setIsSeatPanelOpen((v) => !v)}
           style={{
             display: "flex", alignItems: "center", gap: 6,
-            padding: "6px 12px", borderRadius: 999,
+            padding: PADDING.medium, borderRadius: RADIUS.pill,
             border: hasPending ? "1px solid rgba(239,68,68,0.45)" : "1px solid rgba(255,255,255,0.14)",
             background: "rgba(16,13,28,0.9)",
             color: hasPending ? "#fca5a5" : "rgba(255,255,255,0.65)",
@@ -883,7 +884,7 @@ export default function RoomClient({ slug, initialRoom }: RoomProps) {
           {!isHost && !!myPendingRequest && (
             <div style={{
               display: "flex", alignItems: "center", gap: 10, padding: "12px 16px",
-              borderRadius: 12, background: "rgba(228,215,253,0.06)",
+              borderRadius: RADIUS.card, background: "rgba(228,215,253,0.06)",
               border: "1px solid rgba(228, 215, 253, 0.2)", marginTop: 16,
             }}>
               <div style={{
@@ -1026,7 +1027,7 @@ export default function RoomClient({ slug, initialRoom }: RoomProps) {
               left: "50%",
               transform: "translateX(-50%)",
               zIndex: 26,
-              padding: "6px 10px",
+              padding: PADDING.standard,
               borderRadius: 10,
               background: "rgba(255,110,132,0.15)",
               border: "1px solid var(--error)",
