@@ -155,20 +155,32 @@ export default function RoomClient({ slug, initialRoom }: RoomProps) {
     return () => clearTimeout(t);
   }, [lastSocketError]);
 
-  // ── Gateway warm-up: poll /healthz until 200 before opening socket ──────────
+  // ── Gateway warm-up: wake Render before opening socket ──────────────────────
+  // Render free-tier 503s lack CORS headers, so fetch() is blocked by the browser.
+  // Instead we load an <img> pointed at /healthz — images bypass CORS entirely.
+  // When the server is awake, the image "loads" (even though it's JSON, not an image —
+  // the onerror fires, but crucially the HTTP request itself woke the server).
+  // We retry until we get a successful fetch (CORS headers present = app is up).
   useEffect(() => {
     const gatewayUrl = process.env.NEXT_PUBLIC_GATEWAY_URL || "http://localhost:4000";
     let cancelled = false;
     let timer: ReturnType<typeof setTimeout>;
-    const MAX_ATTEMPTS = 5;
+    const MAX_ATTEMPTS = 8;
     const INTERVAL_MS = 3000;
 
     async function warmUp(attempt: number) {
       if (cancelled) return;
       try {
+        // First try a normal fetch — works once the app is up and CORS headers are present
         const res = await fetch(`${gatewayUrl}/healthz`, { cache: "no-store" });
         if (res.ok) { setGatewayStatus("ready"); return; }
-      } catch { /* network error — server still waking */ }
+      } catch {
+        // CORS-blocked (Render 503) or network error — wake server via image ping
+        if (typeof document !== "undefined") {
+          const img = new Image();
+          img.src = `${gatewayUrl}/healthz?_wake=${Date.now()}`;
+        }
+      }
       if (attempt >= MAX_ATTEMPTS) { setGatewayStatus("failed"); return; }
       timer = setTimeout(() => warmUp(attempt + 1), INTERVAL_MS);
     }
