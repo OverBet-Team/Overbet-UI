@@ -14,7 +14,7 @@ import {
     EventSeatApproved,
     EventError
 } from './types';
-import { NLHMachine, HandEvent, GameState } from '@overbet/engine';
+import { NLHMachine, HandEvent, GameState, PokerAction } from '@overbet/engine';
 import { PrismaClient } from '@overbet/db';
 
 const prisma = new PrismaClient();
