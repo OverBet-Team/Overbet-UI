@@ -14,7 +14,7 @@ import {
     EventSeatApproved,
     EventError
 } from './types';
-import { NLHMachine, HandEvent } from '@overbet/engine';
+import { NLHMachine, HandEvent, PokerAction } from '@overbet/engine';
 import { PrismaClient } from '@overbet/db';
 
 const prisma = new PrismaClient();
@@ -520,7 +520,7 @@ async function startHand(roomId: string, schema_version: number = 1) {
     startTurnTimer(roomId);
 }
 
-async function performPlayerAction(roomId: string, userId: string, action: any, schema_version: number = 1, client_msg_id?: string, socket?: any) {
+async function performPlayerAction(roomId: string, userId: string, action: PokerAction, schema_version: number = 1, client_msg_id?: string, socket?: any) {
     let roomData = roomStates[roomId];
     if (!roomData || !roomData.currentHandId) {
         console.error(`[performPlayerAction] room=${roomId} userId=${userId}: Hand has not started (roomData=${!!roomData})`);
@@ -549,7 +549,7 @@ async function performPlayerAction(roomId: string, userId: string, action: any, 
     if (activePlayerId !== userId) {
         console.error(`[performPlayerAction] userId mismatch: expected ${activePlayerId}, got ${userId}`);
     }
-    const engineEvents = roomData.engine.handleAction(userId, action as any);
+    const engineEvents = roomData.engine.handleAction(userId, action);
 
     for (const ev of engineEvents) {
         roomData.seq++;
