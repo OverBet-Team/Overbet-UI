@@ -21,21 +21,25 @@ const prisma = new PrismaClient();
 
 const app = express();
 
-const allowedOrigins = process.env.ALLOWED_ORIGINS
-    ? process.env.ALLOWED_ORIGINS.split(',').map(o => o.trim())
-    : '*';
+const rawOrigins = process.env.ALLOWED_ORIGINS?.split(',').map(o => o.trim());
+const allowedOrigins: string[] | '*' = rawOrigins ?? '*';
 
-// Apply CORS headers to all Express HTTP responses
+if (!process.env.ALLOWED_ORIGINS) {
+    console.warn('[gateway] ALLOWED_ORIGINS not set — CORS is open to all origins');
+}
+
+// Apply CORS headers to all Express HTTP responses (including Socket.IO polling)
 app.use((req, res, next) => {
     const requestOrigin = req.headers.origin;
     if (allowedOrigins === '*') {
         res.setHeader('Access-Control-Allow-Origin', '*');
-    } else if (requestOrigin && (allowedOrigins as string[]).includes(requestOrigin)) {
+    } else if (requestOrigin && allowedOrigins.includes(requestOrigin)) {
         res.setHeader('Access-Control-Allow-Origin', requestOrigin);
         res.setHeader('Vary', 'Origin');
     }
     res.setHeader('Access-Control-Allow-Methods', 'GET,POST,OPTIONS');
     res.setHeader('Access-Control-Allow-Headers', 'Content-Type');
+    if (req.method === 'OPTIONS') { res.sendStatus(204); return; }
     next();
 });
 

@@ -159,7 +159,8 @@ export default function RoomClient({ slug, initialRoom }: RoomProps) {
   useEffect(() => {
     const gatewayUrl = process.env.NEXT_PUBLIC_GATEWAY_URL || "http://localhost:4000";
     let cancelled = false;
-    const MAX_ATTEMPTS = 10;
+    let timer: ReturnType<typeof setTimeout>;
+    const MAX_ATTEMPTS = 5;
     const INTERVAL_MS = 3000;
 
     async function warmUp(attempt: number) {
@@ -169,10 +170,10 @@ export default function RoomClient({ slug, initialRoom }: RoomProps) {
         if (res.ok) { setGatewayStatus("ready"); return; }
       } catch { /* network error — server still waking */ }
       if (attempt >= MAX_ATTEMPTS) { setGatewayStatus("failed"); return; }
-      setTimeout(() => warmUp(attempt + 1), INTERVAL_MS);
+      timer = setTimeout(() => warmUp(attempt + 1), INTERVAL_MS);
     }
     warmUp(1);
-    return () => { cancelled = true; };
+    return () => { cancelled = true; clearTimeout(timer); };
   }, []);
 
   // ── Socket setup ────────────────────────────────────────────────────────────
