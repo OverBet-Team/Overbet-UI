@@ -53,6 +53,10 @@ type ApprovedRebuy = {
 
 const playerTimeBanks: Record<string, Record<string, number>> = {};
 
+// Tracks sockets per room and user for efficient broadcasting
+// Map: roomId -> Map: userId -> Set of Socket
+const roomSockets = new Map<string, Map<string, Set<any>>>();
+
 // Room store mapping room_id to Engine instances
 const roomStates: Record<string, {
     engine: NLHMachine;
@@ -224,6 +228,18 @@ function sanitizeState(state: GameState, targetUserId: string | null) {
     }
 
     return sanitized;
+}
+
+function broadcastToRoom(roomId: string, eventName: string, getPayload: (userId: string) => any) {
+    const usersInRoom = roomSockets.get(roomId);
+    if (!usersInRoom) return;
+
+    for (const [uId, userSockets] of usersInRoom.entries()) {
+        const payload = getPayload(uId);
+        for (const s of userSockets) {
+            s.emit(eventName, payload);
+        }
+    }
 }
 
 function sanitizeEvent(event: HandEvent, targetUserId: string) {
@@ -414,18 +430,14 @@ async function autoAct(roomId: string, playerId: string, currentBet: number) {
         const rd = roomStates[roomId];
         if (rd?.currentHandId) {
             const refreshedState = rd.engine.getState();
-            const sockets = await io.in(roomId).fetchSockets();
-            for (const s of sockets) {
-                const uId = s.handshake.query.userId as string;
-                s.emit('EVENT_STATE_UPDATE', {
-                    type: 'EVENT_STATE_UPDATE',
-                    schema_version: 1,
-                    room_id: roomId,
-                    hand_id: rd.currentHandId,
-                    server_seq: rd.seq,
-                    state: sanitizeState(refreshedState, uId)
-                });
-            }
+            broadcastToRoom(roomId, 'EVENT_STATE_UPDATE', (uId) => ({
+                type: 'EVENT_STATE_UPDATE',
+                schema_version: 1,
+                room_id: roomId,
+                hand_id: rd.currentHandId,
+                server_seq: rd.seq,
+                state: sanitizeState(refreshedState, uId)
+            }));
             if (refreshedState.phase?.endsWith('BETTING')) startTurnTimer(roomId);
         }
     }
@@ -505,31 +517,24 @@ async function startHand(roomId: string, schema_version: number = 1) {
         await prisma.$transaction(dbOperations);
     }
 
-    const sockets = await io.in(roomId).fetchSockets();
-
     for (const { ev, seq } of eventsToEmit) {
-        for (const s of sockets) {
-            const uId = s.handshake.query.userId as string;
-            s.emit('EVENT_HAND_LOG', {
-                ...sanitizeEvent(ev, uId),
-                room_id: roomId,
-                hand_id: hand.id,
-                server_seq: seq
-            });
-        }
-    }
-
-    for (const s of sockets) {
-        const uId = s.handshake.query.userId as string;
-        s.emit('EVENT_STATE_UPDATE', {
-            type: 'EVENT_STATE_UPDATE',
-            schema_version: schema_version || 1,
+        broadcastToRoom(roomId, 'EVENT_HAND_LOG', (uId) => ({
+            ...sanitizeEvent(ev, uId),
             room_id: roomId,
             hand_id: hand.id,
-            server_seq: roomData.seq,
-            state: sanitizeState(roomData.engine.getState(), uId)
-        });
+            server_seq: seq
+        }));
     }
+
+    const finalState = roomData.engine.getState();
+    broadcastToRoom(roomId, 'EVENT_STATE_UPDATE', (uId) => ({
+        type: 'EVENT_STATE_UPDATE',
+        schema_version: schema_version || 1,
+        room_id: roomId,
+        hand_id: hand.id,
+        server_seq: roomData.seq,
+        state: sanitizeState(finalState, uId)
+    }));
 
     startTurnTimer(roomId);
 }
@@ -620,18 +625,14 @@ async function performPlayerAction(roomId: string, userId: string, action: Poker
     }
 
     const state = roomData.engine.getState();
-    const sockets = await io.in(roomId).fetchSockets();
-    for (const s of sockets) {
-        const uId = s.handshake.query.userId as string;
-        s.emit('EVENT_STATE_UPDATE', {
-            type: 'EVENT_STATE_UPDATE',
-            schema_version,
-            room_id: roomId,
-            hand_id: roomData.currentHandId,
-            server_seq: roomData.seq,
-            state: sanitizeState(state, uId)
-        });
-    }
+    broadcastToRoom(roomId, 'EVENT_STATE_UPDATE', (uId) => ({
+        type: 'EVENT_STATE_UPDATE',
+        schema_version,
+        room_id: roomId,
+        hand_id: roomData.currentHandId,
+        server_seq: roomData.seq,
+        state: sanitizeState(state, uId)
+    }));
 
     if (state.phase === 'CLEANUP') {
         const autoStartDelay = (roomData.settings?.autoStartDelay ?? DEFAULT_AUTO_START_DELAY_SECONDS) * 1000;
@@ -687,6 +688,18 @@ io.on('connection', (socket) => {
     socket.on('INTENT_JOIN_ROOM', async (data: IntentJoinRoom) => {
         console.log(`Socket ${socket.id} joining room ${data.room_id}`);
         socket.join(data.room_id);
+
+        let usersInRoom = roomSockets.get(data.room_id);
+        if (!usersInRoom) {
+            usersInRoom = new Map();
+            roomSockets.set(data.room_id, usersInRoom);
+        }
+        let socketsForUser = usersInRoom.get(userId);
+        if (!socketsForUser) {
+            socketsForUser = new Set();
+            usersInRoom.set(userId, socketsForUser);
+        }
+        socketsForUser.add(socket);
     });
 
     socket.on('INTENT_REQUEST_SNAPSHOT', async (data: IntentRequestSnapshot) => {
@@ -856,17 +869,14 @@ io.on('connection', (socket) => {
 
             io.to(data.room_id).emit('EVENT_SEAT_APPROVED', approvedEvent);
 
-            const sockets = await io.in(data.room_id).fetchSockets();
-            for (const s of sockets) {
-                const uId = s.handshake.query.userId as string;
-                s.emit('EVENT_STATE_UPDATE', {
-                    type: 'EVENT_STATE_UPDATE',
-                    schema_version: data.schema_version,
-                    room_id: data.room_id,
-                    server_seq: roomData.seq,
-                    state: sanitizeState(roomData.engine.getState(), uId)
-                });
-            }
+            const finalState = roomData.engine.getState();
+            broadcastToRoom(data.room_id, 'EVENT_STATE_UPDATE', (uId) => ({
+                type: 'EVENT_STATE_UPDATE',
+                schema_version: data.schema_version,
+                room_id: data.room_id,
+                server_seq: roomData.seq,
+                state: sanitizeState(finalState, uId)
+            }));
         } catch (err: any) {
             emitError(socket, 'ERR_SEAT_APPROVE', err.message);
         }
@@ -1002,18 +1012,14 @@ io.on('connection', (socket) => {
             const roomData = roomStates[data.room_id];
             if (roomData?.currentHandId) {
                 const state = roomData.engine.getState();
-                const sockets = await io.in(data.room_id).fetchSockets();
-                for (const s of sockets) {
-                    const uId = s.handshake.query.userId as string;
-                    s.emit('EVENT_STATE_UPDATE', {
-                        type: 'EVENT_STATE_UPDATE',
-                        schema_version: data.schema_version ?? 1,
-                        room_id: data.room_id,
-                        hand_id: roomData.currentHandId,
-                        server_seq: roomData.seq,
-                        state: sanitizeState(state, uId)
-                    });
-                }
+                broadcastToRoom(data.room_id, 'EVENT_STATE_UPDATE', (uId) => ({
+                    type: 'EVENT_STATE_UPDATE',
+                    schema_version: data.schema_version ?? 1,
+                    room_id: data.room_id,
+                    hand_id: roomData.currentHandId,
+                    server_seq: roomData.seq,
+                    state: sanitizeState(state, uId)
+                }));
                 if (state.phase?.endsWith('BETTING')) startTurnTimer(data.room_id);
             }
         }
@@ -1021,6 +1027,18 @@ io.on('connection', (socket) => {
 
     socket.on('disconnect', () => {
         console.log(`Socket disconnected: ${socket.id}`);
+        for (const [roomId, usersInRoom] of roomSockets.entries()) {
+            const userSockets = usersInRoom.get(userId);
+            if (userSockets) {
+                userSockets.delete(socket);
+                if (userSockets.size === 0) {
+                    usersInRoom.delete(userId);
+                }
+            }
+            if (usersInRoom.size === 0) {
+                roomSockets.delete(roomId);
+            }
+        }
     });
 });
 
