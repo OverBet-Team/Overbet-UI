@@ -53,6 +53,18 @@ type ApprovedRebuy = {
 
 const playerTimeBanks: Record<string, Record<string, number>> = {};
 
+function getRoomSockets(roomId: string) {
+    const sockets: any[] = [];
+    const roomSet = io.sockets.adapter.rooms.get(roomId);
+    if (roomSet) {
+        for (const socketId of roomSet) {
+            const s = io.sockets.sockets.get(socketId);
+            if (s) sockets.push(s);
+        }
+    }
+    return sockets;
+}
+
 // Room store mapping room_id to Engine instances
 const roomStates: Record<string, {
     engine: NLHMachine;
@@ -414,7 +426,7 @@ async function autoAct(roomId: string, playerId: string, currentBet: number) {
         const rd = roomStates[roomId];
         if (rd?.currentHandId) {
             const refreshedState = rd.engine.getState();
-            const sockets = await io.in(roomId).fetchSockets();
+            const sockets = getRoomSockets(roomId);
             for (const s of sockets) {
                 const uId = s.handshake.query.userId as string;
                 s.emit('EVENT_STATE_UPDATE', {
@@ -473,7 +485,7 @@ async function startHand(roomId: string, schema_version: number = 1) {
         ante: dbSettings?.ante ?? 0,
     });
 
-    const sockets = await io.in(roomId).fetchSockets();
+    const sockets = getRoomSockets(roomId);
 
     for (const ev of engineEvents) {
         roomData.seq++;
@@ -596,7 +608,7 @@ async function performPlayerAction(roomId: string, userId: string, action: Poker
     }
 
     const state = roomData.engine.getState();
-    const sockets = await io.in(roomId).fetchSockets();
+    const sockets = getRoomSockets(roomId);
     for (const s of sockets) {
         const uId = s.handshake.query.userId as string;
         s.emit('EVENT_STATE_UPDATE', {
@@ -832,7 +844,7 @@ io.on('connection', (socket) => {
 
             io.to(data.room_id).emit('EVENT_SEAT_APPROVED', approvedEvent);
 
-            const sockets = await io.in(data.room_id).fetchSockets();
+            const sockets = getRoomSockets(data.room_id);
             for (const s of sockets) {
                 const uId = s.handshake.query.userId as string;
                 s.emit('EVENT_STATE_UPDATE', {
@@ -979,7 +991,7 @@ io.on('connection', (socket) => {
             const roomData = roomStates[data.room_id];
             if (roomData?.currentHandId) {
                 const state = roomData.engine.getState();
-                const sockets = await io.in(data.room_id).fetchSockets();
+                const sockets = getRoomSockets(data.room_id);
                 for (const s of sockets) {
                     const uId = s.handshake.query.userId as string;
                     s.emit('EVENT_STATE_UPDATE', {
