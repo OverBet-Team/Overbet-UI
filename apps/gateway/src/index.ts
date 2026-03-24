@@ -809,9 +809,9 @@ io.on('connection', (socket) => {
                 create: { id: data.targetPlayerId, username: pending.displayName || `Player_${data.targetPlayerId.substring(0, 4)}` }
             });
             await prisma.roomMember.upsert({
-                where: { roomId_userId: { roomId: room.id, userId: data.targetPlayerId } },
+                where: { roomId_userId: { roomId: data.room_id, userId: data.targetPlayerId } },
                 update: { seatIndex: pending.seatIndex, stack: pending.stack, status: 'ACTIVE' },
-                create: { roomId: room.id, userId: data.targetPlayerId, seatIndex: pending.seatIndex, stack: pending.stack, status: 'ACTIVE' }
+                create: { roomId: data.room_id, userId: data.targetPlayerId, seatIndex: pending.seatIndex, stack: pending.stack, status: 'ACTIVE' }
             });
 
             delete roomData.pendingSeats[data.targetPlayerId];
