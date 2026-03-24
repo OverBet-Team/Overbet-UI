@@ -368,7 +368,6 @@ async function startTurnTimer(roomId: string) {
                 if (playerTimeBanks[roomId]) {
                     playerTimeBanks[roomId][activePlayer.id] = 0;
                 }
-                console.log(`Time bank exhausted for player ${activePlayer.id} in room ${roomId}. Auto-acting.`);
                 await autoAct(roomId, latestActivePlayer.id, latestState.currentBet ?? 0);
             }, currentTimeBankMs);
             return;
