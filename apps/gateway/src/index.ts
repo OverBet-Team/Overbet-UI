@@ -16,6 +16,7 @@ import {
 } from './types';
 import { NLHMachine, HandEvent, PokerAction } from '@overbet/engine';
 import { PrismaClient } from '@overbet/db';
+import { createClient } from '@supabase/supabase-js';
 
 const prisma = new PrismaClient();
 
@@ -35,6 +36,42 @@ const io = new Server(httpServer, {
         origin: '*', // Adjust this in production
         methods: ['GET', 'POST']
     }
+});
+
+// Supabase client for JWT verification. Uses the service role key to
+// validate access tokens from connected clients.
+const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL || process.env.SUPABASE_URL || '';
+const supabaseServiceKey = process.env.SUPABASE_SERVICE_ROLE_KEY || '';
+const supabaseAdmin = supabaseUrl && supabaseServiceKey
+    ? createClient(supabaseUrl, supabaseServiceKey, { auth: { autoRefreshToken: false, persistSession: false } })
+    : null;
+
+// Socket.IO middleware: verify JWT and attach userId to socket.data.
+// Falls back to query.userId when Supabase is not configured (local dev).
+io.use(async (socket, next) => {
+    const token = socket.handshake.auth?.token as string | undefined;
+    const fallbackUserId = socket.handshake.query.userId as string | undefined;
+
+    if (supabaseAdmin && token) {
+        const { data: { user }, error } = await supabaseAdmin.auth.getUser(token);
+        if (error || !user) {
+            console.error(`[auth] JWT verification failed: ${error?.message ?? 'no user'}`);
+            return next(new Error('AUTH_FAILED'));
+        }
+        socket.data.userId = user.id;
+        return next();
+    }
+
+    // Fallback for local dev without Supabase configured
+    if (fallbackUserId) {
+        if (supabaseAdmin) {
+            console.warn(`[auth] No token provided, using fallback userId (dev mode)`);
+        }
+        socket.data.userId = fallbackUserId;
+        return next();
+    }
+
+    return next(new Error('AUTH_MISSING'));
 });
 
 const TEST_TIMER_MODE = process.env.TEST_TIMER_MODE === 'short';
@@ -416,7 +453,7 @@ async function autoAct(roomId: string, playerId: string, currentBet: number) {
             const refreshedState = rd.engine.getState();
             const sockets = await io.in(roomId).fetchSockets();
             for (const s of sockets) {
-                const uId = s.handshake.query.userId as string;
+                const uId = s.data.userId as string;
                 s.emit('EVENT_STATE_UPDATE', {
                     type: 'EVENT_STATE_UPDATE',
                     schema_version: 1,
@@ -497,7 +534,7 @@ async function startHand(roomId: string, schema_version: number = 1) {
         });
 
         for (const s of sockets) {
-            const uId = s.handshake.query.userId as string;
+            const uId = s.data.userId as string;
             s.emit('EVENT_HAND_LOG', {
                 ...sanitizeEvent(ev, uId),
                 room_id: roomId,
@@ -508,7 +545,7 @@ async function startHand(roomId: string, schema_version: number = 1) {
     }
 
     for (const s of sockets) {
-        const uId = s.handshake.query.userId as string;
+        const uId = s.data.userId as string;
         s.emit('EVENT_STATE_UPDATE', {
             type: 'EVENT_STATE_UPDATE',
             schema_version: schema_version || 1,
@@ -598,7 +635,7 @@ async function performPlayerAction(roomId: string, userId: string, action: Poker
     const state = roomData.engine.getState();
     const sockets = await io.in(roomId).fetchSockets();
     for (const s of sockets) {
-        const uId = s.handshake.query.userId as string;
+        const uId = s.data.userId as string;
         s.emit('EVENT_STATE_UPDATE', {
             type: 'EVENT_STATE_UPDATE',
             schema_version,
@@ -651,14 +688,10 @@ async function performPlayerAction(roomId: string, userId: string, action: Poker
 }
 
 io.on('connection', (socket) => {
-    const userId = socket.handshake.query.userId as string;
+    // userId is verified and attached by the io.use() auth middleware above.
+    const userId = socket.data.userId as string;
     const roomId = socket.handshake.query.roomId as string;
     console.log(`Socket connected: ${socket.id} (User: ${userId}, Room: ${roomId})`);
-
-    if (!userId) {
-        console.error("Missing userId in connection query");
-        return socket.disconnect();
-    }
 
     socket.on('INTENT_JOIN_ROOM', async (data: IntentJoinRoom) => {
         console.log(`Socket ${socket.id} joining room ${data.room_id}`);
@@ -834,7 +867,7 @@ io.on('connection', (socket) => {
 
             const sockets = await io.in(data.room_id).fetchSockets();
             for (const s of sockets) {
-                const uId = s.handshake.query.userId as string;
+                const uId = s.data.userId as string;
                 s.emit('EVENT_STATE_UPDATE', {
                     type: 'EVENT_STATE_UPDATE',
                     schema_version: data.schema_version,
@@ -981,7 +1014,7 @@ io.on('connection', (socket) => {
                 const state = roomData.engine.getState();
                 const sockets = await io.in(data.room_id).fetchSockets();
                 for (const s of sockets) {
-                    const uId = s.handshake.query.userId as string;
+                    const uId = s.data.userId as string;
                     s.emit('EVENT_STATE_UPDATE', {
                         type: 'EVENT_STATE_UPDATE',
                         schema_version: data.schema_version ?? 1,

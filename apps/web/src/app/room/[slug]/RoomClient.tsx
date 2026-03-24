@@ -92,7 +92,7 @@ function TurnTimerPill({ timer }: { timer: TurnTimer }) {
 
 // ── Component ─────────────────────────────────────────────────────────────────
 export default function RoomClient({ slug, initialRoom }: RoomProps) {
-  const { userId } = useUser();
+  const { userId, accessToken } = useUser();
   const [socket, setSocket] = useState<Socket | null>(null);
   const [room, setRoom] = useState<Room>(initialRoom);
   const [players, setPlayers] = useState<PlayerData[]>([]);
@@ -159,7 +159,10 @@ export default function RoomClient({ slug, initialRoom }: RoomProps) {
 
     const socketInstance = io(
       process.env.NEXT_PUBLIC_GATEWAY_URL || "http://localhost:4000",
-      { query: { roomId: slug, userId } }
+      {
+        query: { roomId: slug, userId },
+        auth: { token: accessToken },
+      }
     );
     setSocket(socketInstance);
 

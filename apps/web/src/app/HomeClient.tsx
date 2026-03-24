@@ -70,6 +70,7 @@ function NumberInput({
 export default function HomeClient() {
   const router = useRouter();
   const { userId } = useUser();
+  const isReady = !!userId;
 
   // Game config state
   const [tableName, setTableName] = useState("Home Game");
@@ -84,18 +85,18 @@ export default function HomeClient() {
   const [joinError, setJoinError] = useState<string | null>(null);
 
   const handleStartGame = async () => {
-    if (!userId) return;
+    if (!isReady) return;
     setLoading(true);
     setError(null);
     try {
-      const res = await createRoom(userId, tableName || "Home Game", {
+      const res = await createRoom(tableName || "Home Game", {
         smallBlind,
         bigBlind,
       });
-      if (res.success) {
+      if (res.success && res.roomSlug) {
         router.push(`/room/${res.roomSlug}`);
       } else {
-        setError("Failed to create room. Please try again.");
+        setError((res as any).error || "Failed to create room. Please try again.");
       }
     } catch (err: any) {
       console.error("Failed to create room:", err);

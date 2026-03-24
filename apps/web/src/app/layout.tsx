@@ -1,6 +1,7 @@
 import type { Metadata } from "next";
 import { Syne, DM_Sans } from "next/font/google";
 import { Analytics } from "@vercel/analytics/next";
+import { AuthProvider } from "@/components/providers/AuthProvider";
 import "./globals.css";
 
 const syne = Syne({
@@ -30,7 +31,9 @@ export default function RootLayout({
   return (
     <html lang="en" className="dark">
       <body className={`${syne.variable} ${dmSans.variable} antialiased`}>
-        {children}
+        <AuthProvider>
+          {children}
+        </AuthProvider>
         <Analytics />
       </body>
     </html>
