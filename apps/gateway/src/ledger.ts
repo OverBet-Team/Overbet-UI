@@ -86,19 +86,34 @@ export async function writeSessionEndEntries(
     const toWrite = players.filter(p => !alreadyCashedOut.has(p.id));
     if (toWrite.length === 0) return [];
 
-    const created: CachedLedgerEntry[] = [];
-    for (const player of toWrite) {
-        // Even busted players (stack=0) get a CASH_OUT record so the
-        // ledger is fully self-contained without needing engine state later.
-        const entry = await writeLedgerEntry(prisma, {
-            roomDbId,
-            userId:   player.id,
-            type:     'CASH_OUT',
-            amount:   player.stack,
-            authorId,
-        });
-        created.push(entry);
-    }
+    const created = await prisma.$transaction(async (tx) => {
+        const results: CachedLedgerEntry[] = [];
+        for (const player of toWrite) {
+            // Even busted players (stack=0) get a CASH_OUT record so the
+            // ledger is fully self-contained without needing engine state later.
+            const row = await tx.ledgerEntry.create({
+                data: {
+                    roomId:   roomDbId,
+                    userId:   player.id,
+                    type:     'CASH_OUT',
+                    amount:   player.stack,
+                    authorId,
+                },
+            });
+            results.push({
+                id:        row.id,
+                roomId:    row.roomId,
+                userId:    row.userId,
+                type:      row.type,
+                amount:    row.amount,
+                authorId:  row.authorId,
+                parentId:  row.parentId ?? undefined,
+                note:      row.note ?? undefined,
+                createdAt: row.createdAt,
+            });
+        }
+        return results;
+    });
 
     return created;
 }
@@ -165,7 +180,7 @@ export async function loadOpenDisputes(
         ledgerEntryId:   r.ledgerEntryId,
         raisedByUserId:  r.raisedByUserId,
         note:            r.note,
-        status:          r.status,
+        status:          r.status as SerializedDispute['status'],
         resolvedByUserId: r.resolvedByUserId ?? undefined,
         resolvedAt:      r.resolvedAt?.toISOString(),
     }));
@@ -177,7 +192,7 @@ export interface SerializedDispute {
     ledgerEntryId: string;
     raisedByUserId: string;
     note: string;
-    status: string;
+    status: 'OPEN' | 'ACKNOWLEDGED' | 'OVERRIDDEN' | 'DISMISSED';
     resolvedByUserId?: string;
     resolvedAt?: string;
 }

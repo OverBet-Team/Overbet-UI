@@ -89,9 +89,9 @@ export class LedgerMath {
             else if (net > 0) creditors.push({ id, amount: net });
         }
 
-        // Sort descending to match largest debts to largest credits first
-        debtors.sort((a, b) => b.amount - a.amount);
-        creditors.sort((a, b) => b.amount - a.amount);
+        // Sort descending by amount; break ties by id for deterministic output
+        debtors.sort((a, b) => b.amount - a.amount || a.id.localeCompare(b.id));
+        creditors.sort((a, b) => b.amount - a.amount || a.id.localeCompare(b.id));
 
         let dIdx = 0;
         let cIdx = 0;
@@ -131,6 +131,11 @@ export class LedgerMath {
  *
  * Only BUY_IN, ADD_ON, and CASH_OUT entries appear in the result
  * (with amounts potentially modified by adjustments).
+ *
+ * Invariants enforced:
+ * - Circular parentId references are detected and skipped with a warning.
+ * - Only the last ADJUSTMENT per parent takes effect (last-write-wins).
+ * - ADJUSTMENT/VOID targeting a non-existent parentId is skipped.
  */
 function resolveEntries(entries: LedgerEntry[]): LedgerEntry[] {
     // Build an id-keyed map for O(1) parent lookup.
@@ -147,11 +152,34 @@ function resolveEntries(entries: LedgerEntry[]): LedgerEntry[] {
     }
 
     // Apply ADJUSTMENT and VOID in chronological order (insertion order preserved).
+    // Invariants: skip entries with missing parentId targets or circular references;
+    // last-write-wins for multiple adjustments on the same parent.
     for (const entry of entries) {
-        if (entry.type === "VOID" && entry.parentId) {
-            effectiveAmount.set(entry.parentId, 0);
-        } else if (entry.type === "ADJUSTMENT" && entry.parentId) {
-            effectiveAmount.set(entry.parentId, entry.amount);
+        if ((entry.type === "VOID" || entry.type === "ADJUSTMENT") && entry.parentId) {
+            // Guard: parentId must reference a known entry
+            if (!byId.has(entry.parentId)) {
+                console.warn(
+                    `[resolveEntries] ${entry.type} entry ${entry.id ?? '(no id)'} references unknown parentId ${entry.parentId} — skipped`
+                );
+                continue;
+            }
+
+            // Guard: detect circular reference (ADJUSTMENT/VOID pointing at another ADJUSTMENT/VOID)
+            const parent = byId.get(entry.parentId)!;
+            if (parent.type === "ADJUSTMENT" || parent.type === "VOID") {
+                console.warn(
+                    `[resolveEntries] ${entry.type} entry ${entry.id ?? '(no id)'} targets ${parent.type} entry ${entry.parentId} — circular reference skipped`
+                );
+                continue;
+            }
+
+            // Apply: VOID zeroes the parent; ADJUSTMENT replaces its effective amount.
+            // Multiple adjustments on the same parent: last-write-wins (chronological order).
+            if (entry.type === "VOID") {
+                effectiveAmount.set(entry.parentId, 0);
+            } else {
+                effectiveAmount.set(entry.parentId, entry.amount);
+            }
         }
     }
 
@@ -201,6 +229,9 @@ export function computeLedgerSnapshot(
     // Zero-sum check: chip conservation requires all P&L values sum to exactly 0.
     const sum = Object.values(pnl).reduce((acc, v) => acc + v, 0);
     const zeroSumError = Math.abs(sum) > 1 ? sum : undefined;
+    if (zeroSumError !== undefined) {
+        console.warn(`[computeLedgerSnapshot] Zero-sum violation: Σ PnL = ${sum} (tolerance > 1 chip)`);
+    }
 
     return { pnl, settlement, isRunning, zeroSumError };
 }

@@ -35,6 +35,7 @@ function makeRoom(overrides: Partial<any> = {}): any {
         slug:   'ABC123',
         name:   'Test Room',
         status: 'FINISHED',
+        hostId: 'host',
         settings: {},
         ledgerEntries: [
             { id: 'e1', roomId: 'room-uuid-001', userId: 'p1', type: 'BUY_IN',   amount: 1000, authorId: 'host', parentId: null, note: null, createdAt: NOW },
@@ -133,7 +134,7 @@ describe('exportLedgerCSV', () => {
         (prisma.room.findUnique as any).mockResolvedValue(makeRoom());
         const csv = await exportLedgerCSV('ABC123');
         expect(csv).not.toBeNull();
-        expect(csv!.split('\n')[0]).toBe('Player,Buy-ins,Add-ons,Cash-outs,Net P&L');
+        expect(csv!.split('\n')[0]).toBe('"Player","Buy-ins","Add-ons","Cash-outs","Net P&L"');
     });
 
     it('produces one data row per player', async () => {
@@ -147,10 +148,10 @@ describe('exportLedgerCSV', () => {
     it('row for p1 contains correct buy-in and cash-out amounts', async () => {
         (prisma.room.findUnique as any).mockResolvedValue(makeRoom());
         const csv = await exportLedgerCSV('ABC123');
-        const p1Line = csv!.split('\n').find(l => l.startsWith('p1,'));
-        // Format: Player,Buy-ins,Add-ons,Cash-outs,Net P&L
+        const p1Line = csv!.split('\n').find(l => l.startsWith('"p1"'));
+        // Format: "Player",Buy-ins,Add-ons,Cash-outs,Net P&L (quoted player field)
         // p1: 1000 buy-in, 0 add-ons, 1500 cash-out, net=+500
-        expect(p1Line).toBe('p1,1000,0,1500,500');
+        expect(p1Line).toBe('"p1",1000,0,1500,500');
     });
 });
 
@@ -214,5 +215,56 @@ describe('exportLedgerText', () => {
         (prisma.room.findUnique as any).mockResolvedValue(room);
         const text = await exportLedgerText('ABC123');
         expect(text).toContain('No payments required');
+    });
+});
+
+
+// --- Auth / membership checks ---
+
+describe('getLedger membership check', () => {
+    it('returns null when userId is provided but not a member or host', async () => {
+        (prisma.room.findUnique as any).mockResolvedValue(makeRoom());
+        const result = await getLedger('ABC123', 'stranger-id');
+        expect(result).toBeNull();
+    });
+
+    it('returns data when userId is a member', async () => {
+        (prisma.room.findUnique as any).mockResolvedValue(makeRoom());
+        const result = await getLedger('ABC123', 'p1');
+        expect(result).not.toBeNull();
+        expect(result!.pnl['p1']).toBe(500);
+    });
+
+    it('returns data when userId is the host', async () => {
+        const room = makeRoom({ hostId: 'host-user-id' });
+        (prisma.room.findUnique as any).mockResolvedValue(room);
+        const result = await getLedger('ABC123', 'host-user-id');
+        expect(result).not.toBeNull();
+    });
+
+    it('returns data when userId is not provided (backward compat)', async () => {
+        (prisma.room.findUnique as any).mockResolvedValue(makeRoom());
+        const result = await getLedger('ABC123');
+        expect(result).not.toBeNull();
+    });
+});
+
+// --- CSV quoting ---
+
+describe('exportLedgerCSV quoting', () => {
+    it('header fields are quoted', async () => {
+        (prisma.room.findUnique as any).mockResolvedValue(makeRoom());
+        const csv = await exportLedgerCSV('ABC123');
+        expect(csv).not.toBeNull();
+        expect(csv!.split('\n')[0]).toBe('"Player","Buy-ins","Add-ons","Cash-outs","Net P&L"');
+    });
+
+    it('player id fields are quoted in data rows', async () => {
+        (prisma.room.findUnique as any).mockResolvedValue(makeRoom());
+        const csv = await exportLedgerCSV('ABC123');
+        const dataLines = csv!.split('\n').slice(1);
+        for (const line of dataLines) {
+            expect(line).toMatch(/^"/); // each data row starts with a quoted field
+        }
     });
 });

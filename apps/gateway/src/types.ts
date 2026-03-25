@@ -92,13 +92,16 @@ export interface IntentDisputeEntry extends BaseIntent {
     note: string;
 }
 
-export interface IntentResolveDispute extends BaseIntent {
-    type: "INTENT_RESOLVE_DISPUTE";
-    disputeId: string;
-    resolution: "ACKNOWLEDGED" | "OVERRIDDEN" | "DISMISSED";
-    adjustmentAmount?: number; // required when resolution = "OVERRIDDEN"
-    note?: string;
-}
+/**
+ * Discriminated union: adjustmentAmount is required only for OVERRIDDEN.
+ * TypeScript narrows this correctly at call sites after `data.resolution === 'OVERRIDDEN'`.
+ */
+export type IntentResolveDispute =
+    (BaseIntent & { type: "INTENT_RESOLVE_DISPUTE"; disputeId: string; note?: string }) &
+    (
+        | { resolution: "ACKNOWLEDGED" | "DISMISSED" }
+        | { resolution: "OVERRIDDEN"; adjustmentAmount: number }
+    );
 
 export interface IntentLockLedger extends BaseIntent {
     type: "INTENT_LOCK_LEDGER";
@@ -181,7 +184,7 @@ export interface SerializedDispute {
     ledgerEntryId: string;
     raisedByUserId: string;
     note: string;
-    status: string;
+    status: 'OPEN' | 'ACKNOWLEDGED' | 'OVERRIDDEN' | 'DISMISSED';
     resolvedByUserId?: string;
     resolvedAt?: string;
 }

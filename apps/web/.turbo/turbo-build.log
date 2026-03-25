@@ -2,12 +2,6 @@
 > web@0.1.0 build /Users/ayan/Desktop/Overbet Ledger/apps/web
 > next build
 
-⚠ No build cache found. Please configure build caching for faster rebuilds. Read more: https://nextjs.org/docs/messages/no-cache
-Attention: Next.js now collects completely anonymous telemetry regarding usage.
-This information is used to shape Next.js' roadmap and prioritize features.
-You can learn more, including how to opt-out if you'd not like to participate in this anonymous program, by visiting the following URL:
-https://nextjs.org/telemetry
-
 ▲ Next.js 16.1.6 (Turbopack)
 
   Creating an optimized production build ...
@@ -18,7 +12,7 @@ https://nextjs.org/telemetry
   Generating static pages using 9 workers (1/4) 
   Generating static pages using 9 workers (2/4) 
   Generating static pages using 9 workers (3/4) 
-✓ Generating static pages using 9 workers (4/4) in 242.5ms
+✓ Generating static pages using 9 workers (4/4) in 236.6ms
   Finalizing page optimization ...
 
 Route (app)

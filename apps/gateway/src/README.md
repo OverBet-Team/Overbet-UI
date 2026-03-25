@@ -8,7 +8,7 @@ The authoritative realtime server. Owns all live game state, timers, and broadca
 |------|---------|
 | `index.ts` | Express + Socket.IO setup, room lifecycle, all socket event handlers, timer management, state sanitization, event broadcast, and ledger handlers |
 | `types.ts` | TypeScript interfaces for every `INTENT_*` and `EVENT_*` socket message including all ledger types |
-| `ledger.ts` | Ledger DB write module: `writeLedgerEntry`, `writeSessionEndEntries`, `loadLedgerEntries`, `loadConfirmations`, `loadOpenDisputes`. Receives PrismaClient as parameter — never constructs its own. |
+| `ledger.ts` | Ledger DB write module: `writeLedgerEntry`, `writeSessionEndEntries` (transactional), `loadLedgerEntries`, `loadConfirmations`, `loadOpenDisputes`. Receives PrismaClient as parameter — never constructs its own. |
 
 ## Architecture
 
@@ -41,6 +41,13 @@ Socket.IO connection
 - **Event persistence** — every `NLHMachine` event is written to `HandEvent` in Postgres so rooms can be hydrated after restart.
 - **Broadcast sequencing** — `server_seq` increments monotonically per room; clients use this to detect missed updates.
 
+
+## Ledger Concurrency & Correctness
+
+- `lockLedger` is idempotent — `updateMany` with `status: { not: 'SETTLED' }` prevents duplicate transitions.
+- `writeSessionEndEntries` wraps all CASH_OUT creates in a Prisma `$transaction` — all-or-nothing.
+- `INTENT_ADD_ON` writes DB (roomMember + ledger entry) before mutating engine state. DB failure leaves engine unmodified.
+- Disputes use typed status: `'OPEN' | 'ACKNOWLEDGED' | 'OVERRIDDEN' | 'DISMISSED'`.
 ## Protocol Types (`types.ts`)
 
 All socket messages are typed. Clients send `INTENT_*`, gateway emits `EVENT_*`. Every message includes:
