@@ -13,7 +13,7 @@
  */
 
 import { prisma } from "@overbet/db";
-import { computeLedgerSnapshot, LedgerEntry as EngineLedgerEntry } from "@overbet/engine";
+import { computeLedgerSnapshot, resolveEntries, LedgerEntry as EngineLedgerEntry } from "@overbet/engine";
 
 // --- Shared types (mirrored from gateway/types.ts to avoid cross-app imports) ---
 
@@ -183,22 +183,47 @@ export async function exportLedgerCSV(roomSlug: string, userId?: string): Promis
         }
     }
 
-    // Aggregate by player — only base types contribute to totals
+    // Use resolved entries for totals so they are consistent with Net P&L.
+    // computeLedgerSnapshot uses resolveEntries internally; we reuse it here
+    // for the individual column totals.
+    const engineEntries = room.ledgerEntries.map(toEngineLedgerEntry);
+    const isRunning = room.status !== "FINISHED" && room.status !== "SETTLED";
+
+    // For running mode, pass ACTIVE member stacks as unrealized positions.
+    const currentStacks: Record<string, number> = {};
+    if (isRunning) {
+        for (const member of room.members) {
+            if (member.status === 'ACTIVE') currentStacks[member.userId] = member.stack;
+        }
+    }
+    const snapshot = computeLedgerSnapshot(engineEntries, currentStacks, isRunning);
+
+    // Aggregate by player — using resolved entries (BUY_IN, ADD_ON, CASH_OUT only)
     const playerTotals: Record<string, { buyIns: number; addOns: number; cashOuts: number }> = {};
 
-    for (const e of room.ledgerEntries) {
-        if (!playerTotals[e.userId]) {
-            playerTotals[e.userId] = { buyIns: 0, addOns: 0, cashOuts: 0 };
+    // Re-resolve entries just for the column breakdown
+    // (computeLedgerSnapshot doesn't expose the resolved entry list)
+    const resolved = resolveEntries(engineEntries);
+
+    for (const e of resolved) {
+        const pid = e.playerId;
+        if (!playerTotals[pid]) {
+            playerTotals[pid] = { buyIns: 0, addOns: 0, cashOuts: 0 };
         }
         if (e.type === "BUY_IN") {
-            playerTotals[e.userId].buyIns += e.amount;
+            playerTotals[pid].buyIns += e.amount;
         } else if (e.type === "ADD_ON") {
-            playerTotals[e.userId].addOns += e.amount;
+            playerTotals[pid].addOns += e.amount;
         } else if (e.type === "CASH_OUT") {
-            playerTotals[e.userId].cashOuts += e.amount;
+            playerTotals[pid].cashOuts += e.amount;
         }
-        // ADJUSTMENT/VOID are captured through computeLedgerSnapshot for P&L,
-        // but the raw CSV shows base entry totals for auditability
+    }
+
+    // Ensure every player in the P&L snapshot has a row, even if totals are zero
+    for (const pid of Object.keys(snapshot.pnl)) {
+        if (!playerTotals[pid]) {
+            playerTotals[pid] = { buyIns: 0, addOns: 0, cashOuts: 0 };
+        }
     }
 
     // Build userId → display name map from members for human-readable CSV.
@@ -208,17 +233,6 @@ export async function exportLedgerCSV(roomSlug: string, userId?: string): Promis
         const u = member.user as { username: string } | null;
         nameMap[member.userId] = u?.username ?? member.userId;
     }
-
-    const isRunning = room.status !== "FINISHED" && room.status !== "SETTLED";
-    const engineEntries = room.ledgerEntries.map(toEngineLedgerEntry);
-    // Running mode: pass active member stacks as unrealized positions.
-    const currentStacks: Record<string, number> = {};
-    if (isRunning) {
-        for (const member of room.members) {
-            if ((member as any).status === 'ACTIVE') currentStacks[member.userId] = member.stack;
-        }
-    }
-    const snapshot = computeLedgerSnapshot(engineEntries, currentStacks, isRunning);
 
     const header = '"Player","Buy-ins","Add-ons","Cash-outs","Net P&L"';
     const rows = Object.entries(playerTotals).map(([pid, totals]) => {

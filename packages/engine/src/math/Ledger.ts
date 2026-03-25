@@ -137,7 +137,7 @@ export class LedgerMath {
  * - Only the last ADJUSTMENT per parent takes effect (last-write-wins).
  * - ADJUSTMENT/VOID targeting a non-existent parentId is skipped.
  */
-function resolveEntries(entries: LedgerEntry[]): LedgerEntry[] {
+export function resolveEntries(entries: LedgerEntry[]): LedgerEntry[] {
     // Build an id-keyed map for O(1) parent lookup.
     // Entries without IDs cannot be targeted by ADJUSTMENT/VOID — treat as resolved.
     const byId = new Map<string, LedgerEntry>();
