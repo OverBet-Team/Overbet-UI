@@ -123,12 +123,51 @@
   flex-shrink: 0;
 }
 
-/* Dashed placeholder for empty card slots */
-.card-placeholder {
+/* Premium playing card with layered shadows and inner border */
+.poker-card-premium {
+  background: #ffffff;
+  box-shadow:
+    0 10px 25px -5px rgba(0, 0, 0, 0.3),
+    0 8px 10px -6px rgba(0, 0, 0, 0.3),
+    inset 0 0 1px 1px rgba(0, 0, 0, 0.02);
   border-radius: 8px;
-  border: 2px dashed rgba(72, 71, 74, 0.2);
-  background: transparent;
+  position: relative;
+  overflow: hidden;
+}
+.poker-card-premium::after {
+  content: '';
+  position: absolute;
+  inset: 0;
+  border-radius: 8px;
+  box-shadow: inset 0 0 0 1px rgba(255, 255, 255, 0.2);
+  pointer-events: none;
+}
+
+/* Card suit colors */
+.suit-red {
+  color: #f43f5e;
+}
+.suit-black {
+  color: #18181b;
+}
+
+/* Updated placeholder for empty card slots with ghost circle */
+.card-placeholder {
+  border-radius: 0.75rem;
+  border: 1px solid rgba(255, 255, 255, 0.05);
+  background: rgba(255, 255, 255, 0.01);
   flex-shrink: 0;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+.card-placeholder::before {
+  content: '';
+  width: 2rem;
+  height: 2rem;
+  border-radius: 50%;
+  border: 1px solid rgba(255, 255, 255, 0.05);
+  opacity: 0.1;
 }
 
 /* ============================================================
@@ -226,6 +265,29 @@
   }
 }
 
+/* Entrance animations for staggered orchestration */
+@keyframes fadeInUp {
+  from {
+    opacity: 0;
+    transform: translateY(20px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+@keyframes scaleIn {
+  from {
+    opacity: 0;
+    transform: scale(0.9);
+  }
+  to {
+    opacity: 1;
+    transform: scale(1);
+  }
+}
+
 /* ============================================================
    TABLE SURFACE & FELT
    ============================================================ */
@@ -264,6 +326,21 @@
 
 .avatar-glow-active {
   box-shadow: 0 0 0 2px #00e3fd, 0 0 25px rgba(0, 227, 253, 0.3);
+}
+
+.avatar-glow-inactive {
+  filter: grayscale(0.5) contrast(0.8);
+  opacity: 0.6;
+}
+
+.radial-glow {
+  background: radial-gradient(circle, rgba(129, 236, 255, 0.15) 0%, rgba(14, 14, 16, 0) 70%);
+}
+
+.glass-dock {
+  background: rgba(25, 25, 28, 0.4);
+  backdrop-filter: blur(24px);
+  -webkit-backdrop-filter: blur(24px);
 }
 
 /* ============================================================

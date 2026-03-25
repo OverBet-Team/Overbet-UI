@@ -167,16 +167,14 @@ export default function PlayingCard({
 
   return (
     <div
-      className={cn('card-face card-deal relative inline-flex overflow-hidden', className)}
+      className={cn(
+        'poker-card-premium card-deal relative inline-flex overflow-hidden',
+        suit === 'hearts' || suit === 'diamonds' ? 'suit-red' : 'suit-black',
+        winning ? 'winning-card-glow' : '',
+        className
+      )}
       style={{
         ...baseStyle,
-        ...(winning
-          ? {
-              animation:
-                'card-deal 0.32s cubic-bezier(0.34,1.56,0.64,1) forwards, winning-card-glow 1.5s ease-in-out infinite 0.4s',
-              border: '1.5px solid rgba(245,158,11,0.7)',
-            }
-          : {}),
       }}
     >
       {/* Top-left corner */}
@@ -191,14 +189,13 @@ export default function PlayingCard({
           className="font-extrabold leading-none"
           style={{
             fontSize: s.rankSize,
-            color,
             fontFamily: 'var(--font-display), var(--font-body), sans-serif',
             letterSpacing: '-0.02em',
           }}
         >
           {rank}
         </span>
-        <span className="leading-none" style={{ fontSize: s.suitCorner, color }}>
+        <span className="leading-none" style={{ fontSize: s.suitCorner }}>
           {symbol}
         </span>
       </div>
@@ -216,21 +213,20 @@ export default function PlayingCard({
           className="font-extrabold leading-none"
           style={{
             fontSize: s.rankSize,
-            color,
             fontFamily: 'var(--font-display), var(--font-body), sans-serif',
             letterSpacing: '-0.02em',
           }}
         >
           {rank}
         </span>
-        <span className="leading-none" style={{ fontSize: s.suitCorner, color }}>
+        <span className="leading-none" style={{ fontSize: s.suitCorner }}>
           {symbol}
         </span>
       </div>
 
       {/* Center suit symbol */}
       <div className="absolute inset-0 flex items-center justify-center">
-        <span className="select-none leading-none" style={{ fontSize: s.suitCenter, color }}>
+        <span className="select-none leading-none" style={{ fontSize: s.suitCenter }}>
           {symbol}
         </span>
       </div>

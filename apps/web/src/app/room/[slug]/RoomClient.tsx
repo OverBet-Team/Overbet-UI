@@ -988,16 +988,35 @@ export default function RoomClient({ slug, initialRoom }: RoomProps) {
   return (
     <div
       data-testid="in-game-view"
+      className="flex flex-col w-full overflow-hidden font-body"
       style={{
-        display: "flex",
-        flexDirection: "column",
-        width: "100%",
         height: isPortraitMobile ? "calc(100dvh - 56px)" : "calc(100dvh - 5rem)",
         minHeight: 0,
-        fontFamily: "Outfit, sans-serif",
-        overflow: "hidden",
       }}
     >
+      {/* Moon Poker header */}
+      <header className="fixed top-0 left-0 w-full px-6 md:px-10 py-4 md:py-6 z-50 flex justify-between items-center bg-transparent">
+        <div className="flex items-center gap-3 md:gap-10">
+          <span className="font-headline font-bold text-sm md:text-base uppercase italic tracking-tighter text-[--on-surface] flex items-center gap-2">
+            <div className="w-2 h-2 rounded-full bg-[--gold]" />
+            MOON POKER
+          </span>
+          <span className="hidden md:inline text-[0.6rem] font-headline uppercase tracking-[0.2em] text-[--on-surface-variant]/40">
+            Table: <span className="text-[--on-surface]/80">{room.name}</span>
+          </span>
+        </div>
+        <div className="flex items-center gap-4 md:gap-6">
+          {/* Settings, Help, Fairness buttons will be moved here */}
+        </div>
+      </header>
+
+      {/* Atmospheric background orbs */}
+      <div className="fixed inset-0 pointer-events-none z-[-1] overflow-hidden">
+        <div className="absolute -top-[20%] -left-[10%] w-[60%] h-[60%] rounded-full bg-[--primary]/5 blur-[120px]" />
+        <div className="absolute bottom-[10%] -right-[20%] w-[50%] h-[50%] rounded-full bg-[--tertiary]/5 blur-[100px]" />
+        <div className="absolute top-[40%] left-[30%] w-[20%] h-[20%] rounded-full bg-[--secondary]/5 blur-[80px]" />
+      </div>
+
       {/* ── Game canvas (flex-fill) ────────────────────────────────────────── */}
       <div style={{ flex: 1, minHeight: 0, display: "flex", flexDirection: "column", position: "relative", paddingTop: isPortraitMobile ? 36 : 0 }}>
         <div
@@ -1163,35 +1182,22 @@ export default function RoomClient({ slug, initialRoom }: RoomProps) {
         )}
 
         {/* Top-right icon buttons */}
-        <div style={{ position: "absolute", top: 8, right: 8, display: "flex", flexDirection: isPortraitMobile ? "row" : "column", gap: 6, zIndex: 10 }}>
+        <div className="absolute top-8 right-8 flex gap-3 z-10">
           {isHost && (
             <button
               onClick={handleOpenSettings}
-              style={{
-                width: 36, height: 36, borderRadius: "50%", border: "1px solid var(--outline-variant)",
-                background: "var(--surface-container-high)", color: "var(--on-surface-variant)",
-                display: "flex", alignItems: "center", justifyContent: "center",
-                cursor: "pointer", backdropFilter: "blur(8px)", transition: "all 0.15s",
-              }}
+              className="icon-btn hover:text-[--tertiary] hover:border-[--tertiary] focus-visible:ring-2 focus-visible:ring-[--ring-active] focus-visible:ring-offset-2"
               title="Room Settings"
-              onMouseEnter={(e) => { e.currentTarget.style.color = "var(--tertiary)"; e.currentTarget.style.borderColor = "var(--tertiary)"; }}
-              onMouseLeave={(e) => { e.currentTarget.style.color = "var(--on-surface-variant)"; e.currentTarget.style.borderColor = "var(--outline-variant)"; }}
+              aria-label="Room settings"
             >
               <Settings size={16} />
             </button>
           )}
           <button
             onClick={() => setShowFairnessModal(true)}
-            style={{
-              width: 36, height: 36, borderRadius: "50%", border: "1px solid var(--outline-variant)",
-              background: "var(--surface-container-high)", color: "var(--on-surface-variant)",
-              display: "flex", alignItems: "center", justifyContent: "center",
-              cursor: "pointer", backdropFilter: "blur(8px)", transition: "all 0.15s",
-              fontSize: 16,
-            }}
+            className="icon-btn hover:text-[--tertiary] hover:border-[--tertiary] focus-visible:ring-2 focus-visible:ring-[--ring-active] focus-visible:ring-offset-2"
             title="Provably Fair"
-            onMouseEnter={(e) => { e.currentTarget.style.color = "var(--tertiary)"; e.currentTarget.style.borderColor = "var(--tertiary)"; }}
-            onMouseLeave={(e) => { e.currentTarget.style.color = "var(--on-surface-variant)"; e.currentTarget.style.borderColor = "var(--outline-variant)"; }}
+            aria-label="Provably fair verification"
           >
             <Shield size={16} />
           </button>
