@@ -32,10 +32,16 @@ function makeMockPrisma(overrides: Record<string, any> = {}): any {
         ledgerConfirmation: {
             findMany: vi.fn(async () => []),
         },
+        // Interactive transaction: execute the callback with this same mock as tx
+        $transaction: vi.fn(async (fn: any) => fn({
+            ledgerEntry: {
+                create: vi.fn(defaultCreate),
+                findMany: vi.fn(defaultFindMany),
+            },
+        })),
         ...overrides,
     };
 }
-
 describe('writeLedgerEntry', () => {
     it('persists correct fields and returns CachedLedgerEntry', async () => {
         const mockPrisma = makeMockPrisma();
@@ -95,9 +101,8 @@ describe('writeLedgerEntry', () => {
 
 describe('writeSessionEndEntries', () => {
     it('writes CASH_OUT for players without one and returns new entries', async () => {
-        const mockPrisma = makeMockPrisma();
         let callCount = 0;
-        mockPrisma.ledgerEntry.create = vi.fn(async (args: any) => ({
+        const customCreate = vi.fn(async (args: any) => ({
             id:        `new-entry-${++callCount}`,
             roomId:    args.data.roomId,
             userId:    args.data.userId,
@@ -108,6 +113,11 @@ describe('writeSessionEndEntries', () => {
             note:      null,
             createdAt: new Date(),
         }));
+        const mockPrisma = makeMockPrisma({
+            $transaction: vi.fn(async (fn: any) => fn({
+                ledgerEntry: { create: customCreate },
+            })),
+        });
 
         const existingEntries: CachedLedgerEntry[] = [
             // p1 already cashed out

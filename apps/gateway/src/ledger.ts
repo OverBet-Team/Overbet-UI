@@ -68,7 +68,8 @@ export async function writeLedgerEntry(
  * provided cache, write a CASH_OUT entry using their current stack.
  *
  * Returns only the newly written entries (empty if all players already cashed out).
- * Skips players with stack === 0 who also have no CASH_OUT — they were busted with nothing.
+ * Players with stack === 0 who have no prior CASH_OUT still receive a CASH_OUT(0) entry
+ * so the ledger is fully self-contained without needing engine state post-session.
  */
 export async function writeSessionEndEntries(
     prisma: PrismaClient,
@@ -86,19 +87,34 @@ export async function writeSessionEndEntries(
     const toWrite = players.filter(p => !alreadyCashedOut.has(p.id));
     if (toWrite.length === 0) return [];
 
-    const created: CachedLedgerEntry[] = [];
-    for (const player of toWrite) {
-        // Even busted players (stack=0) get a CASH_OUT record so the
-        // ledger is fully self-contained without needing engine state later.
-        const entry = await writeLedgerEntry(prisma, {
-            roomDbId,
-            userId:   player.id,
-            type:     'CASH_OUT',
-            amount:   player.stack,
-            authorId,
-        });
-        created.push(entry);
-    }
+    const created = await prisma.$transaction(async (tx) => {
+        const results: CachedLedgerEntry[] = [];
+        for (const player of toWrite) {
+            // Even busted players (stack=0) get a CASH_OUT record so the
+            // ledger is fully self-contained without needing engine state later.
+            const row = await tx.ledgerEntry.create({
+                data: {
+                    roomId:   roomDbId,
+                    userId:   player.id,
+                    type:     'CASH_OUT',
+                    amount:   player.stack,
+                    authorId,
+                },
+            });
+            results.push({
+                id:        row.id,
+                roomId:    row.roomId,
+                userId:    row.userId,
+                type:      row.type,
+                amount:    row.amount,
+                authorId:  row.authorId,
+                parentId:  row.parentId ?? undefined,
+                note:      row.note ?? undefined,
+                createdAt: row.createdAt,
+            });
+        }
+        return results;
+    });
 
     return created;
 }
@@ -146,10 +162,11 @@ export async function loadConfirmations(
 }
 
 /**
- * Load open LedgerDispute rows for a room's entries.
- * Disputes are mutable (status changes), so they are queried on demand rather than cached.
+ * Load all LedgerDispute rows for a room's entries.
+ * Returns disputes in all statuses (OPEN, ACKNOWLEDGED, OVERRIDDEN, DISMISSED) so the
+ * client can render the full dispute history. Status filtering is left to the consumer.
  */
-export async function loadOpenDisputes(
+export async function loadDisputes(
     prisma: PrismaClient,
     roomDbId: string
 ): Promise<SerializedDispute[]> {
@@ -165,7 +182,7 @@ export async function loadOpenDisputes(
         ledgerEntryId:   r.ledgerEntryId,
         raisedByUserId:  r.raisedByUserId,
         note:            r.note,
-        status:          r.status,
+        status:          r.status as SerializedDispute['status'],
         resolvedByUserId: r.resolvedByUserId ?? undefined,
         resolvedAt:      r.resolvedAt?.toISOString(),
     }));
@@ -177,7 +194,7 @@ export interface SerializedDispute {
     ledgerEntryId: string;
     raisedByUserId: string;
     note: string;
-    status: string;
+    status: 'OPEN' | 'ACKNOWLEDGED' | 'OVERRIDDEN' | 'DISMISSED';
     resolvedByUserId?: string;
     resolvedAt?: string;
 }

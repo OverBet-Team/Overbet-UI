@@ -39,7 +39,7 @@ export interface SerializedDispute {
     ledgerEntryId: string;
     raisedByUserId: string;
     note: string;
-    status: string;
+    status: 'OPEN' | 'ACKNOWLEDGED' | 'OVERRIDDEN' | 'DISMISSED';
     resolvedByUserId?: string;
     resolvedAt?: string;
 }
@@ -86,25 +86,37 @@ function toEngineLedgerEntry(row: {
  *
  * Returns null if the room does not exist.
  */
-export async function getLedger(roomSlug: string): Promise<LedgerPayload | null> {
+export async function getLedger(roomSlug: string, userId?: string): Promise<LedgerPayload | null> {
     const room = await prisma.room.findUnique({
         where: { slug: roomSlug },
         include: {
             ledgerEntries: { orderBy: { createdAt: "asc" } },
-            members:       { where: { status: "ACTIVE" } },
+            // Fetch ALL members regardless of status so that cashed-out (BUSTED)
+            // players can still access the ledger they participated in.
+            members:       { select: { userId: true, stack: true, status: true } },
             ledgerConfirmations: { select: { userId: true } },
         },
     });
 
     if (!room) return null;
 
+    if (userId) {
+        const isMember = room.members.some(m => m.userId === userId);
+        const isHost = room.hostId === userId;
+        if (!isMember && !isHost) {
+            console.warn(`[getLedger] userId ${userId} is not a member of room ${roomSlug}`);
+            return null;
+        }
+    }
+
     const isRunning = room.status !== "FINISHED" && room.status !== "SETTLED";
 
     // For running mode, use RoomMember.stack as the current unrealized position
     const currentStacks: Record<string, number> = {};
     if (isRunning) {
+        // Only ACTIVE players still have chips on the table; BUSTED players have stack=0
         for (const member of room.members) {
-            currentStacks[member.userId] = member.stack;
+            if (member.status === 'ACTIVE') currentStacks[member.userId] = member.stack;
         }
     }
 
@@ -135,7 +147,7 @@ export async function getLedger(roomSlug: string): Promise<LedgerPayload | null>
             ledgerEntryId:   d.ledgerEntryId,
             raisedByUserId:  d.raisedByUserId,
             note:            d.note,
-            status:          d.status,
+            status:          d.status as SerializedDispute['status'],
             resolvedByUserId: d.resolvedByUserId ?? undefined,
             resolvedAt:      d.resolvedAt?.toISOString(),
         })),
@@ -151,12 +163,25 @@ export async function getLedger(roomSlug: string): Promise<LedgerPayload | null>
  * One row per player; amounts aggregated from immutable entries.
  * Returns null if room not found.
  */
-export async function exportLedgerCSV(roomSlug: string): Promise<string | null> {
+export async function exportLedgerCSV(roomSlug: string, userId?: string): Promise<string | null> {
     const room = await prisma.room.findUnique({
         where: { slug: roomSlug },
-        include: { ledgerEntries: { orderBy: { createdAt: "asc" } } },
+        include: {
+            ledgerEntries: { orderBy: { createdAt: "asc" } },
+            // All members (including BUSTED) for auth check and display names.
+            members: { include: { user: { select: { username: true } } } },
+        },
     });
     if (!room) return null;
+
+    if (userId) {
+        const isMember = room.members.some(m => m.userId === userId);
+        const isHost = room.hostId === userId;
+        if (!isMember && !isHost) {
+            console.warn(`[exportLedgerCSV] userId ${userId} is not a member of room ${roomSlug}`);
+            return null;
+        }
+    }
 
     // Aggregate by player — only base types contribute to totals
     const playerTotals: Record<string, { buyIns: number; addOns: number; cashOuts: number }> = {};
@@ -176,15 +201,31 @@ export async function exportLedgerCSV(roomSlug: string): Promise<string | null> 
         // but the raw CSV shows base entry totals for auditability
     }
 
+    // Build userId → display name map from members for human-readable CSV.
+    // Falls back to raw userId when no username is set (anonymous sessions).
+    const nameMap: Record<string, string> = {};
+    for (const member of room.members) {
+        const u = member.user as { username: string } | null;
+        nameMap[member.userId] = u?.username ?? member.userId;
+    }
+
     const isRunning = room.status !== "FINISHED" && room.status !== "SETTLED";
     const engineEntries = room.ledgerEntries.map(toEngineLedgerEntry);
-    const snapshot = computeLedgerSnapshot(engineEntries, {}, isRunning);
+    // Running mode: pass active member stacks as unrealized positions.
+    const currentStacks: Record<string, number> = {};
+    if (isRunning) {
+        for (const member of room.members) {
+            if ((member as any).status === 'ACTIVE') currentStacks[member.userId] = member.stack;
+        }
+    }
+    const snapshot = computeLedgerSnapshot(engineEntries, currentStacks, isRunning);
 
-    const header = "Player,Buy-ins,Add-ons,Cash-outs,Net P&L";
-    const rows = Object.entries(playerTotals).map(([userId, totals]) => {
-        const netPnl = snapshot.pnl[userId] ?? 0;
-        // Quote userId in case it contains commas (UUIDs don't but display names might)
-        return `${userId},${totals.buyIns},${totals.addOns},${totals.cashOuts},${netPnl}`;
+    const header = '"Player","Buy-ins","Add-ons","Cash-outs","Net P&L"';
+    const rows = Object.entries(playerTotals).map(([pid, totals]) => {
+        const netPnl = snapshot.pnl[pid] ?? 0;
+        const displayName = nameMap[pid] ?? pid;
+        const quotedName = '"' + displayName.replace(/"/g, '""') + '"';
+        return quotedName + ',' + totals.buyIns + ',' + totals.addOns + ',' + totals.cashOuts + ',' + netPnl;
     });
 
     return [header, ...rows].join("\n");
@@ -195,8 +236,8 @@ export async function exportLedgerCSV(roomSlug: string): Promise<string | null> 
  * Used for provably-fair audit bundle.
  * Returns null if room not found.
  */
-export async function exportLedgerJSON(roomSlug: string): Promise<string | null> {
-    const payload = await getLedger(roomSlug);
+export async function exportLedgerJSON(roomSlug: string, userId?: string): Promise<string | null> {
+    const payload = await getLedger(roomSlug, userId);
     if (!payload) return null;
 
     return JSON.stringify(
@@ -215,7 +256,7 @@ export async function exportLedgerJSON(roomSlug: string): Promise<string | null>
  * Generated from the settlement matrix.
  * Returns null if room not found.
  */
-export async function exportLedgerText(roomSlug: string): Promise<string | null> {
+export async function exportLedgerText(roomSlug: string, userId?: string): Promise<string | null> {
     const room = await prisma.room.findUnique({
         where: { slug: roomSlug },
         include: {
@@ -225,15 +266,32 @@ export async function exportLedgerText(roomSlug: string): Promise<string | null>
     });
     if (!room) return null;
 
+    if (userId) {
+        const isMember = room.members.some(m => m.userId === userId);
+        const isHost = room.hostId === userId;
+        if (!isMember && !isHost) {
+            console.warn(`[exportLedgerText] userId ${userId} is not a member of room ${roomSlug}`);
+            return null;
+        }
+    }
+
     // Build userId → displayName map for readable output
     const nameMap: Record<string, string> = {};
     for (const member of room.members) {
-        nameMap[member.userId] = (member.user as any)?.username ?? member.userId;
+        const user = member.user as { username: string } | null;
+        nameMap[member.userId] = user?.username ?? member.userId;
     }
 
     const isRunning = room.status !== "FINISHED" && room.status !== "SETTLED";
     const engineEntries = room.ledgerEntries.map(toEngineLedgerEntry);
-    const snapshot = computeLedgerSnapshot(engineEntries, {}, isRunning);
+    // Running mode: pass active member stacks as unrealized positions.
+    const currentStacks: Record<string, number> = {};
+    if (isRunning) {
+        for (const member of room.members) {
+            if (member.status === 'ACTIVE') currentStacks[member.userId] = member.stack;
+        }
+    }
+    const snapshot = computeLedgerSnapshot(engineEntries, currentStacks, isRunning);
 
     if (snapshot.settlement.length === 0) {
         return "No payments required — all players are settled.";

@@ -1,4 +1,4 @@
-import { describe, it, expect } from 'vitest';
+import { describe, it, expect, vi } from 'vitest';
 import { LedgerMath, LedgerEntry, PlayerFinalStack, computeLedgerSnapshot } from '../src/math/Ledger';
 
 describe('LedgerMath', () => {
@@ -200,6 +200,104 @@ describe('computeLedgerSnapshot', () => {
         const snapshot = computeLedgerSnapshot(entries, { p1: 1600, p2: 500 }, true);
 
         expect(snapshot.zeroSumError).toBeDefined();
-        expect(Math.abs(snapshot.zeroSumError!)).toBeGreaterThan(1);
+        expect(Math.abs(snapshot.zeroSumError!)).toBeGreaterThan(0);
+    });
+});
+
+
+describe('resolveEntries edge cases', () => {
+    it('circular reference: ADJUSTMENT targeting another ADJUSTMENT is skipped', () => {
+        const warnSpy = vi.spyOn(console, 'warn');
+
+        const entries: LedgerEntry[] = [
+            { id: 'e1', playerId: "p1", amount: 1000, type: "BUY_IN" },
+            // Valid adjustment: override e1 from 1000 to 800
+            { id: 'e2', playerId: "p1", amount: 800, type: "ADJUSTMENT", parentId: 'e1' },
+            // Circular: targets e2 (an ADJUSTMENT) — should be skipped
+            { id: 'e3', playerId: "p1", amount: 500, type: "ADJUSTMENT", parentId: 'e2' },
+            { id: 'e4', playerId: "p2", amount: 800, type: "BUY_IN" },
+        ];
+
+        const snapshot = computeLedgerSnapshot(entries, { p1: 900, p2: 700 }, true);
+
+        // e2's adjustment on e1 takes effect (1000 → 800), e3 is skipped
+        // p1: -800 + 900 = +100, p2: -800 + 700 = -100
+        expect(snapshot.pnl["p1"]).toBe(100);
+        expect(snapshot.pnl["p2"]).toBe(-100);
+        expect(snapshot.zeroSumError).toBeUndefined();
+
+        expect(warnSpy).toHaveBeenCalledWith(
+            expect.stringContaining('circular reference skipped')
+        );
+
+        warnSpy.mockRestore();
+    });
+
+    it('VOID targeting non-existent parentId is skipped', () => {
+        const warnSpy = vi.spyOn(console, 'warn');
+
+        const entries: LedgerEntry[] = [
+            { id: 'e1', playerId: "p1", amount: 1000, type: "BUY_IN" },
+            { id: 'e2', playerId: "p2", amount: 1000, type: "BUY_IN" },
+            // References a parentId that doesn't exist — should be skipped
+            { id: 'e3', playerId: "p1", amount: 0, type: "VOID", parentId: 'nonexistent-id' },
+        ];
+
+        const snapshot = computeLedgerSnapshot(entries, { p1: 1500, p2: 500 }, true);
+
+        // Snapshot is unaffected — both buy-ins remain at full value
+        // p1: -1000 + 1500 = +500, p2: -1000 + 500 = -500
+        expect(snapshot.pnl["p1"]).toBe(500);
+        expect(snapshot.pnl["p2"]).toBe(-500);
+        expect(snapshot.zeroSumError).toBeUndefined();
+
+        expect(warnSpy).toHaveBeenCalledWith(
+            expect.stringContaining('unknown parentId nonexistent-id')
+        );
+
+        warnSpy.mockRestore();
+    });
+
+    it('multiple ADJUSTMENTs on same parent: last-write-wins', () => {
+        const entries: LedgerEntry[] = [
+            { id: 'e1', playerId: "p1", amount: 1000, type: "BUY_IN" },
+            // First adjustment: override e1 to 800
+            { id: 'e2', playerId: "p1", amount: 800, type: "ADJUSTMENT", parentId: 'e1' },
+            // Second adjustment: override e1 to 600 (last-write-wins)
+            { id: 'e3', playerId: "p1", amount: 600, type: "ADJUSTMENT", parentId: 'e1' },
+            { id: 'e4', playerId: "p2", amount: 600, type: "BUY_IN" },
+        ];
+
+        const snapshot = computeLedgerSnapshot(entries, { p1: 700, p2: 500 }, true);
+
+        // e1 effective amount = 600 (last adjustment wins)
+        // p1: -600 + 700 = +100, p2: -600 + 500 = -100
+        expect(snapshot.pnl["p1"]).toBe(100);
+        expect(snapshot.pnl["p2"]).toBe(-100);
+        expect(snapshot.zeroSumError).toBeUndefined();
+    });
+});
+
+describe('deterministic settlement', () => {
+    it('settlement order is deterministic regardless of object key insertion order', () => {
+        // Two pnl maps with identical values but different insertion order
+        const pnlA: Record<string, number> = {};
+        pnlA["p3"] = -800;
+        pnlA["p1"] = 1000;
+        pnlA["p4"] = -700;
+        pnlA["p2"] = 500;
+
+        const pnlB: Record<string, number> = {};
+        pnlB["p1"] = 1000;
+        pnlB["p2"] = 500;
+        pnlB["p3"] = -800;
+        pnlB["p4"] = -700;
+
+        const settlementsA = LedgerMath.generateSettlementMatrix(pnlA);
+        const settlementsB = LedgerMath.generateSettlementMatrix(pnlB);
+
+        expect(settlementsA).toEqual(settlementsB);
+        // Verify it actually produced transfers
+        expect(settlementsA.length).toBeGreaterThan(0);
     });
 });

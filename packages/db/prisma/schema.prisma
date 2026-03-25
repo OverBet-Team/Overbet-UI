@@ -89,8 +89,9 @@ model LedgerEntry {
   createdAt DateTime        @default(now())
 
   disputes  LedgerDispute[]
-}
 
+  @@index([roomId])  // primary query pattern: fetch all entries for a room
+}
 model LedgerDispute {
   id               String       @id @default(uuid())
   ledgerEntryId    String
@@ -101,6 +102,8 @@ model LedgerDispute {
   resolvedByUserId String?
   resolvedAt       DateTime?
   createdAt        DateTime     @default(now())
+
+  @@index([ledgerEntryId])  // join pattern: disputes for a specific entry
 }
 
 model LedgerConfirmation {

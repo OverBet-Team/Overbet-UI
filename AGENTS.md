@@ -58,7 +58,7 @@ Each key directory has a `README.md` with a file inventory and local conventions
 - `vitest.workspace.ts`: Vitest workspace across `apps/*` and `packages/*`
 - `apps/gateway/src/index.ts`: core authoritative server implementation
 - `apps/gateway/src/types.ts`: socket intent/event contracts (includes all ledger INTENT_*/EVENT_* types)
-- `apps/gateway/src/ledger.ts`: ledger DB write helpers — writeLedgerEntry, writeSessionEndEntries, loadLedgerEntries, loadConfirmations, loadOpenDisputes
+- `apps/gateway/src/ledger.ts`: ledger DB write helpers — writeLedgerEntry, writeSessionEndEntries, loadLedgerEntries, loadConfirmations, loadDisputes
 - `apps/web/src/app/room/[slug]/RoomClient.tsx`: main client realtime room flow
 - `apps/web/src/app/actions/room.ts`: room creation/loading on the web side
 - `apps/web/src/app/actions/ledger.ts`: ledger server actions — getLedger, exportLedgerCSV/JSON/Text
@@ -136,6 +136,19 @@ Do not introduce npm/yarn lockfiles, alternate package managers, or Bun-specific
 ### Identity/session pattern
 - `apps/web/src/hooks/useUser.ts` generates/stores a local anonymous user id in `localStorage` under `overbet_user_id`.
 - Avoid edits that break anonymous-session continuity unless you are intentionally redesigning identity.
+
+### Ledger system
+- Ledger entries are append-only and immutable in DB. Corrections use ADJUSTMENT (overrides parent amount) or VOID (zeroes parent amount) entries referencing the original via `parentId`.
+- `resolveEntries` in `packages/engine/src/math/Ledger.ts` enforces: no circular parentId chains, no ADJUSTMENT/VOID targeting another ADJUSTMENT/VOID, unknown parentIds are skipped with a warning.
+- Only one ADJUSTMENT per parent is meaningful — last-write-wins in chronological order.
+- `computeLedgerSnapshot` logs a warning when zero-sum (chip conservation) is violated. Callers must surface `zeroSumError` to the user.
+- Settlement sorting is deterministic: secondary sort by playerId when amounts are equal.
+- Gateway `writeSessionEndEntries` wraps all CASH_OUT writes in a Prisma `$transaction` — all-or-nothing.
+- Gateway `lockLedger` is idempotent — uses `updateMany` with status guard to prevent duplicate SETTLED transitions.
+- Gateway `INTENT_ADD_ON` writes DB before mutating engine state. If the DB write fails, engine state is unmodified.
+- Web ledger server actions (`getLedger`, `exportLedger*`) accept an optional `userId` parameter for membership checks. When provided, only room members and the host can access the ledger. When omitted, access is unrestricted (MVP anonymous compatibility).
+- `SerializedDispute.status` uses a union type `'OPEN' | 'ACKNOWLEDGED' | 'OVERRIDDEN' | 'DISMISSED'` — not a plain `string`.
+- CSV export uses RFC 4180 quoting for fields that may contain commas.
 
 ## Testing & QA
 

@@ -32,7 +32,7 @@ import {
     writeSessionEndEntries,
     loadLedgerEntries,
     loadConfirmations,
-    loadOpenDisputes,
+    loadDisputes,
     SerializedDispute,
 } from './ledger';
 
@@ -95,6 +95,11 @@ const roomStates: Record<string, {
     ledgerEntries: CachedLedgerEntry[];
     /** userIds who have confirmed the final ledger. */
     confirmations: string[];
+    /**
+     * Cached open disputes. Populated on hydration, invalidated (re-fetched) on
+     * INTENT_DISPUTE_ENTRY and INTENT_RESOLVE_DISPUTE. Zero DB reads on broadcast.
+     */
+    cachedDisputes: SerializedDispute[];
     /** Last known Room.status — cached to avoid DB reads per ledger broadcast. */
     roomStatus: string;
 }> = {};
@@ -184,6 +189,7 @@ async function hydrateRoom(roomId: string) {
     // Load ledger entries and confirmations from DB into cache
     const ledgerEntries = await loadLedgerEntries(prisma, room.id);
     const confirmations = await loadConfirmations(prisma, room.id);
+    const cachedDisputes = await loadDisputes(prisma, room.id);
 
     const roomData = {
         engine,
@@ -198,6 +204,7 @@ async function hydrateRoom(roomId: string) {
         isPaused: false,
         ledgerEntries,
         confirmations,
+        cachedDisputes,
         roomStatus: room.status,
     };
     roomStates[roomId] = roomData;
@@ -397,7 +404,9 @@ async function broadcastLedgerUpdate(roomId: string) {
     const isRunning = roomData.roomStatus !== 'FINISHED' && roomData.roomStatus !== 'SETTLED';
     const snapshot = computeLedgerSnapshot(engineEntries, isRunning ? currentStacks : {}, isRunning);
 
-    const disputes = await loadOpenDisputes(prisma, roomData.dbRoomId);
+    // Use the in-memory dispute cache — zero DB reads per broadcast.
+    // Cache is invalidated (re-fetched) on INTENT_DISPUTE_ENTRY and INTENT_RESOLVE_DISPUTE.
+    const disputes = roomData.cachedDisputes;
 
     const payload: LedgerPayload = {
         entries:       roomData.ledgerEntries.map(serializeLedgerEntry),
@@ -424,7 +433,11 @@ async function broadcastLedgerUpdate(roomId: string) {
  * Shared by INTENT_LOCK_LEDGER and auto-lock when all players confirm.
  */
 async function lockLedger(roomId: string, lockedBy: string) {
-    await prisma.room.update({ where: { slug: roomId }, data: { status: 'SETTLED' } });
+    const result = await prisma.room.updateMany({
+        where: { slug: roomId, status: { not: 'SETTLED' } },
+        data: { status: 'SETTLED' },
+    });
+    if (result.count === 0) return; // already settled — no-op
     const roomData = roomStates[roomId];
     if (roomData) roomData.roomStatus = 'SETTLED';
     io.to(roomId).emit('EVENT_LEDGER_LOCKED', {
@@ -1185,22 +1198,25 @@ io.on('connection', (socket) => {
             const targetPlayer = state.players.find((p: any) => p.id === data.targetPlayerId);
             if (!targetPlayer) throw new Error('Player not found in engine state');
 
-            // Mutate engine stack directly and persist RoomMember
-            targetPlayer.stack += data.amount;
-            await prisma.roomMember.updateMany({
-                where: { roomId: roomData.dbRoomId!, userId: data.targetPlayerId },
-                data: { stack: targetPlayer.stack }
-            });
-
-            // Write ADD_ON ledger entry
-            const entry = await writeLedgerEntry(prisma, {
-                roomDbId: roomData.dbRoomId!,
-                userId:   data.targetPlayerId,
-                type:     'ADD_ON',
-                amount:   data.amount,
-                authorId: userId,
+            // Atomic: DB write for member stack and ledger entry in one transaction.
+            // Engine mutation happens after both succeed.
+            const entry = await prisma.$transaction(async (tx) => {
+                await tx.roomMember.updateMany({
+                    where: { roomId: roomData.dbRoomId!, userId: data.targetPlayerId },
+                    data: { stack: { increment: data.amount } }
+                });
+                return writeLedgerEntry(tx as any, {
+                    roomDbId: roomData.dbRoomId!,
+                    userId:   data.targetPlayerId,
+                    type:     'ADD_ON',
+                    amount:   data.amount,
+                    authorId: userId,
+                });
             });
             roomData.ledgerEntries.push(entry);
+
+            // Mutate engine stack after DB writes succeed
+            targetPlayer.stack += data.amount;
 
             await broadcastLedgerUpdate(data.room_id);
 
@@ -1236,22 +1252,26 @@ io.on('connection', (socket) => {
 
             const cashOutAmount = player.stack;
 
-            // Mark player as BUSTED in engine and DB
-            player.status = 'BUSTED';
-            await prisma.roomMember.updateMany({
-                where: { roomId: roomData.dbRoomId!, userId },
-                data: { status: 'BUSTED', stack: 0 }
-            });
-
-            // Write CASH_OUT ledger entry (always write even if stack=0)
-            const entry = await writeLedgerEntry(prisma, {
-                roomDbId: roomData.dbRoomId!,
-                userId,
-                type:     'CASH_OUT',
-                amount:   cashOutAmount,
-                authorId: userId, // self-reported
+            // Atomic: BUSTED status update and CASH_OUT ledger entry in one transaction.
+            // Engine mutation happens after both succeed.
+            const entry = await prisma.$transaction(async (tx) => {
+                await tx.roomMember.updateMany({
+                    where: { roomId: roomData.dbRoomId!, userId },
+                    data: { status: 'BUSTED', stack: 0 }
+                });
+                return writeLedgerEntry(tx as any, {
+                    roomDbId: roomData.dbRoomId!,
+                    userId,
+                    type:     'CASH_OUT',
+                    amount:   cashOutAmount,
+                    authorId: userId,
+                });
             });
             roomData.ledgerEntries.push(entry);
+
+            // Mutate engine state only after DB writes succeed
+            player.status = 'BUSTED';
+            player.stack = 0;
 
             await broadcastLedgerUpdate(data.room_id);
 
@@ -1304,7 +1324,7 @@ io.on('connection', (socket) => {
             // Compute final snapshot (isRunning=false; all stacks captured in CASH_OUT entries)
             const engineEntries = roomData.ledgerEntries.map(toEngineLedgerEntry);
             const finalSnapshot = computeLedgerSnapshot(engineEntries, {}, false);
-            const disputes = await loadOpenDisputes(prisma, roomData.dbRoomId!);
+            const disputes = roomData.cachedDisputes;
 
             const payload: LedgerPayload = {
                 entries:       roomData.ledgerEntries.map(serializeLedgerEntry),
@@ -1345,7 +1365,7 @@ io.on('connection', (socket) => {
             const isRunning = roomData.roomStatus !== 'FINISHED' && roomData.roomStatus !== 'SETTLED';
             const engineEntries = roomData.ledgerEntries.map(toEngineLedgerEntry);
             const snapshot = computeLedgerSnapshot(engineEntries, isRunning ? currentStacks : {}, isRunning);
-            const disputes = await loadOpenDisputes(prisma, roomData.dbRoomId!);
+            const disputes = roomData.cachedDisputes;
 
             const payload: LedgerPayload = {
                 entries:       roomData.ledgerEntries.map(serializeLedgerEntry),
@@ -1430,6 +1450,8 @@ io.on('connection', (socket) => {
                 },
             });
 
+            // Invalidate dispute cache so broadcastLedgerUpdate sees the new dispute
+            roomData.cachedDisputes = await loadDisputes(prisma, roomData.dbRoomId!);
             await broadcastLedgerUpdate(data.room_id);
         } catch (err: any) {
             emitError(socket, 'ERR_DISPUTE_ENTRY', err.message);
@@ -1451,8 +1473,10 @@ io.on('connection', (socket) => {
 
             // If OVERRIDDEN: write an ADJUSTMENT entry correcting the original amount
             if (data.resolution === 'OVERRIDDEN') {
-                if (!data.adjustmentAmount || data.adjustmentAmount < 0) {
-                    throw new Error('adjustmentAmount is required and must be non-negative for OVERRIDDEN resolution');
+                // adjustmentAmount is type-guaranteed to be present (discriminated union),
+                // but must also be non-negative per business rules
+                if (data.adjustmentAmount < 0) {
+                    throw new Error('adjustmentAmount must be non-negative for OVERRIDDEN resolution');
                 }
                 // Find the original entry to know which player it belongs to
                 const originalEntry = roomData.ledgerEntries.find(e => e.id === dispute.ledgerEntryId);
@@ -1464,7 +1488,10 @@ io.on('connection', (socket) => {
                     type:     'ADJUSTMENT',
                     amount:   data.adjustmentAmount,
                     authorId: userId,
-                    parentId: dispute.ledgerEntryId,
+                    // Chase to the base entry: if originalEntry is itself an ADJUSTMENT/VOID,
+                    // point to its parent. This prevents adjustment chains and ensures
+                    // resolveEntries applies the correction to a base (BUY_IN/ADD_ON/CASH_OUT) entry.
+                    parentId: originalEntry.parentId ?? originalEntry.id,
                     note:     data.note ?? `Dispute ${data.disputeId} overridden by host`,
                 });
                 roomData.ledgerEntries.push(adjustEntry);
@@ -1480,6 +1507,8 @@ io.on('connection', (socket) => {
                 },
             });
 
+            // Invalidate dispute cache so broadcastLedgerUpdate reflects the resolved status
+            roomData.cachedDisputes = await loadDisputes(prisma, roomData.dbRoomId!);
             await broadcastLedgerUpdate(data.room_id);
         } catch (err: any) {
             emitError(socket, 'ERR_RESOLVE_DISPUTE', err.message);
