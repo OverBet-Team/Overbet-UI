@@ -148,10 +148,10 @@ describe('exportLedgerCSV', () => {
     it('row for p1 contains correct buy-in and cash-out amounts', async () => {
         (prisma.room.findUnique as any).mockResolvedValue(makeRoom());
         const csv = await exportLedgerCSV('ABC123');
-        const p1Line = csv!.split('\n').find(l => l.startsWith('"p1"'));
+        const p1Line = csv!.split('\n').find(l => l.startsWith('"Alice"'));
         // Format: "Player",Buy-ins,Add-ons,Cash-outs,Net P&L (quoted player field)
-        // p1: 1000 buy-in, 0 add-ons, 1500 cash-out, net=+500
-        expect(p1Line).toBe('"p1",1000,0,1500,500');
+        // p1 (Alice): 1000 buy-in, 0 add-ons, 1500 cash-out, net=+500
+        expect(p1Line).toBe('"Alice",1000,0,1500,500');
     });
 });
 
@@ -246,6 +246,21 @@ describe('getLedger membership check', () => {
         (prisma.room.findUnique as any).mockResolvedValue(makeRoom());
         const result = await getLedger('ABC123');
         expect(result).not.toBeNull();
+    });
+
+    it('allows access to cashed-out (BUSTED) members', async () => {
+        // Fix: BUSTED members must still be able to see the ledger they participated in.
+        const room = makeRoom({
+            members: [
+                { userId: 'p1', status: 'BUSTED', user: { username: 'Alice' } },
+                { userId: 'p2', status: 'ACTIVE', user: { username: 'Bob' } }
+            ]
+        });
+        (prisma.room.findUnique as any).mockResolvedValue(room);
+
+        const result = await getLedger('ABC123', 'p1');
+        expect(result).not.toBeNull();
+        expect(result!.pnl['p1']).toBe(500);
     });
 });
 

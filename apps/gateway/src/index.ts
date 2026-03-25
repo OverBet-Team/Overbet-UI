@@ -1198,19 +1198,20 @@ io.on('connection', (socket) => {
             const targetPlayer = state.players.find((p: any) => p.id === data.targetPlayerId);
             if (!targetPlayer) throw new Error('Player not found in engine state');
 
-            // Write DB first — if this fails, engine state stays unmodified
-            await prisma.roomMember.updateMany({
-                where: { roomId: roomData.dbRoomId!, userId: data.targetPlayerId },
-                data: { stack: { increment: data.amount } }
-            });
+            // Write DB first in a transaction — if this fails, engine state stays unmodified
+            const entry = await prisma.$transaction(async (tx) => {
+                await tx.roomMember.updateMany({
+                    where: { roomId: roomData.dbRoomId!, userId: data.targetPlayerId },
+                    data: { stack: { increment: data.amount } }
+                });
 
-            // Write ADD_ON ledger entry
-            const entry = await writeLedgerEntry(prisma, {
-                roomDbId: roomData.dbRoomId!,
-                userId:   data.targetPlayerId,
-                type:     'ADD_ON',
-                amount:   data.amount,
-                authorId: userId,
+                return await writeLedgerEntry(tx as any, {
+                    roomDbId: roomData.dbRoomId!,
+                    userId:   data.targetPlayerId,
+                    type:     'ADD_ON',
+                    amount:   data.amount,
+                    authorId: userId,
+                });
             });
             roomData.ledgerEntries.push(entry);
 
@@ -1251,21 +1252,22 @@ io.on('connection', (socket) => {
 
             const cashOutAmount = player.stack;
 
-            // Write DB first — if this fails, engine state stays unmodified.
+            // Write DB first in a transaction — if this fails, engine state stays unmodified.
             // Both the RoomMember status change and the CASH_OUT ledger entry
             // must be durable before we mutate the in-memory engine player.
-            await prisma.roomMember.updateMany({
-                where: { roomId: roomData.dbRoomId!, userId },
-                data: { status: 'BUSTED', stack: 0 }
-            });
+            const entry = await prisma.$transaction(async (tx) => {
+                await tx.roomMember.updateMany({
+                    where: { roomId: roomData.dbRoomId!, userId },
+                    data: { status: 'BUSTED', stack: 0 }
+                });
 
-            // Write CASH_OUT ledger entry (always write even if stack=0)
-            const entry = await writeLedgerEntry(prisma, {
-                roomDbId: roomData.dbRoomId!,
-                userId,
-                type:     'CASH_OUT',
-                amount:   cashOutAmount,
-                authorId: userId, // self-reported
+                return await writeLedgerEntry(tx as any, {
+                    roomDbId: roomData.dbRoomId!,
+                    userId,
+                    type:     'CASH_OUT',
+                    amount:   cashOutAmount,
+                    authorId: userId, // self-reported
+                });
             });
             roomData.ledgerEntries.push(entry);
 
@@ -1481,13 +1483,18 @@ io.on('connection', (socket) => {
                 const originalEntry = roomData.ledgerEntries.find(e => e.id === dispute.ledgerEntryId);
                 if (!originalEntry) throw new Error('Original ledger entry not found in cache');
 
+                // Important: parentId must point to the base entry (BUY_IN, ADD_ON, or CASH_OUT).
+                // If the targeted entry is itself an adjustment, we point to ITS parent.
+                // This ensures resolveEntries can flatten the chain correctly.
+                const targetParentId = originalEntry.parentId ?? originalEntry.id;
+
                 const adjustEntry = await writeLedgerEntry(prisma, {
                     roomDbId: roomData.dbRoomId!,
                     userId:   originalEntry.userId,
                     type:     'ADJUSTMENT',
                     amount:   data.adjustmentAmount,
                     authorId: userId,
-                    parentId: dispute.ledgerEntryId,
+                    parentId: targetParentId,
                     note:     data.note ?? `Dispute ${data.disputeId} overridden by host`,
                 });
                 roomData.ledgerEntries.push(adjustEntry);

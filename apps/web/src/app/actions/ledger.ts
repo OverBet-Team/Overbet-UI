@@ -91,7 +91,7 @@ export async function getLedger(roomSlug: string, userId?: string): Promise<Ledg
         where: { slug: roomSlug },
         include: {
             ledgerEntries: { orderBy: { createdAt: "asc" } },
-            members:       { where: { status: "ACTIVE" } },
+            members:       true,
             ledgerConfirmations: { select: { userId: true } },
         },
     });
@@ -165,7 +165,7 @@ export async function exportLedgerCSV(roomSlug: string, userId?: string): Promis
         where: { slug: roomSlug },
         include: {
             ledgerEntries: { orderBy: { createdAt: "asc" } },
-            members: { where: { status: "ACTIVE" } },
+            members: { include: { user: true } },
         },
     });
     if (!room) return null;
@@ -201,11 +201,19 @@ export async function exportLedgerCSV(roomSlug: string, userId?: string): Promis
     const engineEntries = room.ledgerEntries.map(toEngineLedgerEntry);
     const snapshot = computeLedgerSnapshot(engineEntries, {}, isRunning);
 
+    // Build userId → displayName map for CSV export
+    const nameMap: Record<string, string> = {};
+    for (const member of room.members) {
+        const user = member.user as { username: string } | null;
+        nameMap[member.userId] = user?.username ?? member.userId;
+    }
+
     const header = '"Player","Buy-ins","Add-ons","Cash-outs","Net P&L"';
     const rows = Object.entries(playerTotals).map(([userId, totals]) => {
         const netPnl = snapshot.pnl[userId] ?? 0;
-        // Quote userId in case it contains commas (UUIDs don't but display names might)
-        return `"${userId.replace(/"/g, '""')}",${totals.buyIns},${totals.addOns},${totals.cashOuts},${netPnl}`;
+        const displayName = nameMap[userId] ?? userId;
+        // Quote displayName in case it contains commas
+        return `"${displayName.replace(/"/g, '""')}",${totals.buyIns},${totals.addOns},${totals.cashOuts},${netPnl}`;
     });
 
     return [header, ...rows].join("\n");

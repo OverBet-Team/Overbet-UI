@@ -228,9 +228,9 @@ export function computeLedgerSnapshot(
 
     // Zero-sum check: chip conservation requires all P&L values sum to exactly 0.
     const sum = Object.values(pnl).reduce((acc, v) => acc + v, 0);
-    const zeroSumError = Math.abs(sum) > 1 ? sum : undefined;
+    const zeroSumError = Math.abs(sum) > 0 ? sum : undefined;
     if (zeroSumError !== undefined) {
-        console.warn(`[computeLedgerSnapshot] Zero-sum violation: Σ PnL = ${sum} (tolerance > 1 chip)`);
+        console.warn(`[computeLedgerSnapshot] Zero-sum violation: Σ PnL = ${sum}`);
     }
 
     return { pnl, settlement, isRunning, zeroSumError };
