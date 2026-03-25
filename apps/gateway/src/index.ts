@@ -14,7 +14,7 @@ import {
     EventSeatApproved,
     EventError
 } from './types';
-import { NLHMachine, HandEvent, PokerAction } from '@overbet/engine';
+import { NLHMachine, HandEvent, GameState, PokerAction } from '@overbet/engine';
 import { PrismaClient } from '@overbet/db';
 import { createClient } from '@supabase/supabase-js';
 
@@ -96,6 +96,10 @@ type ApprovedRebuy = {
 };
 
 const playerTimeBanks: Record<string, Record<string, number>> = {};
+
+// Tracks sockets per room and user for efficient broadcasting
+// Map: roomId -> Map: userId -> Set of Socket
+const roomSockets = new Map<string, Map<string, Set<any>>>();
 
 // Room store mapping room_id to Engine instances
 const roomStates: Record<string, {
@@ -234,7 +238,7 @@ function emitErrorToRoom(roomId: string, code: string, message: string) {
     io.to(roomId).emit('EVENT_ERROR', err);
 }
 
-function sanitizeState(state: any, targetUserId: string | null) {
+function sanitizeState(state: GameState, targetUserId: string | null) {
     const sanitized = JSON.parse(JSON.stringify(state));
 
     // Add helper IDs for the frontend
@@ -268,6 +272,18 @@ function sanitizeState(state: any, targetUserId: string | null) {
     }
 
     return sanitized;
+}
+
+function broadcastToRoom(roomId: string, eventName: string, getPayload: (userId: string) => any) {
+    const usersInRoom = roomSockets.get(roomId);
+    if (!usersInRoom) return;
+
+    for (const [uId, userSockets] of usersInRoom.entries()) {
+        const payload = getPayload(uId);
+        for (const s of userSockets) {
+            s.emit(eventName, payload);
+        }
+    }
 }
 
 function sanitizeEvent(event: HandEvent, targetUserId: string) {
@@ -458,18 +474,14 @@ async function autoAct(roomId: string, playerId: string, currentBet: number) {
         const rd = roomStates[roomId];
         if (rd?.currentHandId) {
             const refreshedState = rd.engine.getState();
-            const sockets = await io.in(roomId).fetchSockets();
-            for (const s of sockets) {
-                const uId = s.data.userId as string;
-                s.emit('EVENT_STATE_UPDATE', {
-                    type: 'EVENT_STATE_UPDATE',
-                    schema_version: 1,
-                    room_id: roomId,
-                    hand_id: rd.currentHandId,
-                    server_seq: rd.seq,
-                    state: sanitizeState(refreshedState, uId)
-                });
-            }
+            broadcastToRoom(roomId, 'EVENT_STATE_UPDATE', (uId) => ({
+                type: 'EVENT_STATE_UPDATE',
+                schema_version: 1,
+                room_id: roomId,
+                hand_id: rd.currentHandId,
+                server_seq: rd.seq,
+                state: sanitizeState(refreshedState, uId)
+            }));
             if (refreshedState.phase?.endsWith('BETTING')) startTurnTimer(roomId);
         }
     }
@@ -517,51 +529,56 @@ async function startHand(roomId: string, schema_version: number = 1) {
         ante: dbSettings?.ante ?? 0,
     });
 
-    const sockets = await io.in(roomId).fetchSockets();
+    const dbOperations: any[] = [];
+    const eventsToEmit: { ev: any; seq: number }[] = [];
 
     for (const ev of engineEvents) {
         roomData.seq++;
-        await prisma.handEvent.upsert({
-            where: {
-                handId_sequence: {
+        dbOperations.push(
+            prisma.handEvent.upsert({
+                where: {
+                    handId_sequence: {
+                        handId: hand.id,
+                        sequence: roomData.seq
+                    }
+                },
+                update: {
+                    type: ev.type,
+                    payload: ev.payload as any
+                },
+                create: {
                     handId: hand.id,
-                    sequence: roomData.seq
+                    sequence: roomData.seq,
+                    type: ev.type,
+                    payload: ev.payload as any
                 }
-            },
-            update: {
-                type: ev.type,
-                payload: ev.payload
-            },
-            create: {
-                handId: hand.id,
-                sequence: roomData.seq,
-                type: ev.type,
-                payload: ev.payload
-            }
-        });
-
-        for (const s of sockets) {
-            const uId = s.data.userId as string;
-            s.emit('EVENT_HAND_LOG', {
-                ...sanitizeEvent(ev, uId),
-                room_id: roomId,
-                hand_id: hand.id,
-                server_seq: roomData.seq
-            });
-        }
+            })
+        );
+        eventsToEmit.push({ ev, seq: roomData.seq });
     }
 
-    for (const s of sockets) {
-        const uId = s.data.userId as string;
-        s.emit('EVENT_STATE_UPDATE', {
-            type: 'EVENT_STATE_UPDATE',
-            schema_version: schema_version || 1,
+    if (dbOperations.length > 0) {
+        await prisma.$transaction(dbOperations);
+    }
+
+    for (const { ev, seq } of eventsToEmit) {
+        broadcastToRoom(roomId, 'EVENT_HAND_LOG', (uId) => ({
+            ...sanitizeEvent(ev, uId),
             room_id: roomId,
             hand_id: hand.id,
-            server_seq: roomData.seq,
-            state: sanitizeState(roomData.engine.getState(), uId)
-        });
+            server_seq: seq
+        }));
     }
+
+    const finalState = roomData.engine.getState();
+    broadcastToRoom(roomId, 'EVENT_STATE_UPDATE', (uId) => ({
+        type: 'EVENT_STATE_UPDATE',
+        schema_version: schema_version || 1,
+        room_id: roomId,
+        hand_id: hand.id,
+        server_seq: roomData.seq,
+        state: sanitizeState(finalState, uId)
+    }));
 
     startTurnTimer(roomId);
 }
@@ -597,32 +614,44 @@ async function performPlayerAction(roomId: string, userId: string, action: Poker
     }
     const engineEvents = roomData.engine.handleAction(userId, action);
 
+    const dbOperations: any[] = [];
+    const eventsToEmit: { ev: any; seq: number }[] = [];
+
     for (const ev of engineEvents) {
         roomData.seq++;
-        await prisma.handEvent.upsert({
-            where: {
-                handId_sequence: {
+        dbOperations.push(
+            prisma.handEvent.upsert({
+                where: {
+                    handId_sequence: {
+                        handId: roomData.currentHandId,
+                        sequence: roomData.seq
+                    }
+                },
+                update: {
+                    type: ev.type,
+                    payload: ev.payload as any
+                },
+                create: {
                     handId: roomData.currentHandId,
-                    sequence: roomData.seq
+                    sequence: roomData.seq,
+                    type: ev.type,
+                    payload: ev.payload as any
                 }
-            },
-            update: {
-                type: ev.type,
-                payload: ev.payload as any
-            },
-            create: {
-                handId: roomData.currentHandId,
-                sequence: roomData.seq,
-                type: ev.type,
-                payload: ev.payload as any
-            }
-        });
+            })
+        );
+        eventsToEmit.push({ ev, seq: roomData.seq });
+    }
 
+    if (dbOperations.length > 0) {
+        await prisma.$transaction(dbOperations);
+    }
+
+    for (const { ev, seq } of eventsToEmit) {
         io.to(roomId).emit('EVENT_HAND_LOG', {
             ...ev,
             room_id: roomId,
             hand_id: roomData.currentHandId,
-            server_seq: roomData.seq
+            server_seq: seq
         });
     }
 
@@ -640,18 +669,14 @@ async function performPlayerAction(roomId: string, userId: string, action: Poker
     }
 
     const state = roomData.engine.getState();
-    const sockets = await io.in(roomId).fetchSockets();
-    for (const s of sockets) {
-        const uId = s.data.userId as string;
-        s.emit('EVENT_STATE_UPDATE', {
-            type: 'EVENT_STATE_UPDATE',
-            schema_version,
-            room_id: roomId,
-            hand_id: roomData.currentHandId,
-            server_seq: roomData.seq,
-            state: sanitizeState(state, uId)
-        });
-    }
+    broadcastToRoom(roomId, 'EVENT_STATE_UPDATE', (uId) => ({
+        type: 'EVENT_STATE_UPDATE',
+        schema_version,
+        room_id: roomId,
+        hand_id: roomData.currentHandId,
+        server_seq: roomData.seq,
+        state: sanitizeState(state, uId)
+    }));
 
     if (state.phase === 'CLEANUP') {
         const autoStartDelay = (roomData.settings?.autoStartDelay ?? DEFAULT_AUTO_START_DELAY_SECONDS) * 1000;
@@ -703,6 +728,18 @@ io.on('connection', (socket) => {
     socket.on('INTENT_JOIN_ROOM', async (data: IntentJoinRoom) => {
         console.log(`Socket ${socket.id} joining room ${data.room_id}`);
         socket.join(data.room_id);
+
+        let usersInRoom = roomSockets.get(data.room_id);
+        if (!usersInRoom) {
+            usersInRoom = new Map();
+            roomSockets.set(data.room_id, usersInRoom);
+        }
+        let socketsForUser = usersInRoom.get(userId);
+        if (!socketsForUser) {
+            socketsForUser = new Set();
+            usersInRoom.set(userId, socketsForUser);
+        }
+        socketsForUser.add(socket);
     });
 
     socket.on('INTENT_REQUEST_SNAPSHOT', async (data: IntentRequestSnapshot) => {
@@ -849,9 +886,9 @@ io.on('connection', (socket) => {
                 create: { id: data.targetPlayerId, username: pending.displayName || `Player_${data.targetPlayerId.substring(0, 4)}` }
             });
             await prisma.roomMember.upsert({
-                where: { roomId_userId: { roomId: room.id, userId: data.targetPlayerId } },
+                where: { roomId_userId: { roomId: data.room_id, userId: data.targetPlayerId } },
                 update: { seatIndex: pending.seatIndex, stack: pending.stack, status: 'ACTIVE' },
-                create: { roomId: room.id, userId: data.targetPlayerId, seatIndex: pending.seatIndex, stack: pending.stack, status: 'ACTIVE' }
+                create: { roomId: data.room_id, userId: data.targetPlayerId, seatIndex: pending.seatIndex, stack: pending.stack, status: 'ACTIVE' }
             });
 
             delete roomData.pendingSeats[data.targetPlayerId];
@@ -872,17 +909,14 @@ io.on('connection', (socket) => {
 
             io.to(data.room_id).emit('EVENT_SEAT_APPROVED', approvedEvent);
 
-            const sockets = await io.in(data.room_id).fetchSockets();
-            for (const s of sockets) {
-                const uId = s.data.userId as string;
-                s.emit('EVENT_STATE_UPDATE', {
-                    type: 'EVENT_STATE_UPDATE',
-                    schema_version: data.schema_version,
-                    room_id: data.room_id,
-                    server_seq: roomData.seq,
-                    state: sanitizeState(roomData.engine.getState(), uId)
-                });
-            }
+            const finalState = roomData.engine.getState();
+            broadcastToRoom(data.room_id, 'EVENT_STATE_UPDATE', (uId) => ({
+                type: 'EVENT_STATE_UPDATE',
+                schema_version: data.schema_version,
+                room_id: data.room_id,
+                server_seq: roomData.seq,
+                state: sanitizeState(finalState, uId)
+            }));
         } catch (err: any) {
             emitError(socket, 'ERR_SEAT_APPROVE', err.message);
         }
@@ -902,7 +936,6 @@ io.on('connection', (socket) => {
 
     socket.on('INTENT_START_GAME', async (data: any) => {
         try {
-            // BUG-04: Only the host may start a hand
             let roomData = roomStates[data.room_id];
             if (!roomData) {
                 roomData = await getOrHydrateRoom(data.room_id) as any;
@@ -1019,18 +1052,14 @@ io.on('connection', (socket) => {
             const roomData = roomStates[data.room_id];
             if (roomData?.currentHandId) {
                 const state = roomData.engine.getState();
-                const sockets = await io.in(data.room_id).fetchSockets();
-                for (const s of sockets) {
-                    const uId = s.data.userId as string;
-                    s.emit('EVENT_STATE_UPDATE', {
-                        type: 'EVENT_STATE_UPDATE',
-                        schema_version: data.schema_version ?? 1,
-                        room_id: data.room_id,
-                        hand_id: roomData.currentHandId,
-                        server_seq: roomData.seq,
-                        state: sanitizeState(state, uId)
-                    });
-                }
+                broadcastToRoom(data.room_id, 'EVENT_STATE_UPDATE', (uId) => ({
+                    type: 'EVENT_STATE_UPDATE',
+                    schema_version: data.schema_version ?? 1,
+                    room_id: data.room_id,
+                    hand_id: roomData.currentHandId,
+                    server_seq: roomData.seq,
+                    state: sanitizeState(state, uId)
+                }));
                 if (state.phase?.endsWith('BETTING')) startTurnTimer(data.room_id);
             }
         }
@@ -1038,6 +1067,18 @@ io.on('connection', (socket) => {
 
     socket.on('disconnect', () => {
         console.log(`Socket disconnected: ${socket.id}`);
+        for (const [roomId, usersInRoom] of roomSockets.entries()) {
+            const userSockets = usersInRoom.get(userId);
+            if (userSockets) {
+                userSockets.delete(socket);
+                if (userSockets.size === 0) {
+                    usersInRoom.delete(userId);
+                }
+            }
+            if (usersInRoom.size === 0) {
+                roomSockets.delete(roomId);
+            }
+        }
     });
 });
 
