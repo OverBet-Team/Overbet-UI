@@ -7,10 +7,13 @@ Prisma 5 client and PostgreSQL schema. Shared by `apps/web` (server actions) and
 | Model | Key Fields | Notes |
 |-------|-----------|-------|
 | `User` | `id`, `username`, `isGuest` | Anonymous guests have `isGuest: true` |
-| `Room` | `id`, `slug`, `name`, `status`, `hostId`, `settings` (JSON) | `settings` holds variant config (blinds, timers) |
+| `Room` | `id`, `slug`, `name`, `status`, `hostId`, `settings` (JSON) | `status`: `LOBBY` \| `IN_PROGRESS` \| `FINISHED` \| `SETTLED`. `settings` holds variant config (blinds, timers) |
 | `RoomMember` | `roomId`, `userId`, `seatIndex`, `stack`, `status` | Status: `SEATED`, `PENDING`, `BUSTED` |
 | `Hand` | `roomId`, `metadata` | One Hand per game played in a room |
 | `HandEvent` | `handId`, `type`, `sequence`, `payload` (JSON) | Append-only event log for event sourcing |
+| `LedgerEntry` | `roomId`, `userId`, `type`, `amount`, `authorId`, `parentId?`, `note?` | Append-only. Types: `BUY_IN` \| `ADD_ON` \| `CASH_OUT` \| `ADJUSTMENT` \| `VOID`. `authorId` is raw FK (host or player). `parentId` links ADJUSTMENT/VOID to original. |
+| `LedgerDispute` | `ledgerEntryId`, `raisedByUserId`, `note`, `status` | Status: `OPEN` \| `ACKNOWLEDGED` \| `OVERRIDDEN` \| `DISMISSED`. Mutable — not cached in memory. |
+| `LedgerConfirmation` | `roomId`, `userId`, `confirmedAt` | Unique per (room, user). When all seated players confirm, ledger auto-locks. |
 
 ## Event Sourcing Pattern
 

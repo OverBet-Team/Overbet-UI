@@ -9,7 +9,7 @@ Pure TypeScript NLH poker state machine. **No I/O of any kind** — no DB, no so
 | `PokerEngine.ts` | Interface definition that all engine variants implement |
 | `types.ts` | Engine type contracts: `GameState`, `PlayerState`, `EngineEvent`, action types |
 | `variants/NLH.ts` | `NLHMachine` — full No-Limit Hold'em implementation (697 lines). Handles deal, betting rounds, showdown, side-pot calculation, and cleanup. |
-| `math/Ledger.ts` | Chip accounting utilities — tracks pot, bets, side-pot formation |
+| `math/Ledger.ts` | Ledger accounting: `LedgerMath` (session P&L, settlement matrix), `computeLedgerSnapshot` (pure running/final snapshot with ADJUSTMENT/VOID resolution), `LedgerSnapshot`, `LedgerEntry`, `SettlementTransfer`. Enforces circular-reference protection, single-active-adjustment per entry (last-write-wins), deterministic settlement sorting, and zero-sum violation warnings. |
 | `utils/Deck.ts` | Deck construction, seeded shuffle (Mersenne Twister), card utilities |
 
 ## How It Works
@@ -42,3 +42,4 @@ Key test files:
 - `simulation.test.ts` — multi-hand simulation
 - `fuzz-seeded.test.ts` — seeded random play
 - `utils/invariants.ts` — chip conservation and state invariant checkers
+- `ledger.test.ts` — ledger P&L, settlement, ADJUSTMENT/VOID resolution, circular-reference protection, deterministic ordering

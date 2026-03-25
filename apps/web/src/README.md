@@ -6,7 +6,8 @@
 src/
 ├── app/                        # Next.js App Router
 │   ├── actions/
-│   │   └── room.ts             # Server actions: createRoom, loadRoom (uses @overbet/db)
+│   │   ├── room.ts             # Server actions: createRoom, loadRoom (uses @overbet/db)
+│   │   └── ledger.ts           # Server actions: getLedger, exportLedgerCSV/JSON/Text (uses @overbet/db + @overbet/engine)
 │   ├── room/[slug]/
 │   │   ├── page.tsx            # Server component — loads room data, renders RoomClient
 │   │   ├── RoomClient.tsx      # Main realtime client (Socket.IO, game state, UI orchestration)

@@ -8,14 +8,33 @@ import {
     IntentSeatRequest,
     IntentSeatApprove,
     IntentSeatReject,
+    IntentAddOn,
+    IntentCashOut,
+    IntentStopGame,
+    IntentRequestLedger,
+    IntentConfirmLedger,
+    IntentDisputeEntry,
+    IntentResolveDispute,
+    IntentLockLedger,
     EventStateSnapshot,
     EventStateUpdate,
     EventActionConfirmed,
     EventSeatApproved,
-    EventError
+    EventError,
+    LedgerPayload,
+    SerializedLedgerEntry,
 } from './types';
-import { NLHMachine, HandEvent, GameState, PokerAction } from '@overbet/engine';
+import { NLHMachine, HandEvent, GameState, PokerAction, computeLedgerSnapshot, LedgerEntry as EngineLedgerEntry } from '@overbet/engine';
 import { PrismaClient } from '@overbet/db';
+import {
+    CachedLedgerEntry,
+    writeLedgerEntry,
+    writeSessionEndEntries,
+    loadLedgerEntries,
+    loadConfirmations,
+    loadDisputes,
+    SerializedDispute,
+} from './ledger';
 
 const prisma = new PrismaClient();
 
@@ -57,7 +76,7 @@ const playerTimeBanks: Record<string, Record<string, number>> = {};
 // Map: roomId -> Map: userId -> Set of Socket
 const roomSockets = new Map<string, Map<string, Set<any>>>();
 
-// Room store mapping room_id to Engine instances
+// Room store mapping room_id (slug) to engine instances and in-memory state
 const roomStates: Record<string, {
     engine: NLHMachine;
     seq: number;
@@ -72,6 +91,17 @@ const roomStates: Record<string, {
     autoStartTimer?: NodeJS.Timeout;
     settings?: { turnTimeoutMs: number; timeBankMs: number; autoStartDelay: number };
     isPaused?: boolean;
+    /** In-memory mirror of DB LedgerEntry rows — append-only, consistent with DB by dual-write. */
+    ledgerEntries: CachedLedgerEntry[];
+    /** userIds who have confirmed the final ledger. */
+    confirmations: string[];
+    /**
+     * Cached open disputes. Populated on hydration, invalidated (re-fetched) on
+     * INTENT_DISPUTE_ENTRY and INTENT_RESOLVE_DISPUTE. Zero DB reads on broadcast.
+     */
+    cachedDisputes: SerializedDispute[];
+    /** Last known Room.status — cached to avoid DB reads per ledger broadcast. */
+    roomStatus: string;
 }> = {};
 const roomHydrations: Record<string, Promise<any> | undefined> = {};
 
@@ -156,6 +186,11 @@ async function hydrateRoom(roomId: string) {
         autoStartDelay: Number.isFinite(dbSettings?.autoStartDelay) ? dbSettings.autoStartDelay : DEFAULT_AUTO_START_DELAY_SECONDS,
     };
 
+    // Load ledger entries and confirmations from DB into cache
+    const ledgerEntries = await loadLedgerEntries(prisma, room.id);
+    const confirmations = await loadConfirmations(prisma, room.id);
+    const cachedDisputes = await loadDisputes(prisma, room.id);
+
     const roomData = {
         engine,
         seq,
@@ -166,7 +201,11 @@ async function hydrateRoom(roomId: string) {
         approvedRebuys: {},
         turnTimerToken: 0,
         settings,
-        isPaused: false
+        isPaused: false,
+        ledgerEntries,
+        confirmations,
+        cachedDisputes,
+        roomStatus: room.status,
     };
     roomStates[roomId] = roomData;
     return roomData;
@@ -320,6 +359,96 @@ function applyApprovedRebuys(roomData: NonNullable<typeof roomStates[string]>) {
     roomData.approvedRebuys = {};
 }
 
+/** Convert a cached DB entry to the engine's LedgerEntry shape for computation. */
+function toEngineLedgerEntry(e: CachedLedgerEntry): EngineLedgerEntry {
+    return {
+        id: e.id,
+        playerId: e.userId,
+        amount: e.amount,
+        type: e.type as EngineLedgerEntry['type'],
+        parentId: e.parentId,
+        timestamp: e.createdAt.getTime(),
+    };
+}
+
+/** Serialize a cached entry for wire transport. */
+function serializeLedgerEntry(e: CachedLedgerEntry): SerializedLedgerEntry {
+    return {
+        id:        e.id,
+        userId:    e.userId,
+        type:      e.type,
+        amount:    e.amount,
+        authorId:  e.authorId,
+        parentId:  e.parentId,
+        note:      e.note,
+        createdAt: e.createdAt.toISOString(),
+    };
+}
+
+/**
+ * Build and broadcast EVENT_LEDGER_UPDATE to all sockets in a room.
+ * Uses in-memory ledger cache — zero DB reads for entries.
+ * Disputes are queried on demand (they are mutable, not safe to cache naively).
+ */
+async function broadcastLedgerUpdate(roomId: string) {
+    const roomData = roomStates[roomId];
+    if (!roomData || !roomData.dbRoomId) return;
+
+    const state = roomData.engine.getState();
+
+    // Build currentStacks from engine state for running-mode computation
+    const currentStacks: Record<string, number> = {};
+    state.players.forEach((p: any) => { currentStacks[p.id] = p.stack; });
+
+    const engineEntries = roomData.ledgerEntries.map(toEngineLedgerEntry);
+    const isRunning = roomData.roomStatus !== 'FINISHED' && roomData.roomStatus !== 'SETTLED';
+    const snapshot = computeLedgerSnapshot(engineEntries, isRunning ? currentStacks : {}, isRunning);
+
+    // Use the in-memory dispute cache — zero DB reads per broadcast.
+    // Cache is invalidated (re-fetched) on INTENT_DISPUTE_ENTRY and INTENT_RESOLVE_DISPUTE.
+    const disputes = roomData.cachedDisputes;
+
+    const payload: LedgerPayload = {
+        entries:       roomData.ledgerEntries.map(serializeLedgerEntry),
+        pnl:           snapshot.pnl,
+        settlement:    snapshot.settlement,
+        confirmations: roomData.confirmations,
+        disputes,
+        roomStatus:    roomData.roomStatus,
+        isRunning,
+        zeroSumError:  snapshot.zeroSumError,
+    };
+
+    io.to(roomId).emit('EVENT_LEDGER_UPDATE', {
+        type:           'EVENT_LEDGER_UPDATE',
+        schema_version: 1,
+        room_id:        roomId,
+        server_seq:     ++roomData.seq,
+        ledger:         payload,
+    });
+}
+
+/**
+ * Lock a room's ledger: set Room.status = 'SETTLED', update cache, emit EVENT_LEDGER_LOCKED.
+ * Shared by INTENT_LOCK_LEDGER and auto-lock when all players confirm.
+ */
+async function lockLedger(roomId: string, lockedBy: string) {
+    const result = await prisma.room.updateMany({
+        where: { slug: roomId, status: { not: 'SETTLED' } },
+        data: { status: 'SETTLED' },
+    });
+    if (result.count === 0) return; // already settled — no-op
+    const roomData = roomStates[roomId];
+    if (roomData) roomData.roomStatus = 'SETTLED';
+    io.to(roomId).emit('EVENT_LEDGER_LOCKED', {
+        type:           'EVENT_LEDGER_LOCKED',
+        schema_version: 1,
+        room_id:        roomId,
+        server_seq:     roomData ? ++roomData.seq : 0,
+        lockedBy,
+    });
+}
+
 async function startTurnTimer(roomId: string) {
     const roomData = roomStates[roomId];
     if (!roomData || roomData.isPaused) return;
@@ -460,6 +589,12 @@ async function startHand(roomId: string, schema_version: number = 1) {
 
     const room = await prisma.room.findUnique({ where: { slug: roomId } });
     if (!room) throw new Error('Room not found in DB');
+
+    // Transition Room.status to IN_PROGRESS on first hand start
+    if (room.status === 'LOBBY') {
+        await prisma.room.update({ where: { slug: roomId }, data: { status: 'IN_PROGRESS' } });
+        roomData.roomStatus = 'IN_PROGRESS';
+    }
 
     // Reload settings in case they changed
     const dbSettings = room.settings as any;
@@ -635,6 +770,9 @@ async function performPlayerAction(roomId: string, userId: string, action: Poker
     }));
 
     if (state.phase === 'CLEANUP') {
+        // Broadcast running ledger update after every hand — pure in-memory, no DB read for entries
+        await broadcastLedgerUpdate(roomId);
+
         const autoStartDelay = (roomData.settings?.autoStartDelay ?? DEFAULT_AUTO_START_DELAY_SECONDS) * 1000;
         console.log(`Hand finished. Auto-starting next hand in ${autoStartDelay}ms...`);
         roomData.autoStartTimer = setTimeout(async () => {
@@ -839,17 +977,30 @@ io.on('connection', (socket) => {
                 });
             }
 
-            // BUG-06: Persist the approved seat to the database so it survives gateway restarts
+            // Persist the approved seat to the database so it survives gateway restarts
             await prisma.user.upsert({
                 where: { id: data.targetPlayerId },
                 update: {},
                 create: { id: data.targetPlayerId, username: pending.displayName || `Player_${data.targetPlayerId.substring(0, 4)}` }
             });
+
+            // RoomMember uses room.id (UUID) — use dbRoomId from roomData (already resolved)
             await prisma.roomMember.upsert({
-                where: { roomId_userId: { roomId: data.room_id, userId: data.targetPlayerId } },
+                where: { roomId_userId: { roomId: roomData.dbRoomId!, userId: data.targetPlayerId } },
                 update: { seatIndex: pending.seatIndex, stack: pending.stack, status: 'ACTIVE' },
-                create: { roomId: data.room_id, userId: data.targetPlayerId, seatIndex: pending.seatIndex, stack: pending.stack, status: 'ACTIVE' }
+                create: { roomId: roomData.dbRoomId!, userId: data.targetPlayerId, seatIndex: pending.seatIndex, stack: pending.stack, status: 'ACTIVE' }
             });
+
+            // Write BUY_IN ledger entry (covers both initial seat and rebuy-after-bust)
+            const entryType = isRebuy ? 'BUY_IN' : 'BUY_IN'; // Both are BUY_IN per design
+            const ledgerEntry = await writeLedgerEntry(prisma, {
+                roomDbId: roomData.dbRoomId!,
+                userId:   data.targetPlayerId,
+                type:     entryType,
+                amount:   pending.stack,
+                authorId: userId, // host approved it
+            });
+            roomData.ledgerEntries.push(ledgerEntry);
 
             delete roomData.pendingSeats[data.targetPlayerId];
             console.log(`[INTENT_SEAT_APPROVE] room=${data.room_id} approved=${data.targetPlayerId} pendingLeft=${Object.keys(roomData.pendingSeats).length}`);
@@ -862,7 +1013,7 @@ io.on('connection', (socket) => {
                 room_id: data.room_id,
                 server_seq: roomData.seq,
                 playerId: data.targetPlayerId,
-                displayName: pending.displayName, // Add displayName to event
+                displayName: pending.displayName,
                 seatIndex: pending.seatIndex,
                 stack: pending.stack
             };
@@ -1025,6 +1176,363 @@ io.on('connection', (socket) => {
         }
     });
 
+    // ==========================================
+    // Ledger handlers
+    // ==========================================
+
+    socket.on('INTENT_ADD_ON', async (data: IntentAddOn) => {
+        let roomData = roomStates[data.room_id];
+        if (!roomData) {
+            roomData = await getOrHydrateRoom(data.room_id) as any;
+            if (!roomData) return emitError(socket, 'ERR_ROOM_NOT_FOUND', 'Room not found');
+        }
+        if (roomData.hostId !== userId) return emitError(socket, 'ERR_NOT_HOST', 'Only the host can issue add-ons');
+
+        try {
+            if (roomData.roomStatus !== 'IN_PROGRESS') {
+                throw new Error('Add-ons are only allowed while the game is in progress');
+            }
+            if (!data.amount || data.amount <= 0) throw new Error('Add-on amount must be positive');
+
+            const state = roomData.engine.getState() as any;
+            const targetPlayer = state.players.find((p: any) => p.id === data.targetPlayerId);
+            if (!targetPlayer) throw new Error('Player not found in engine state');
+
+            // Atomic: DB write for member stack and ledger entry in one transaction.
+            // Engine mutation happens after both succeed.
+            const entry = await prisma.$transaction(async (tx) => {
+                await tx.roomMember.updateMany({
+                    where: { roomId: roomData.dbRoomId!, userId: data.targetPlayerId },
+                    data: { stack: { increment: data.amount } }
+                });
+                return writeLedgerEntry(tx as any, {
+                    roomDbId: roomData.dbRoomId!,
+                    userId:   data.targetPlayerId,
+                    type:     'ADD_ON',
+                    amount:   data.amount,
+                    authorId: userId,
+                });
+            });
+            roomData.ledgerEntries.push(entry);
+
+            // Mutate engine stack after DB writes succeed
+            targetPlayer.stack += data.amount;
+
+            await broadcastLedgerUpdate(data.room_id);
+
+            broadcastToRoom(data.room_id, 'EVENT_STATE_UPDATE', (uId) => ({
+                type: 'EVENT_STATE_UPDATE',
+                schema_version: data.schema_version || 1,
+                room_id: data.room_id,
+                server_seq: ++roomData.seq,
+                state: sanitizeState(roomData.engine.getState(), uId)
+            }));
+        } catch (err: any) {
+            emitError(socket, 'ERR_ADD_ON', err.message);
+        }
+    });
+
+    socket.on('INTENT_CASH_OUT', async (data: IntentCashOut) => {
+        let roomData = roomStates[data.room_id];
+        if (!roomData) {
+            roomData = await getOrHydrateRoom(data.room_id) as any;
+            if (!roomData) return emitError(socket, 'ERR_ROOM_NOT_FOUND', 'Room not found');
+        }
+
+        try {
+            const state = roomData.engine.getState() as any;
+            const player = state.players.find((p: any) => p.id === userId);
+            if (!player) throw new Error('You are not seated at this table');
+
+            // Only allow cash-out when not mid-hand (LOBBY or CLEANUP phase)
+            const currentPhase = state.phase as string;
+            if (currentPhase !== 'LOBBY' && currentPhase !== 'CLEANUP') {
+                throw new Error('Cash-out is only allowed between hands');
+            }
+
+            const cashOutAmount = player.stack;
+
+            // Atomic: BUSTED status update and CASH_OUT ledger entry in one transaction.
+            // Engine mutation happens after both succeed.
+            const entry = await prisma.$transaction(async (tx) => {
+                await tx.roomMember.updateMany({
+                    where: { roomId: roomData.dbRoomId!, userId },
+                    data: { status: 'BUSTED', stack: 0 }
+                });
+                return writeLedgerEntry(tx as any, {
+                    roomDbId: roomData.dbRoomId!,
+                    userId,
+                    type:     'CASH_OUT',
+                    amount:   cashOutAmount,
+                    authorId: userId,
+                });
+            });
+            roomData.ledgerEntries.push(entry);
+
+            // Mutate engine state only after DB writes succeed
+            player.status = 'BUSTED';
+            player.stack = 0;
+
+            await broadcastLedgerUpdate(data.room_id);
+
+            broadcastToRoom(data.room_id, 'EVENT_STATE_UPDATE', (uId) => ({
+                type: 'EVENT_STATE_UPDATE',
+                schema_version: data.schema_version || 1,
+                room_id: data.room_id,
+                server_seq: ++roomData.seq,
+                state: sanitizeState(roomData.engine.getState(), uId)
+            }));
+        } catch (err: any) {
+            emitError(socket, 'ERR_CASH_OUT', err.message);
+        }
+    });
+
+    socket.on('INTENT_STOP_GAME', async (data: IntentStopGame) => {
+        let roomData = roomStates[data.room_id];
+        if (!roomData) {
+            roomData = await getOrHydrateRoom(data.room_id) as any;
+            if (!roomData) return emitError(socket, 'ERR_ROOM_NOT_FOUND', 'Room not found');
+        }
+        if (roomData.hostId !== userId) return emitError(socket, 'ERR_NOT_HOST', 'Only the host can stop the game');
+
+        try {
+            // Pause all timers immediately
+            roomData.isPaused = true;
+            clearTurnTimer(data.room_id);
+            if (roomData.autoStartTimer) {
+                clearTimeout(roomData.autoStartTimer);
+                roomData.autoStartTimer = undefined;
+            }
+
+            const state = roomData.engine.getState() as any;
+            const players = state.players.map((p: any) => ({ id: p.id, stack: p.stack }));
+
+            // Write CASH_OUT for every player who doesn't already have one
+            const newEntries = await writeSessionEndEntries(
+                prisma,
+                roomData.dbRoomId!,
+                players,
+                roomData.ledgerEntries,
+                userId
+            );
+            for (const e of newEntries) roomData.ledgerEntries.push(e);
+
+            // Update Room.status = FINISHED
+            await prisma.room.update({ where: { slug: data.room_id }, data: { status: 'FINISHED' } });
+            roomData.roomStatus = 'FINISHED';
+
+            // Compute final snapshot (isRunning=false; all stacks captured in CASH_OUT entries)
+            const engineEntries = roomData.ledgerEntries.map(toEngineLedgerEntry);
+            const finalSnapshot = computeLedgerSnapshot(engineEntries, {}, false);
+            const disputes = roomData.cachedDisputes;
+
+            const payload: LedgerPayload = {
+                entries:       roomData.ledgerEntries.map(serializeLedgerEntry),
+                pnl:           finalSnapshot.pnl,
+                settlement:    finalSnapshot.settlement,
+                confirmations: roomData.confirmations,
+                disputes,
+                roomStatus:    'FINISHED',
+                isRunning:     false,
+                zeroSumError:  finalSnapshot.zeroSumError,
+            };
+
+            io.to(data.room_id).emit('EVENT_SESSION_ENDED', {
+                type:           'EVENT_SESSION_ENDED',
+                schema_version: 1,
+                room_id:        data.room_id,
+                server_seq:     ++roomData.seq,
+                ledger:         payload,
+                stoppedBy:      userId,
+            });
+        } catch (err: any) {
+            emitError(socket, 'ERR_STOP_GAME', err.message);
+        }
+    });
+
+    socket.on('INTENT_REQUEST_LEDGER', async (data: IntentRequestLedger) => {
+        let roomData = roomStates[data.room_id];
+        if (!roomData) {
+            roomData = await getOrHydrateRoom(data.room_id) as any;
+            if (!roomData) return emitError(socket, 'ERR_ROOM_NOT_FOUND', 'Room not found');
+        }
+
+        try {
+            const state = roomData.engine.getState() as any;
+            const currentStacks: Record<string, number> = {};
+            state.players.forEach((p: any) => { currentStacks[p.id] = p.stack; });
+
+            const isRunning = roomData.roomStatus !== 'FINISHED' && roomData.roomStatus !== 'SETTLED';
+            const engineEntries = roomData.ledgerEntries.map(toEngineLedgerEntry);
+            const snapshot = computeLedgerSnapshot(engineEntries, isRunning ? currentStacks : {}, isRunning);
+            const disputes = roomData.cachedDisputes;
+
+            const payload: LedgerPayload = {
+                entries:       roomData.ledgerEntries.map(serializeLedgerEntry),
+                pnl:           snapshot.pnl,
+                settlement:    snapshot.settlement,
+                confirmations: roomData.confirmations,
+                disputes,
+                roomStatus:    roomData.roomStatus,
+                isRunning,
+                zeroSumError:  snapshot.zeroSumError,
+            };
+
+            // Unicast to requesting socket only
+            socket.emit('EVENT_LEDGER_SNAPSHOT', {
+                type:           'EVENT_LEDGER_SNAPSHOT',
+                schema_version: 1,
+                room_id:        data.room_id,
+                server_seq:     roomData.seq,
+                ledger:         payload,
+            });
+        } catch (err: any) {
+            emitError(socket, 'ERR_REQUEST_LEDGER', err.message);
+        }
+    });
+
+    socket.on('INTENT_CONFIRM_LEDGER', async (data: IntentConfirmLedger) => {
+        let roomData = roomStates[data.room_id];
+        if (!roomData) {
+            roomData = await getOrHydrateRoom(data.room_id) as any;
+            if (!roomData) return emitError(socket, 'ERR_ROOM_NOT_FOUND', 'Room not found');
+        }
+
+        try {
+            // Upsert confirmation row
+            await prisma.ledgerConfirmation.upsert({
+                where:  { roomId_userId: { roomId: roomData.dbRoomId!, userId } },
+                update: { confirmedAt: new Date() },
+                create: { roomId: roomData.dbRoomId!, userId },
+            });
+
+            // Update in-memory cache
+            if (!roomData.confirmations.includes(userId)) {
+                roomData.confirmations.push(userId);
+            }
+
+            // Check if all seated players have confirmed — auto-lock if so
+            const state = roomData.engine.getState() as any;
+            const seatedPlayerIds: string[] = state.players.map((p: any) => p.id);
+            const allConfirmed = seatedPlayerIds.length > 0 &&
+                seatedPlayerIds.every(pid => roomData.confirmations.includes(pid));
+
+            if (allConfirmed && roomData.roomStatus !== 'SETTLED') {
+                await lockLedger(data.room_id, 'auto');
+            } else {
+                await broadcastLedgerUpdate(data.room_id);
+            }
+        } catch (err: any) {
+            emitError(socket, 'ERR_CONFIRM_LEDGER', err.message);
+        }
+    });
+
+    socket.on('INTENT_DISPUTE_ENTRY', async (data: IntentDisputeEntry) => {
+        let roomData = roomStates[data.room_id];
+        if (!roomData) {
+            roomData = await getOrHydrateRoom(data.room_id) as any;
+            if (!roomData) return emitError(socket, 'ERR_ROOM_NOT_FOUND', 'Room not found');
+        }
+
+        try {
+            // Validate entry belongs to this room (check cache)
+            const entryExists = roomData.ledgerEntries.some(e => e.id === data.ledgerEntryId);
+            if (!entryExists) throw new Error('Ledger entry not found in this room');
+
+            if (!data.note || data.note.trim() === '') throw new Error('Dispute note is required');
+
+            await prisma.ledgerDispute.create({
+                data: {
+                    ledgerEntryId:  data.ledgerEntryId,
+                    raisedByUserId: userId,
+                    note:           data.note.trim(),
+                    status:         'OPEN',
+                },
+            });
+
+            // Invalidate dispute cache so broadcastLedgerUpdate sees the new dispute
+            roomData.cachedDisputes = await loadDisputes(prisma, roomData.dbRoomId!);
+            await broadcastLedgerUpdate(data.room_id);
+        } catch (err: any) {
+            emitError(socket, 'ERR_DISPUTE_ENTRY', err.message);
+        }
+    });
+
+    socket.on('INTENT_RESOLVE_DISPUTE', async (data: IntentResolveDispute) => {
+        let roomData = roomStates[data.room_id];
+        if (!roomData) {
+            roomData = await getOrHydrateRoom(data.room_id) as any;
+            if (!roomData) return emitError(socket, 'ERR_ROOM_NOT_FOUND', 'Room not found');
+        }
+        if (roomData.hostId !== userId) return emitError(socket, 'ERR_NOT_HOST', 'Only the host can resolve disputes');
+
+        try {
+            const dispute = await prisma.ledgerDispute.findUnique({ where: { id: data.disputeId } });
+            if (!dispute) throw new Error('Dispute not found');
+            if (dispute.status !== 'OPEN') throw new Error('Dispute is already resolved');
+
+            // If OVERRIDDEN: write an ADJUSTMENT entry correcting the original amount
+            if (data.resolution === 'OVERRIDDEN') {
+                // adjustmentAmount is type-guaranteed to be present (discriminated union),
+                // but must also be non-negative per business rules
+                if (data.adjustmentAmount < 0) {
+                    throw new Error('adjustmentAmount must be non-negative for OVERRIDDEN resolution');
+                }
+                // Find the original entry to know which player it belongs to
+                const originalEntry = roomData.ledgerEntries.find(e => e.id === dispute.ledgerEntryId);
+                if (!originalEntry) throw new Error('Original ledger entry not found in cache');
+
+                const adjustEntry = await writeLedgerEntry(prisma, {
+                    roomDbId: roomData.dbRoomId!,
+                    userId:   originalEntry.userId,
+                    type:     'ADJUSTMENT',
+                    amount:   data.adjustmentAmount,
+                    authorId: userId,
+                    // Chase to the base entry: if originalEntry is itself an ADJUSTMENT/VOID,
+                    // point to its parent. This prevents adjustment chains and ensures
+                    // resolveEntries applies the correction to a base (BUY_IN/ADD_ON/CASH_OUT) entry.
+                    parentId: originalEntry.parentId ?? originalEntry.id,
+                    note:     data.note ?? `Dispute ${data.disputeId} overridden by host`,
+                });
+                roomData.ledgerEntries.push(adjustEntry);
+            }
+
+            // Update dispute status
+            await prisma.ledgerDispute.update({
+                where: { id: data.disputeId },
+                data: {
+                    status:          data.resolution,
+                    resolvedByUserId: userId,
+                    resolvedAt:      new Date(),
+                },
+            });
+
+            // Invalidate dispute cache so broadcastLedgerUpdate reflects the resolved status
+            roomData.cachedDisputes = await loadDisputes(prisma, roomData.dbRoomId!);
+            await broadcastLedgerUpdate(data.room_id);
+        } catch (err: any) {
+            emitError(socket, 'ERR_RESOLVE_DISPUTE', err.message);
+        }
+    });
+
+    socket.on('INTENT_LOCK_LEDGER', async (data: IntentLockLedger) => {
+        let roomData = roomStates[data.room_id];
+        if (!roomData) {
+            roomData = await getOrHydrateRoom(data.room_id) as any;
+            if (!roomData) return emitError(socket, 'ERR_ROOM_NOT_FOUND', 'Room not found');
+        }
+        if (roomData.hostId !== userId) return emitError(socket, 'ERR_NOT_HOST', 'Only the host can lock the ledger');
+
+        try {
+            if (roomData.roomStatus === 'SETTLED') {
+                throw new Error('Ledger is already locked');
+            }
+            await lockLedger(data.room_id, userId);
+        } catch (err: any) {
+            emitError(socket, 'ERR_LOCK_LEDGER', err.message);
+        }
+    });
+
     socket.on('disconnect', () => {
         console.log(`Socket disconnected: ${socket.id}`);
         for (const [roomId, usersInRoom] of roomSockets.entries()) {
@@ -1046,5 +1554,3 @@ const PORT = process.env.PORT || 4000;
 httpServer.listen(PORT, () => {
     console.log(`Gateway realtime server listening on port ${PORT}`);
 });
-
-
