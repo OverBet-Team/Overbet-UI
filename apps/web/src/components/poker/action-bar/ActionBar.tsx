@@ -1,8 +1,7 @@
 "use client";
 
 import React, { useState, useEffect, useCallback } from "react";
-import { AnimatePresence } from "framer-motion";
-import { X, Check, ArrowUpRight } from "lucide-react";
+import { X, Check } from "lucide-react";
 import { BankDisplay } from "./BankDisplay";
 import { TimerRing } from "./TimerRing";
 import { ActionButton } from "./ActionButton";
@@ -28,19 +27,16 @@ export function ActionBar({
   const canRaise = maxRaiseTo > minRaiseTo;
 
   const [raiseAmount, setRaiseAmount] = useState(minRaiseTo);
-  const [showRaiseSlider, setShowRaiseSlider] = useState(false);
 
   // Clamp raiseAmount to valid range (derived state)
   const clampedRaise = Math.min(Math.max(raiseAmount, minRaiseTo), maxRaiseTo);
 
   const handleRaise = useCallback(() => {
     onAction("RAISE", clampedRaise);
-    setShowRaiseSlider(false);
   }, [onAction, clampedRaise]);
 
   const handleAllIn = useCallback(() => {
     onAction("ALL_IN");
-    setShowRaiseSlider(false);
   }, [onAction]);
 
   // Keyboard shortcuts
@@ -60,46 +56,32 @@ export function ActionBar({
           break;
         case "r":
           if (canRaise) {
-            setShowRaiseSlider((v) => !v);
+            // Focus the slider input
+            const slider = document.querySelector<HTMLInputElement>('input[type="range"][aria-label="Bet amount"]');
+            slider?.focus();
           }
           break;
-        case "a":
-          onAction("ALL_IN");
-          break;
-        case "escape":
-          setShowRaiseSlider(false);
-          break;
         case "enter":
-          if (showRaiseSlider && canRaise) handleRaise();
+          if (canRaise) handleRaise();
           break;
       }
     };
 
     window.addEventListener("keydown", handler);
     return () => window.removeEventListener("keydown", handler);
-  }, [isActive, toCall, canRaise, showRaiseSlider, handleRaise, onAction]);
+  }, [isActive, toCall, canRaise, handleRaise, onAction]);
 
-  // ── Inactive state ────────────────────────────────────────────────────────
-  if (!isActive) {
-    return (
-      <nav
-        data-testid="action-bar-inactive"
-        className="glass-dock rounded-2xl border border-[--outline-variant]/15 px-5 py-6 shadow-[0_-20px_40px_rgba(0,0,0,0.5)] flex justify-center items-center opacity-35 grayscale-[0.5]"
-      >
-        <div className="flex-1 py-3.5 text-center font-semibold text-sm text-white/40">
-          Waiting for turn…
-        </div>
-      </nav>
-    );
-  }
 
   // ── Mobile compact layout ─────────────────────────────────────────────────
+  // ── Mobile compact layout ─────────────────────────────────────────────────
   if (compact) {
+    const inactiveClasses = !isActive ? "opacity-40 grayscale-[0.4] pointer-events-none" : "";
+
     return (
       <div data-testid="action-bar" className="flex flex-col w-full font-body">
         <nav
           aria-label="Game actions"
-          className="glass-dock rounded-t-[1.5rem] border-t border-[--outline-variant]/20 flex justify-around items-center px-4 pb-8 pt-6 shadow-[0_-20px_40px_rgba(0,0,0,0.4)]"
+          className={`glass-dock rounded-t-[1.5rem] border-t border-[--outline-variant]/20 flex justify-around items-center px-4 pb-8 pt-6 shadow-[0_-20px_40px_rgba(0,0,0,0.4)] transition-all duration-300 ${inactiveClasses}`}
         >
           <ActionButton
             variant="fold"
@@ -107,6 +89,7 @@ export function ActionBar({
             label="Fold"
             shortcut="F"
             compact
+            disabled={!isActive}
             testId="action-fold"
             onClick={() => onAction("FOLD")}
           />
@@ -126,22 +109,11 @@ export function ActionBar({
             }
             shortcut="C"
             compact
+            disabled={!isActive}
             testId="action-check-call"
             onClick={() => onAction(toCall > 0 ? "CALL" : "CHECK")}
           />
 
-          {canRaise && (
-            <ActionButton
-              variant="raise"
-              icon={<ArrowUpRight size={24} />}
-              label="Raise"
-              shortcut="R"
-              compact
-              active={showRaiseSlider}
-              testId="action-raise"
-              onClick={() => setShowRaiseSlider((v) => !v)}
-            />
-          )}
 
           <ActionButton
             variant="all-in"
@@ -149,35 +121,37 @@ export function ActionBar({
             label="All-In"
             shortcut="A"
             compact
+            disabled={!isActive}
             testId="action-all-in"
             onClick={() => onAction("ALL_IN")}
           />
         </nav>
 
-        <AnimatePresence>
-          {showRaiseSlider && canRaise && (
-            <BetSlider
-              value={raiseAmount}
-              min={minRaiseTo}
-              max={maxRaiseTo}
-              pot={pot}
-              onChange={setRaiseAmount}
-              onConfirm={handleRaise}
-              onAllIn={handleAllIn}
-              compact
-            />
-          )}
-        </AnimatePresence>
+        {canRaise && (
+          <BetSlider
+            value={raiseAmount}
+            min={minRaiseTo}
+            max={maxRaiseTo}
+            pot={pot}
+            onChange={setRaiseAmount}
+            onConfirm={handleRaise}
+            onAllIn={handleAllIn}
+            disabled={!isActive}
+            compact
+          />
+        )}
       </div>
     );
   }
 
   // ── Desktop: unified action panel ──────────────────────────────────────────
+  const inactiveClasses = !isActive ? "opacity-40 grayscale-[0.4] pointer-events-none" : "";
+
   return (
     <div data-testid="action-bar" className="flex flex-col w-full font-body">
       <nav
         aria-label="Game actions"
-        className="glass-dock rounded-2xl border border-[--outline-variant]/15 px-5 py-4 shadow-[0_-20px_40px_rgba(0,0,0,0.5)] flex items-center gap-4"
+        className={`glass-dock rounded-2xl border border-[--outline-variant]/15 px-5 py-4 shadow-[0_-20px_40px_rgba(0,0,0,0.5)] flex items-center gap-4 transition-all duration-300 ${inactiveClasses}`}
       >
         {/* Left cluster: Bank + Timer */}
         <div className="flex items-center gap-4 shrink-0">
@@ -197,6 +171,7 @@ export function ActionBar({
             variant="fold"
             icon={<X size={18} className="text-[--danger]" />}
             label="Fold"
+            disabled={!isActive}
             testId="action-fold"
             onClick={() => onAction("FOLD")}
           />
@@ -205,40 +180,30 @@ export function ActionBar({
             variant={toCall > 0 ? "call" : "check"}
             icon={<Check size={18} />}
             label={toCall > 0 ? `Call ${toCall}` : "Check"}
+            disabled={!isActive}
             testId="action-check-call"
             onClick={() => onAction(toCall > 0 ? "CALL" : "CHECK")}
           />
 
-          {canRaise && (
-            <ActionButton
-              variant="raise"
-              icon={<ArrowUpRight size={18} />}
-              label="Raise"
-              active={showRaiseSlider}
-              testId="action-raise"
-              onClick={() => setShowRaiseSlider((v) => !v)}
-            />
-          )}
         </div>
 
-        <AnimatePresence>
-          {showRaiseSlider && canRaise && (
-            <>
-              {/* Separator */}
-              <div className="w-px h-10 bg-white/10 shrink-0" />
+        {canRaise && (
+          <>
+            {/* Separator */}
+            <div className="w-px h-10 bg-white/10 shrink-0" />
 
-              <BetSlider
-                value={raiseAmount}
-                min={minRaiseTo}
-                max={maxRaiseTo}
-                pot={pot}
-                onChange={setRaiseAmount}
-                onConfirm={handleRaise}
-                onAllIn={handleAllIn}
-              />
-            </>
-          )}
-        </AnimatePresence>
+            <BetSlider
+              value={raiseAmount}
+              min={minRaiseTo}
+              max={maxRaiseTo}
+              pot={pot}
+              onChange={setRaiseAmount}
+              onConfirm={handleRaise}
+              onAllIn={handleAllIn}
+              disabled={!isActive}
+            />
+          </>
+        )}
       </nav>
     </div>
   );

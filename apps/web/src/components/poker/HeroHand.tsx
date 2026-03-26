@@ -42,7 +42,7 @@ const HeroHand: FC<HeroHandProps> = ({ cards, size = "md" }) => {
   const Card2Icon = card2Data ? SUIT_ICONS[card2Data.suit] : null;
 
   return (
-    <div className="flex -space-x-10">
+    <div className="flex -space-x-10 overflow-visible">
       {/* Card 1 - rotated left with staggered entry */}
       <motion.div
         initial={{ opacity: 0, y: 60, rotateZ: -12, scale: 0.9 }}
@@ -62,7 +62,7 @@ const HeroHand: FC<HeroHandProps> = ({ cards, size = "md" }) => {
         className={`
           ${container}
           poker-card-premium flex flex-col p-3 justify-between shadow-2xl border border-white/15
-          cursor-pointer z-10
+          cursor-pointer z-0
         `}
         aria-label={`Card 1: ${cards[0]}`}
       >
@@ -70,7 +70,7 @@ const HeroHand: FC<HeroHandProps> = ({ cards, size = "md" }) => {
           <span className={`${text} font-bold font-headline`}>{card1Data.rank}</span>
           <Card1Icon size={suitCorner} fill="currentColor" strokeWidth={0} />
         </div>
-        <div className="self-center">
+        <div className={`self-center ${card1Data.isRed ? "suit-red" : "suit-black"}`}>
           <Card1Icon size={suitCenter} fill="currentColor" strokeWidth={0} />
         </div>
         <div
@@ -101,7 +101,7 @@ const HeroHand: FC<HeroHandProps> = ({ cards, size = "md" }) => {
           className={`
             ${container}
             poker-card-premium flex flex-col p-3 justify-between shadow-2xl border border-white/15
-            cursor-pointer z-0
+            cursor-pointer z-10
           `}
           aria-label={`Card 2: ${cards[1]}`}
         >
@@ -109,7 +109,7 @@ const HeroHand: FC<HeroHandProps> = ({ cards, size = "md" }) => {
             <span className={`${text} font-bold font-headline`}>{card2Data.rank}</span>
             <Card2Icon size={suitCorner} fill="currentColor" strokeWidth={0} />
           </div>
-          <div className="self-center">
+          <div className={`self-center ${card2Data.isRed ? "suit-red" : "suit-black"}`}>
             <Card2Icon size={suitCenter} fill="currentColor" strokeWidth={0} />
           </div>
           <div

@@ -53,15 +53,16 @@ export const ActionButton = React.memo(function ActionButton({
         data-testid={testId}
         onClick={onClick}
         disabled={disabled}
-        whileTap={{ scale: 0.9 }}
+        whileTap={disabled ? undefined : { scale: 0.9 }}
         aria-disabled={disabled}
+        tabIndex={disabled ? -1 : 0}
         className={`
           flex flex-col items-center justify-center gap-1 px-4 py-1 rounded-xl
           transition-all duration-300 cursor-pointer
           focus-visible:ring-2 focus-visible:ring-[--ring-active] focus-visible:ring-offset-2
           ${variantClass}
           ${active ? "bg-[--tertiary]/20 scale-105" : ""}
-          ${disabled ? "opacity-50 cursor-not-allowed" : ""}
+          ${disabled ? "opacity-40 saturate-50 cursor-not-allowed select-none" : ""}
         `}
       >
         <div className="w-12 h-12 flex items-center justify-center rounded-xl">
@@ -81,14 +82,15 @@ export const ActionButton = React.memo(function ActionButton({
       data-testid={testId}
       onClick={onClick}
       disabled={disabled}
-      whileTap={{ scale: 0.95 }}
+      whileTap={disabled ? undefined : { scale: 0.95 }}
       aria-disabled={disabled}
+      tabIndex={disabled ? -1 : 0}
       className={`
         flex items-center gap-2 px-4 rounded-xl transition-all
         focus-visible:ring-2 focus-visible:ring-offset-1
         ${variantClass}
         ${active ? "ring-1 ring-[--tertiary]/40" : ""}
-        ${disabled ? "opacity-50 cursor-not-allowed" : ""}
+        ${disabled ? "opacity-40 saturate-50 cursor-not-allowed select-none" : ""}
         ${variant === "fold" ? "h-[48px]" : "h-[56px] min-w-[140px] justify-center gap-2.5"}
       `}
     >

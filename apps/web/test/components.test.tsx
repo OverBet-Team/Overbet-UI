@@ -17,7 +17,18 @@ describe('ActionBar', () => {
       />,
     );
 
-    expect(screen.getByTestId('action-bar-inactive')).toBeDefined();
+    const actionBar = screen.getByTestId('action-bar');
+    expect(actionBar).toBeDefined();
+    
+    // Should render with inactive visual styling
+    const nav = actionBar.querySelector('nav');
+    expect(nav?.className).toContain('opacity-40');
+    expect(nav?.className).toContain('grayscale-[0.4]');
+    expect(nav?.className).toContain('pointer-events-none');
+    
+    // Buttons should be disabled
+    const foldButton = screen.getByTestId('action-fold');
+    expect(foldButton).toHaveProperty('disabled', true);
   });
 
   it('emits fold action from Fold pill', () => {

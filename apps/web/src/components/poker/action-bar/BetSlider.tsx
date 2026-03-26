@@ -13,6 +13,7 @@ interface BetSliderProps {
   onConfirm: () => void;
   onAllIn: () => void;
   compact?: boolean;
+  disabled?: boolean;
 }
 
 interface Preset {
@@ -29,6 +30,7 @@ export const BetSlider = React.memo(function BetSlider({
   onConfirm,
   onAllIn,
   compact = false,
+  disabled = false,
 }: BetSliderProps) {
   // Compute presets - memoized to avoid recalculation on every render
   const presets = useMemo<Preset[]>(() => {
@@ -50,7 +52,7 @@ export const BetSlider = React.memo(function BetSlider({
         animate={{ opacity: 1, y: 0 }}
         exit={{ opacity: 0, y: -10 }}
         transition={{ duration: 0.2 }}
-        className="glass-panel mx-2 mb-2 p-4 flex flex-col gap-3 rounded-xl"
+        className={`glass-panel mx-2 mb-2 p-4 flex flex-col gap-3 rounded-xl transition-all duration-300 ${disabled ? "opacity-40 saturate-50 pointer-events-none" : ""}`}
       >
         <div className="flex items-center justify-between">
           <span className="text-white/40 text-xs uppercase tracking-wider">Raise To</span>
@@ -91,7 +93,7 @@ export const BetSlider = React.memo(function BetSlider({
                 key={preset.label}
                 onClick={() => onChange(preset.value)}
                 aria-label={`Bet ${preset.label.toLowerCase()}`}
-                className="flex-1 py-1.5 rounded-lg bg-white/5 border border-white/10 text-xs font-semibold hover:bg-white/10 transition-colors"
+                className="flex-1 py-1.5 rounded-lg bg-white/5 backdrop-blur-sm border border-white/10 text-xs font-semibold hover:bg-white/10 hover:border-white/15 transition-colors"
               >
                 {preset.label}
               </button>
@@ -100,7 +102,8 @@ export const BetSlider = React.memo(function BetSlider({
         )}
         <button
           onClick={onConfirm}
-          className="w-full py-2.5 rounded-lg bg-[--tertiary] text-white font-bold text-sm hover:bg-[--tertiary-dim] transition-colors"
+          disabled={disabled}
+          className="w-full py-3 rounded-lg bg-[--tertiary] text-black font-extrabold text-base shadow-[0_0_12px_rgba(129,236,255,0.3)] hover:shadow-[0_0_20px_rgba(129,236,255,0.5)] active:scale-95 transition-all"
         >
           Raise to {clampedValue}
         </button>
@@ -115,7 +118,7 @@ export const BetSlider = React.memo(function BetSlider({
       animate={{ opacity: 1, x: 0 }}
       exit={{ opacity: 0, x: 20 }}
       transition={{ duration: 0.2 }}
-      className="flex items-center gap-3 shrink-0"
+      className={`flex items-center gap-3 shrink-0 transition-all duration-300 ${disabled ? "opacity-40 saturate-50 pointer-events-none" : ""}`}
     >
       <div className="flex flex-col gap-0.5">
         <span className="text-[9px] font-bold uppercase tracking-widest text-white/40">Amount</span>
@@ -152,7 +155,7 @@ export const BetSlider = React.memo(function BetSlider({
               key={preset.label}
               onClick={() => onChange(preset.value)}
               aria-label={`Bet ${preset.label.toLowerCase()}`}
-              className="bg-white/5 border border-white/10 rounded-lg px-3 py-1.5 text-[10px] font-bold uppercase hover:bg-white/10 transition-colors"
+              className="bg-white/5 backdrop-blur-sm border border-white/10 rounded-lg px-3 py-1.5 text-[10px] font-bold uppercase hover:bg-white/10 hover:border-white/15 transition-colors"
             >
               {preset.label}
             </button>
@@ -161,6 +164,7 @@ export const BetSlider = React.memo(function BetSlider({
       )}
       <button
         onClick={onAllIn}
+        disabled={disabled}
         aria-label="Go all-in"
         className="bg-white/5 border-2 border-[--gold]/40 rounded-lg px-4 py-1.5 text-[10px] font-bold uppercase text-[--gold] hover:bg-[--gold]/10 transition-colors"
       >
@@ -168,7 +172,8 @@ export const BetSlider = React.memo(function BetSlider({
       </button>
       <button
         onClick={onConfirm}
-        className="bg-[--tertiary] text-black font-bold rounded-lg px-4 py-2 text-sm hover:opacity-90 whitespace-nowrap transition-opacity"
+        disabled={disabled}
+        className="bg-[--tertiary] text-black font-extrabold rounded-lg px-5 py-2.5 text-base shadow-[0_0_12px_rgba(129,236,255,0.3)] hover:shadow-[0_0_20px_rgba(129,236,255,0.5)] active:scale-95 whitespace-nowrap transition-all"
       >
         Confirm ↵
       </button>
