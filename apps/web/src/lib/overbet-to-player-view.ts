@@ -133,6 +133,9 @@ export function toPlayerViewState(
       bet: myGp?.bet ?? mySeat.bet ?? 0,
       status: normalizeStatus(myGp?.status ?? mySeat.status),
       cards: Array.isArray(heroCards) ? heroCards : [],
+      // TODO: Replace with backend hand evaluation when available
+      handStrength: Array.isArray(heroCards) && heroCards.length > 0 ? 0.75 : undefined,
+      handType: Array.isArray(heroCards) && heroCards.length > 0 ? "PAIR" : undefined,
     },
     opponents,
     board,

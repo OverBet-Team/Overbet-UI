@@ -1042,28 +1042,6 @@ export default function RoomClient({ slug, initialRoom }: RoomProps) {
         <div className="absolute top-[40%] left-[30%] w-[20%] h-[20%] rounded-full bg-[--secondary]/5 blur-[80px]" />
       </div>
 
-      {/* Floating action buttons (desktop only) */}
-      {!isPortraitMobile && (
-        <div className="fixed right-8 top-1/2 -translate-y-1/2 flex flex-col gap-3 z-40">
-          <button
-            onClick={() => setShowHelpOverlay(true)}
-            className="icon-btn hover:text-[--tertiary] hover:border-[--tertiary] focus-visible:ring-2 focus-visible:ring-[--ring-active] focus-visible:ring-offset-2"
-            title="Help & Shortcuts"
-            aria-label="Help and keyboard shortcuts"
-          >
-            <HelpCircle size={16} />
-          </button>
-          <button
-            onClick={() => setShowLogOverlay(true)}
-            className="icon-btn hover:text-[--tertiary] hover:border-[--tertiary] focus-visible:ring-2 focus-visible:ring-[--ring-active] focus-visible:ring-offset-2"
-            title="Game Log"
-            aria-label="View game log"
-          >
-            <ScrollText size={16} />
-          </button>
-        </div>
-      )}
-
       {/* ── Game canvas (flex-fill) ────────────────────────────────────────── */}
       <div style={{ flex: 1, minHeight: 0, display: "flex", flexDirection: "column", position: "relative", paddingTop: isPortraitMobile ? 36 : 0 }}>
         <div
@@ -1440,7 +1418,7 @@ export default function RoomClient({ slug, initialRoom }: RoomProps) {
             </div>
           </div>
 
-          <div style={{ flex: 1, display: "flex", justifyContent: "center", alignItems: "center", minWidth: 0, maxWidth: 480 }}>
+          <div style={{ width: "100%", display: "flex", justifyContent: "center", alignItems: "center" }}>
             {gameState && gameState.phase !== "LOBBY" && gameState.phase !== "CLEANUP" ? (
               <ActionBar
                 isActive={isActivePlayer}
