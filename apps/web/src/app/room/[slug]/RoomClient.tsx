@@ -27,7 +27,9 @@ import { PlayerData, TurnTimer } from "@/components/poker/Seat";
 import WinnerToast from "@/components/poker/WinnerToast";
 const RoomSettingsModal = dynamic(() => import('@/components/poker/SettingsModal').then(m => ({ default: m.SettingsModal })), { ssr: false })
 const RoomFairnessModal = dynamic(() => import('@/components/poker/FairnessModal').then(m => ({ default: m.FairnessModal })), { ssr: false })
+const V2GameContainer = dynamic(() => import('@/components/poker-v2/V2GameContainer').then(m => ({ default: m.V2GameContainer })), { ssr: false })
 import { useUser } from "@/hooks/useUser";
+import { useUIVersion } from "@/hooks/useUIVersion";
 
 // ── Types ─────────────────────────────────────────────────────────────────────
 interface RoomSettings {
@@ -93,6 +95,7 @@ function TurnTimerPill({ timer }: { timer: TurnTimer }) {
 // ── Component ─────────────────────────────────────────────────────────────────
 export default function RoomClient({ slug, initialRoom }: RoomProps) {
   const { userId } = useUser();
+  const { uiVersion } = useUIVersion();
   const [socket, setSocket] = useState<Socket | null>(null);
   const [room, setRoom] = useState<Room>(initialRoom);
   const [players, setPlayers] = useState<PlayerData[]>([]);
@@ -1048,9 +1051,34 @@ export default function RoomClient({ slug, initialRoom }: RoomProps) {
           initialDisplayName=""
         />
 
-        {/* Table — PlayerPerspectiveView fills canvas */}
+        {/* Table — V2GameContainer (v2) or PlayerPerspectiveView (v1) fills canvas */}
         {(() => {
           const viewState = toPlayerViewState(mappedPlayers, gameState, userId);
+          if (!viewState) return null;
+
+          // ── v2 path ───────────────────────────────────────────────────────
+          if (uiVersion === "v2") {
+            return (
+              <div style={{ flex: 1, minHeight: 0, display: "flex", width: "100%", position: "relative" }}>
+                <V2GameContainer
+                  viewState={viewState}
+                  winnerId={winner?.winnerId}
+                  winnerCards={winner?.winnerCards}
+                  compactMode={isPortraitMobile}
+                  turnTimer={turnTimer}
+                  isActive={isActivePlayer}
+                  stack={myPlayerInfo?.stack || 0}
+                  currentBet={gameState?.currentBet || 0}
+                  playerBet={playerBet}
+                  minRaise={gameState?.minRaise || 0}
+                  pot={totalPot}
+                  onAction={handleAction}
+                />
+              </div>
+            );
+          }
+
+          // ── v1 path ───────────────────────────────────────────────────────
           if (viewState) {
             const isCleanup = gameState?.phase === "CLEANUP";
             const board5 = Array.from({ length: 5 }, (_, i) => (gameState?.board ?? [])[i] ?? null);
@@ -1370,22 +1398,25 @@ export default function RoomClient({ slug, initialRoom }: RoomProps) {
               {turnTimer && turnTimer.playerId === userId && <TurnTimerPill timer={turnTimer} />}
             </div>
           </div>
-          <div style={{ width: "100%", display: "flex", justifyContent: "center" }}>
-            {gameState && gameState.phase !== "LOBBY" && gameState.phase !== "CLEANUP" ? (
-              <ActionBar
-                isActive={isActivePlayer}
-                stack={myPlayerInfo?.stack || 0}
-                currentBet={gameState?.currentBet || 0}
-                playerBet={playerBet}
-                minRaise={gameState?.minRaise || 0}
-                pot={totalPot}
-                compact
-                onAction={handleAction}
-              />
-            ) : (
-              <span style={{ color: "rgba(255,255,255,0.35)", fontSize: 12, fontWeight: 500 }}>Waiting for hand…</span>
-            )}
-          </div>
+          {/* V2Controls is fixed-position inside V2GameContainer — skip ActionBar in v2 */}
+          {uiVersion !== "v2" && (
+            <div style={{ width: "100%", display: "flex", justifyContent: "center" }}>
+              {gameState && gameState.phase !== "LOBBY" && gameState.phase !== "CLEANUP" ? (
+                <ActionBar
+                  isActive={isActivePlayer}
+                  stack={myPlayerInfo?.stack || 0}
+                  currentBet={gameState?.currentBet || 0}
+                  playerBet={playerBet}
+                  minRaise={gameState?.minRaise || 0}
+                  pot={totalPot}
+                  compact
+                  onAction={handleAction}
+                />
+              ) : (
+                <span style={{ color: "rgba(255,255,255,0.35)", fontSize: 12, fontWeight: 500 }}>Waiting for hand…</span>
+              )}
+            </div>
+          )}
         </div>
       ) : (
         <div style={{
@@ -1430,8 +1461,9 @@ export default function RoomClient({ slug, initialRoom }: RoomProps) {
             </button>
           </div>
 
+          {/* V2Controls is fixed-position inside V2GameContainer — skip ActionBar in v2 */}
           <div style={{ flex: 1, display: "flex", justifyContent: "center", alignItems: "center", minWidth: 0, maxWidth: 480 }}>
-            {gameState && gameState.phase !== "LOBBY" && gameState.phase !== "CLEANUP" ? (
+            {uiVersion !== "v2" && gameState && gameState.phase !== "LOBBY" && gameState.phase !== "CLEANUP" ? (
               <ActionBar
                 isActive={isActivePlayer}
                 stack={myPlayerInfo?.stack || 0}

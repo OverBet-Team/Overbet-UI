@@ -1,0 +1,175 @@
+/*
+ * v2-tokens.css — V2 visual design tokens and component utilities
+ *
+ * SCOPE: All rules are scoped under .v2-root to prevent leakage into v1.
+ * USAGE: Imported only by V2GameContainer.tsx. Zero impact on v1 rendering.
+ * SOURCE: Ported from new-UI/src/index.css (Material Design 3 dark system).
+ *
+ * Fonts are imported here so they are only requested when V2GameContainer
+ * is dynamically loaded (ssr: false).
+ */
+
+@import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=Space+Grotesk:wght@400;500;600;700&family=JetBrains+Mono:wght@400;500;700&display=swap');
+
+/* ── Design tokens (scoped to .v2-root) ────────────────────────────────────── */
+
+.v2-root {
+  /* Backgrounds */
+  --v2-bg:                      #0b0b0d;
+  --v2-surface:                 #0e0e10;
+  --v2-surface-container:       #19191c;
+  --v2-surface-container-high:  #1f1f22;
+  --v2-surface-container-highest: #262528;
+  --v2-surface-variant:         #262528;
+
+  /* Accents */
+  --v2-tertiary:                #81ecff;  /* cyan — primary accent */
+  --v2-tertiary-dim:            #00d4ec;
+  --v2-secondary:               #ff6d8b;  /* pink — secondary accent */
+  --v2-error:                   #ff6e84;
+
+  /* Text */
+  --v2-on-surface:              #f6f3f5;
+  --v2-on-surface-variant:      #acaaad;
+  --v2-on-bg:                   #f6f3f5;
+
+  /* Borders */
+  --v2-outline:                 #767577;
+  --v2-outline-variant:         #48474a;
+
+  /* Typography */
+  --v2-font-headline: "Space Grotesk", sans-serif;
+  --v2-font-body:     "Inter", sans-serif;
+  --v2-font-mono:     "JetBrains Mono", monospace;
+
+  /* Base styles for v2 surface */
+  background: var(--v2-bg);
+  color: var(--v2-on-surface);
+  font-family: var(--v2-font-body);
+}
+
+/* ── Glass panel ────────────────────────────────────────────────────────────── */
+
+.v2-root .v2-glass-panel {
+  background: rgba(25, 25, 28, 0.4);
+  backdrop-filter: blur(24px);
+  -webkit-backdrop-filter: blur(24px);
+  border: 1px solid rgba(255, 255, 255, 0.05);
+}
+
+/* ── Premium card face ──────────────────────────────────────────────────────── */
+
+.v2-root .v2-poker-card-premium {
+  background: #ffffff;
+  border-radius: 0.5rem;
+  position: relative;
+  overflow: hidden;
+  box-shadow:
+    0 10px 25px -5px rgba(0, 0, 0, 0.3),
+    0 8px 10px -6px rgba(0, 0, 0, 0.3),
+    inset 0 0 1px 1px rgba(0, 0, 0, 0.02);
+}
+
+.v2-root .v2-poker-card-premium::after {
+  content: '';
+  position: absolute;
+  inset: 0;
+  border-radius: 0.5rem;
+  pointer-events: none;
+  box-shadow: inset 0 0 0 1px rgba(255, 255, 255, 0.2);
+}
+
+/* ── Grain overlay (atmospheric texture) ───────────────────────────────────── */
+
+.v2-root .v2-grain-overlay {
+  background-image: url("data:image/svg+xml,%3Csvg viewBox='0 0 200 200' xmlns='http://www.w3.org/2000/svg'%3E%3Cfilter id='noiseFilter'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.65' numOctaves='3' stitchTiles='stitch'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23noiseFilter)'/%3E%3C/svg%3E");
+  opacity: 0.02;
+  position: absolute;
+  inset: 0;
+  pointer-events: none;
+  z-index: 10;
+}
+
+/* ── Table gradient (felt depth) ────────────────────────────────────────────── */
+
+.v2-root .v2-table-gradient {
+  background: radial-gradient(
+    circle at center,
+    rgba(30, 30, 35, 0.4) 0%,
+    rgba(11, 11, 13, 1) 80%
+  );
+  position: absolute;
+  inset: 0;
+  pointer-events: none;
+}
+
+/* ── Avatar glow states ─────────────────────────────────────────────────────── */
+
+.v2-root .v2-avatar-glow-active {
+  box-shadow: 0 0 0 2px #00e3fd, 0 0 25px rgba(0, 227, 253, 0.3);
+}
+
+.v2-root .v2-avatar-glow-inactive {
+  filter: grayscale(0.5) contrast(0.8);
+  opacity: 0.6;
+}
+
+/* ── Suit colours ────────────────────────────────────────────────────────────── */
+
+.v2-root .v2-suit-red   { color: #f43f5e; }
+.v2-root .v2-suit-black { color: #18181b; }
+
+/* ── Bet slider (v2 cyan thumb) ─────────────────────────────────────────────── */
+
+.v2-root input[type='range'].v2-bet-slider {
+  -webkit-appearance: none;
+  appearance: none;
+  background: transparent;
+}
+
+.v2-root input[type='range'].v2-bet-slider::-webkit-slider-runnable-track {
+  width: 100%;
+  height: 2px;
+  background: rgba(255, 255, 255, 0.1);
+  border-radius: 2px;
+}
+
+.v2-root input[type='range'].v2-bet-slider::-webkit-slider-thumb {
+  -webkit-appearance: none;
+  height: 12px;
+  width: 12px;
+  border-radius: 50%;
+  background: #81ecff;
+  cursor: pointer;
+  margin-top: -5px;
+  border: 2px solid white;
+  box-shadow: 0 0 10px rgba(129, 236, 255, 0.8);
+}
+
+/* ── Active player pulse (cyan) ─────────────────────────────────────────────── */
+
+@keyframes v2-active-pulse {
+  0%, 100% { box-shadow: 0 0 0 0 rgba(0, 227, 253, 0.5); }
+  50%       { box-shadow: 0 0 0 6px rgba(0, 227, 253, 0); }
+}
+
+.v2-root .v2-active-ring {
+  animation: v2-active-pulse 2s ease-in-out infinite;
+}
+
+/* ── Winner glow (cyan, overrides v1 gold) ──────────────────────────────────── */
+
+@keyframes v2-winner-glow {
+  0%, 100% {
+    box-shadow: 0 0 8px rgba(0, 227, 253, 0.4), 0 0 2px rgba(0, 227, 253, 0.25);
+    border-color: rgba(0, 227, 253, 0.7);
+  }
+  50% {
+    box-shadow: 0 0 16px rgba(0, 227, 253, 0.65), 0 0 6px rgba(0, 227, 253, 0.4);
+    border-color: rgba(0, 227, 253, 0.95);
+  }
+}
+
+.v2-root .v2-winner-card {
+  animation: v2-winner-glow 1.4s ease-in-out infinite;
+}
