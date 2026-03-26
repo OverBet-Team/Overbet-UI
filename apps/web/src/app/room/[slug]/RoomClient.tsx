@@ -28,6 +28,7 @@ import WinnerToast from "@/components/poker/WinnerToast";
 const RoomSettingsModal = dynamic(() => import('@/components/poker/SettingsModal').then(m => ({ default: m.SettingsModal })), { ssr: false })
 const RoomFairnessModal = dynamic(() => import('@/components/poker/FairnessModal').then(m => ({ default: m.FairnessModal })), { ssr: false })
 import { useUser } from "@/hooks/useUser";
+import { useAuth } from "@/components/providers/AuthProvider";
 
 // ── Types ─────────────────────────────────────────────────────────────────────
 interface RoomSettings {
@@ -92,7 +93,8 @@ function TurnTimerPill({ timer }: { timer: TurnTimer }) {
 
 // ── Component ─────────────────────────────────────────────────────────────────
 export default function RoomClient({ slug, initialRoom }: RoomProps) {
-  const { userId } = useUser();
+  const { userId, accessToken } = useUser();
+  const { user } = useAuth();
   const [socket, setSocket] = useState<Socket | null>(null);
   const [room, setRoom] = useState<Room>(initialRoom);
   const [players, setPlayers] = useState<PlayerData[]>([]);
@@ -159,7 +161,10 @@ export default function RoomClient({ slug, initialRoom }: RoomProps) {
 
     const socketInstance = io(
       process.env.NEXT_PUBLIC_GATEWAY_URL || "http://localhost:4000",
-      { query: { roomId: slug, userId } }
+      {
+        query: { roomId: slug, userId },
+        auth: { token: accessToken },
+      }
     );
     setSocket(socketInstance);
 
@@ -735,7 +740,7 @@ export default function RoomClient({ slug, initialRoom }: RoomProps) {
           onSubmit={handleSeatRequest}
           minAmount={0}
           seatIndex={selectedSeat}
-          isGuest={true}
+          isGuest={user?.is_anonymous ?? true}
           initialDisplayName=""
         />
 
@@ -1044,7 +1049,7 @@ export default function RoomClient({ slug, initialRoom }: RoomProps) {
           onSubmit={handleSeatRequest}
           minAmount={0}
           seatIndex={selectedSeat}
-          isGuest={true}
+          isGuest={user?.is_anonymous ?? true}
           initialDisplayName=""
         />
 
@@ -1602,7 +1607,7 @@ export default function RoomClient({ slug, initialRoom }: RoomProps) {
         onSubmit={handleRebuy}
         minAmount={0}
         seatIndex={players.find((p) => p.id === userId)?.seatIndex ?? 0}
-        isGuest={true}
+        isGuest={user?.is_anonymous ?? true}
         initialDisplayName={myDisplayName || players.find((p) => p.id === userId)?.username || ""}
         mode="rebuy"
       />

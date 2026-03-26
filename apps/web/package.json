@@ -13,6 +13,8 @@
     "@floating-ui/react": "^0.27.19",
     "@overbet/db": "workspace:*",
     "@overbet/engine": "workspace:*",
+    "@supabase/ssr": "^0.9.0",
+    "@supabase/supabase-js": "^2.99.3",
     "@radix-ui/react-dialog": "^1.1.15",
     "@vercel/analytics": "^1.6.1",
     "framer-motion": "^12.34.3",

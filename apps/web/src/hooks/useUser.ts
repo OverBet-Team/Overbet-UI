@@ -1,25 +1,16 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { useAuth } from "@/components/providers/AuthProvider";
 
+/**
+ * Returns the current authenticated user's identity.
+ *
+ * This is a thin wrapper over `useAuth()` that preserves the original
+ * `{ userId }` return shape for existing consumers. New code should
+ * prefer `useAuth()` directly for access to `accessToken`, `isReady`,
+ * and the full `user` object.
+ */
 export function useUser() {
-    const [userId, setUserId] = useState<string>("");
-
-    useEffect(() => {
-        if (typeof window === "undefined") return;
-        // Persist the anonymous client id across refreshes when storage is available.
-        const storage = window.localStorage;
-        const canUseStorage =
-            storage &&
-            typeof storage.getItem === "function" &&
-            typeof storage.setItem === "function";
-        const storedId = canUseStorage ? storage.getItem("overbet_user_id") : null;
-        const id = storedId || "user-" + Math.random().toString(36).substring(2, 9);
-        if (!storedId && canUseStorage) {
-            storage.setItem("overbet_user_id", id);
-        }
-        setUserId(id);
-    }, []);
-
-    return { userId };
+  const { userId, accessToken } = useAuth();
+  return { userId, accessToken };
 }
