@@ -14,7 +14,6 @@ import Shield from 'lucide-react/dist/esm/icons/shield'
 import HelpCircle from 'lucide-react/dist/esm/icons/help-circle'
 import ScrollText from 'lucide-react/dist/esm/icons/scroll-text'
 import Lock from 'lucide-react/dist/esm/icons/lock'
-import Coins from 'lucide-react/dist/esm/icons/coins'
 import { PokerTable } from "@/components/poker/PokerTable";
 import { PlayerPerspectiveView } from "@/components/poker/PlayerPerspectiveView";
 import { toPlayerViewState } from "@/lib/overbet-to-player-view";
@@ -1011,6 +1010,22 @@ export default function RoomClient({ slug, initialRoom }: RoomProps) {
             >
               <Shield size={16} />
             </button>
+            <button
+              onClick={() => setShowHelpOverlay((v) => !v)}
+              className="icon-btn hover:text-[--tertiary] hover:border-[--tertiary] focus-visible:ring-2 focus-visible:ring-[--ring-active] focus-visible:ring-offset-2"
+              title="Help"
+              aria-label="Show help"
+            >
+              <HelpCircle size={16} />
+            </button>
+            <button
+              onClick={() => setShowLogOverlay((v) => !v)}
+              className="icon-btn hover:text-[--tertiary] hover:border-[--tertiary] focus-visible:ring-2 focus-visible:ring-[--ring-active] focus-visible:ring-offset-2"
+              title="Game Log"
+              aria-label="Show game log"
+            >
+              <ScrollText size={16} />
+            </button>
           </div>
         </div>
       </header>
@@ -1375,65 +1390,29 @@ export default function RoomClient({ slug, initialRoom }: RoomProps) {
         </div>
       ) : (
         <div style={{
-          height: 72,
           flexShrink: 0,
           position: "relative",
           zIndex: 40,
-          display: "flex",
-          alignItems: "center",
-          justifyContent: "space-between",
-          padding: "0 20px",
-        }} className="glass-panel border-t border-[--outline-variant]/20">
-          {/* Left: YOUR BANK */}
-          <div className="flex items-center gap-2">
-            <span className="text-[--on-surface-variant]/40 uppercase tracking-widest text-[0.6rem] font-semibold font-headline">
-              YOUR BANK
-            </span>
-            <div className="flex items-center gap-2 bg-white/5 px-4 py-2 rounded-lg border border-white/5">
-              <Coins size={12} color="var(--gold)" />
-              <span className="font-headline font-bold text-sm text-[--on-surface]">{myStack ?? 0}</span>
+          padding: "0 16px 12px",
+        }}>
+          {gameState && gameState.phase !== "LOBBY" && gameState.phase !== "CLEANUP" ? (
+            <ActionBar
+              isActive={isActivePlayer}
+              stack={myPlayerInfo?.stack || 0}
+              currentBet={gameState?.currentBet || 0}
+              playerBet={playerBet}
+              minRaise={gameState?.minRaise || 0}
+              pot={totalPot}
+              bank={myStack ?? 0}
+              turnTimer={turnTimer}
+              userId={userId}
+              onAction={handleAction}
+            />
+          ) : (
+            <div className="glass-dock rounded-2xl border border-[--outline-variant]/15 px-5 py-6 flex justify-center items-center">
+              <span className="text-sm text-white/35 font-medium">Waiting for hand…</span>
             </div>
-          </div>
-
-          <div style={{ width: "100%", display: "flex", justifyContent: "center", alignItems: "center" }}>
-            {gameState && gameState.phase !== "LOBBY" && gameState.phase !== "CLEANUP" ? (
-              <ActionBar
-                isActive={isActivePlayer}
-                stack={myPlayerInfo?.stack || 0}
-                currentBet={gameState?.currentBet || 0}
-                playerBet={playerBet}
-                minRaise={gameState?.minRaise || 0}
-                pot={totalPot}
-                turnTimer={turnTimer}
-                userId={userId}
-                onAction={handleAction}
-              />
-            ) : (
-              <span style={{ color: "rgba(255,255,255,0.35)", fontSize: 13, fontWeight: 500 }}>
-                Waiting for hand…
-              </span>
-            )}
-          </div>
-
-          {/* Right: Icon buttons */}
-          <div className="flex items-center gap-4">
-            <button
-              onClick={() => setShowHelpOverlay((v) => !v)}
-              className="icon-btn hover:text-[--tertiary] hover:border-[--tertiary] focus-visible:ring-2 focus-visible:ring-[--ring-active]"
-              title="Help"
-              aria-label="Show help"
-            >
-              <HelpCircle size={16} />
-            </button>
-            <button
-              onClick={() => setShowLogOverlay((v) => !v)}
-              className="icon-btn hover:text-[--tertiary] hover:border-[--tertiary] focus-visible:ring-2 focus-visible:ring-[--ring-active]"
-              title="Game Log"
-              aria-label="Show game log"
-            >
-              <ScrollText size={16} />
-            </button>
-          </div>
+          )}
         </div>
       )}
 

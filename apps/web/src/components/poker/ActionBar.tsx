@@ -7,7 +7,7 @@
 
 import React, { useState, useEffect, useCallback } from "react";
 import { motion } from "framer-motion";
-import { X, Check, ArrowUpRight } from "lucide-react";
+import { X, Check, ArrowUpRight, Coins } from "lucide-react";
 import { ChipAmount } from "./ChipAmount";
 import type { TurnTimer } from "./Seat";
 
@@ -20,6 +20,7 @@ interface ActionBarProps {
   playerBet: number;
   minRaise: number;
   pot?: number;
+  bank?: number;
   compact?: boolean;
   turnTimer?: TurnTimer | null;
   userId?: string;
@@ -33,6 +34,7 @@ export function ActionBar({
   playerBet,
   minRaise,
   pot = 0,
+  bank,
   compact = false,
   turnTimer = null,
   userId,
@@ -106,7 +108,7 @@ export function ActionBar({
     return (
       <nav
         data-testid="action-bar-inactive"
-        className="glass-dock rounded-t-[1.5rem] border-t border-[--outline-variant]/20 flex justify-center items-center px-4 pb-8 pt-6 shadow-[0_-20px_40px_rgba(0,0,0,0.4)] opacity-35 grayscale-[0.5]"
+        className="glass-dock rounded-2xl border border-[--outline-variant]/15 px-5 py-6 shadow-[0_-20px_40px_rgba(0,0,0,0.5)] flex justify-center items-center opacity-35 grayscale-[0.5]"
       >
         <div className="flex-1 py-3.5 text-center font-semibold text-sm text-white/40">
           Waiting for turn…
@@ -214,73 +216,82 @@ export function ActionBar({
     );
   }
 
-  // ── Desktop: 3-zone layout ─────────────────────────────────────────────────
+  // ── Desktop: unified action panel ──────────────────────────────────────────
   return (
     <div data-testid="action-bar" className="flex flex-col w-full font-body">
-      <nav className="glass-dock rounded-t-[1.5rem] border-t border-[--outline-variant]/20 px-6 py-4 shadow-[0_-20px_40px_rgba(0,0,0,0.4)] flex items-center justify-between gap-4">
+      <nav className="glass-dock rounded-2xl border border-[--outline-variant]/15 px-5 py-4 shadow-[0_-20px_40px_rgba(0,0,0,0.5)] flex items-center gap-4">
 
-        {/* Left zone: Timer indicator */}
-        <div className="flex items-center gap-3 min-w-[160px]">
-          {turnTimer && turnTimer.playerId === userId && (
-            <div className="flex items-center gap-2 px-3 py-1.5 rounded-full bg-white/5 border border-white/10">
-              <div className="w-2 h-2 rounded-full bg-[--success] animate-pulse" />
-              <span className="text-xs font-bold text-white/70 tabular-nums">LIVE</span>
+        {/* Left cluster: Bank + Timer */}
+        <div className="flex items-center gap-4 shrink-0">
+          <div className="flex flex-col gap-0.5">
+            <span className="text-[9px] font-bold uppercase tracking-widest text-white/40">
+              YOUR BANK
+            </span>
+            <div className="flex items-center gap-1.5">
+              <Coins size={14} className="text-[--gold]" />
+              <span className="text-2xl font-bold text-[--on-surface] tabular-nums font-headline">
+                {bank ?? stack}
+              </span>
             </div>
+          </div>
+
+          {turnTimer && turnTimer.playerId === userId && (
+            <TimerRingIndicator timer={turnTimer} />
           )}
         </div>
 
-        {/* Center zone: action buttons */}
-        <div className="flex items-center gap-3">
-          {/* FOLD button */}
+        {/* Separator */}
+        <div className="w-px h-10 bg-white/10 shrink-0" />
+
+        {/* Center: Action buttons */}
+        <div className="flex items-center gap-3 flex-1 justify-center">
+          {/* FOLD — smaller, destructive feel */}
           <button
             data-testid="action-fold"
             onClick={() => onAction("FOLD")}
-            className="flex flex-col items-center gap-1 px-4 py-2.5 rounded-xl bg-[--secondary]/10 hover:bg-[--secondary]/20 text-[--secondary] border border-[--secondary]/20 transition-all focus-visible:ring-2 focus-visible:ring-[--ring-magenta]"
+            className="flex items-center gap-2 px-4 h-[48px] rounded-xl bg-[--surface-container-high] border border-white/10 transition-all hover:bg-white/10 focus-visible:ring-2 focus-visible:ring-[--ring-magenta]"
           >
-            <X size={16} />
-            <span className="text-xs font-bold uppercase tracking-wider">Fold</span>
-            <span className="text-[8px] font-mono opacity-35">F</span>
+            <X size={18} className="text-[--danger]" />
+            <span className="text-sm font-bold uppercase tracking-wide text-white/70">Fold</span>
           </button>
 
-          {/* CHECK/CALL button */}
+          {/* CHECK/CALL — large, prominent */}
           <button
             data-testid="action-check-call"
             onClick={() => onAction(toCall > 0 ? "CALL" : "CHECK")}
-            className={`flex flex-col items-center gap-1 px-8 py-3 rounded-xl glass-panel border border-[--tertiary]/30 transition-all focus-visible:ring-2 focus-visible:ring-[--ring-cyan] ${
-              toCall > 0 ? "text-[--tertiary]" : "text-white/80"
+            className={`flex items-center gap-2.5 min-w-[140px] justify-center h-[56px] rounded-xl bg-[--surface-container-high] border border-white/10 transition-all hover:bg-white/10 focus-visible:ring-2 focus-visible:ring-[--ring-cyan] ${
+              toCall > 0 ? "text-[--tertiary]" : "text-white/90"
             }`}
           >
             <Check size={18} />
-            <span className="text-xs font-bold uppercase tracking-wider">
+            <span className="text-sm font-bold uppercase tracking-wide">
               {toCall > 0 ? `Call ${toCall}` : "Check"}
             </span>
-            <span className="text-[8px] font-mono opacity-35">C</span>
           </button>
 
-          {/* RAISE button */}
+          {/* RAISE — large, prominent */}
           {canRaise && (
             <button
               data-testid="action-raise"
               onClick={() => setShowRaiseSlider((v) => !v)}
-              className={`flex flex-col items-center gap-1 px-8 py-3 rounded-xl glass-panel border border-[--tertiary]/30 text-[--tertiary] transition-all focus-visible:ring-2 focus-visible:ring-[--ring-cyan] ${
-                showRaiseSlider ? "scale-105" : ""
+              className={`flex items-center gap-2.5 min-w-[140px] justify-center h-[56px] rounded-xl bg-[--surface-container-high] border border-white/10 text-[--tertiary] transition-all hover:bg-white/10 focus-visible:ring-2 focus-visible:ring-[--ring-cyan] ${
+                showRaiseSlider ? "ring-1 ring-[--tertiary]/40" : ""
               }`}
             >
               <ArrowUpRight size={18} />
-              <span className="text-xs font-bold uppercase tracking-wider">Raise</span>
-              <span className="text-[8px] font-mono opacity-35">R</span>
+              <span className="text-sm font-bold uppercase tracking-wide">Raise</span>
             </button>
           )}
         </div>
 
-        {/* Right zone: raise controls + All-In */}
-        <div className="flex items-center gap-3 min-w-[160px] justify-end">
-          {/* Inline raise slider in right zone */}
-          {showRaiseSlider && canRaise && (
-            <div className="flex items-center gap-3">
+        {/* Right: Raise controls (conditional) */}
+        {showRaiseSlider && canRaise && (
+          <>
+            <div className="w-px h-10 bg-white/10 shrink-0" />
+            <div className="flex items-center gap-3 shrink-0">
               <div className="flex flex-col gap-0.5">
-                <span className="text-[10px] uppercase tracking-wider text-white/40">Amount</span>
-                <span className="text-lg font-bold text-[--tertiary]">{raiseAmount}</span>
+                <span className="text-[9px] font-bold uppercase tracking-widest text-white/40">Amount</span>
+                <span className="text-2xl font-bold text-[--tertiary] tabular-nums">{clampedRaise}</span>
               </div>
               <input
                 type="range"
@@ -292,12 +303,12 @@ export function ActionBar({
                 className="bet-slider w-28"
               />
               {presets.length > 0 && (
-                <div className="flex gap-1">
+                <div className="flex items-center gap-1.5">
                   {presets.map((preset) => (
                     <button
                       key={preset.label}
                       onClick={() => setRaiseAmount(preset.value)}
-                      className="bg-white/5 border border-white/10 rounded-full px-3 py-1 text-[10px] font-bold uppercase hover:bg-white/10"
+                      className="bg-white/5 border border-white/10 rounded-lg px-3 py-1.5 text-[10px] font-bold uppercase hover:bg-white/10 transition-colors"
                     >
                       {preset.label}
                     </button>
@@ -305,29 +316,64 @@ export function ActionBar({
                 </div>
               )}
               <button
+                data-testid="action-all-in"
+                onClick={() => onAction("ALL_IN")}
+                className="bg-white/5 border-2 border-[--gold]/40 rounded-lg px-4 py-1.5 text-[10px] font-bold uppercase text-[--gold] hover:bg-[--gold]/10 transition-colors"
+              >
+                All-In
+              </button>
+              <button
                 onClick={handleRaise}
                 className="bg-[--tertiary] text-black font-bold rounded-lg px-4 py-2 text-sm hover:opacity-90 whitespace-nowrap"
               >
                 Confirm ↵
               </button>
             </div>
-          )}
-
-          {/* ALL-IN button */}
-          <button
-            data-testid="action-all-in"
-            onClick={() => onAction("ALL_IN")}
-            className="flex flex-col items-center gap-1 px-5 py-2.5 rounded-xl bg-[--gold]/10 border border-[--gold]/30 text-[--gold] transition-all focus-visible:ring-2 focus-visible:ring-[--ring-gold]"
-          >
-            <span className="text-xl font-bold">★</span>
-            <span className="text-xs font-bold uppercase tracking-wider">All-In</span>
-            <span className="text-[8px] font-mono opacity-35">A</span>
-          </button>
-        </div>
+          </>
+        )}
       </nav>
     </div>
   );
 }
+
+
+// ── Timer Ring Indicator ─────────────────────────────────────────────────────
+const TimerRingIndicator = React.memo(function TimerRingIndicator({ timer }: { timer: TurnTimer }) {
+  const [timeLeft, setTimeLeft] = useState(Math.max(0, timer.expiresAt - Date.now()));
+  useEffect(() => {
+    const iv = setInterval(() => setTimeLeft(Math.max(0, timer.expiresAt - Date.now())), 100);
+    return () => clearInterval(iv);
+  }, [timer.expiresAt]);
+
+  const secs = Math.ceil(timeLeft / 1000);
+  const progress = timer.total > 0 ? timeLeft / timer.total : 0;
+  const circumference = 2 * Math.PI * 16;
+  const offset = circumference * (1 - progress);
+  const color = progress < 0.2 ? "var(--danger)" : "var(--tertiary)";
+  const isTimebank = timer.phase === "timebank";
+
+  return (
+    <div className="flex items-center gap-2">
+      <div className="relative w-10 h-10">
+        <svg className="-rotate-90" width={40} height={40} viewBox="0 0 40 40">
+          <circle cx={20} cy={20} r={16} fill="none" stroke="rgba(255,255,255,0.08)" strokeWidth={2.5} />
+          <circle cx={20} cy={20} r={16} fill="none" stroke={color} strokeWidth={2.5}
+            strokeDasharray={circumference} strokeDashoffset={offset}
+            strokeLinecap="round" style={{ transition: "stroke 0.2s" }} />
+        </svg>
+        <span className="absolute inset-0 flex items-center justify-center text-xs font-bold text-white tabular-nums">
+          {secs}
+        </span>
+      </div>
+      {isTimebank && (
+        <div className="flex flex-col">
+          <span className="text-[8px] font-bold uppercase tracking-wider text-white/50">TIME BANK</span>
+          <span className="text-[8px] font-bold uppercase tracking-wider text-[--tertiary]">ACTIVE</span>
+        </div>
+      )}
+    </div>
+  );
+});
 
 // ── Mobile Action Button ──────────────────────────────────────────────────────
 const ActionButton = React.memo(function ActionButton({
