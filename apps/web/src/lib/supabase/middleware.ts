@@ -1,3 +1,4 @@
+import type { User } from "@supabase/supabase-js";
 import { createServerClient } from "@supabase/ssr";
 import { NextResponse, type NextRequest } from "next/server";
 
@@ -9,7 +10,7 @@ import { NextResponse, type NextRequest } from "next/server";
  * reads the current cookies, calls `getUser()` (which triggers a refresh if
  * needed), and writes the updated cookies back into the response.
  */
-export async function updateSession(request: NextRequest) {
+export async function updateSession(request: NextRequest): Promise<{ response: NextResponse; user: User | null }> {
   let supabaseResponse = NextResponse.next({ request });
 
   const supabase = createServerClient(
@@ -37,7 +38,7 @@ export async function updateSession(request: NextRequest) {
 
   // Trigger token refresh. Do NOT use getSession() here — it reads from
   // cookies without server verification, making it unsafe for middleware.
-  await supabase.auth.getUser();
+  const { data: { user } } = await supabase.auth.getUser();
 
-  return supabaseResponse;
+  return { response: supabaseResponse, user: user ?? null };
 }
