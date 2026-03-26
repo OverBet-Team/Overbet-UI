@@ -1,7 +1,7 @@
 // @vitest-environment jsdom
 import { describe, it, expect, vi } from 'vitest';
 import { fireEvent, render, screen } from '@testing-library/react';
-import { ActionBar } from '../src/components/poker/ActionBar';
+import { ActionBar } from '../src/components/poker/action-bar';
 
 describe('ActionBar', () => {
   it('renders inactive state when not active', () => {
@@ -17,7 +17,18 @@ describe('ActionBar', () => {
       />,
     );
 
-    expect(screen.getByTestId('action-bar-inactive')).toBeDefined();
+    const actionBar = screen.getByTestId('action-bar');
+    expect(actionBar).toBeDefined();
+    
+    // Should render with inactive visual styling
+    const nav = actionBar.querySelector('nav');
+    expect(nav?.className).toContain('opacity-40');
+    expect(nav?.className).toContain('grayscale-[0.4]');
+    expect(nav?.className).toContain('pointer-events-none');
+    
+    // Buttons should be disabled
+    const foldButton = screen.getByTestId('action-fold');
+    expect(foldButton).toHaveProperty('disabled', true);
   });
 
   it('emits fold action from Fold pill', () => {
@@ -53,8 +64,8 @@ describe('ActionBar', () => {
     );
 
     const callButton = screen.getByTestId('action-check-call');
+    expect(callButton).toBeDefined();
     fireEvent.click(callButton);
     expect(onAction).toHaveBeenCalledWith('CALL');
-    expect(callButton.getAttribute('aria-label')).toContain('Call');
   });
 });

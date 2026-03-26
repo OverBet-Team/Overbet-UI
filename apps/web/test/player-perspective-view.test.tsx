@@ -43,7 +43,7 @@ describe("PlayerPerspectiveView", () => {
       />,
     );
 
-    expect(screen.getByText("Total Pot")).toBeDefined();
+    expect(screen.getByText("TOTAL POT")).toBeDefined();
     expect(document.body.textContent).toContain("240");
 
     const roundIndicator = screen.getByTestId("current-round-indicator");

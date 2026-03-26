@@ -1,5 +1,5 @@
 /**
- * PlayingCard — Visual Refactor with Tailwind + New Palette
+ * PlayingCard — Visual Refactor with Motion + Lucide Icons
  *
  * Accepts either:
  *   - A raw engine card string like "Ah", "Tc", "2d", "Ks"
@@ -7,19 +7,13 @@
  *   - dashed=true for unrevealed community card slots
  */
 
-// Simple className helper (no external dependency)
-function cn(...classes: (string | undefined | null | false)[]) {
-  return classes.filter(Boolean).join(' ');
-}
+import { Heart, Diamond, Spade, Club } from 'lucide-react';
+import { motion } from 'framer-motion';
+import { cn } from '@/lib/utils';
+import { parseCard, SUIT_COLORS, type Suit } from '@/lib/card-utils';
 
 // ── Types ──────────────────────────────────────────────────────────────────
-type Suit = 'spades' | 'hearts' | 'diamonds' | 'clubs';
 type Size = 'xs' | 'sm' | 'md' | 'lg' | 'xl';
-
-interface ParsedCard {
-  rank: string;
-  suit: Suit;
-}
 
 interface PlayingCardProps {
   /** Raw engine card string, e.g. "Ah", "Tc", "2d" */
@@ -48,47 +42,12 @@ const SIZES: Record<
   xl: { w: 130, h: 178, r: 16, rankSize: 30, suitCorner: 22, suitCenter: 64 },
 };
 
-const SUIT_SYMBOLS: Record<Suit, string> = {
-  spades: '♠',
-  hearts: '♥',
-  diamonds: '♦',
-  clubs: '♣',
+const SUIT_ICONS = {
+  hearts: Heart,
+  diamonds: Diamond,
+  spades: Spade,
+  clubs: Club,
 };
-
-const SUIT_COLORS: Record<Suit, string> = {
-  spades: '#111827',
-  hearts: '#ef4444',
-  diamonds: '#ef4444',
-  clubs: '#111827',
-};
-
-// Engine uses single-char suit codes: s h d c
-const SUIT_MAP: Record<string, Suit> = {
-  s: 'spades',
-  h: 'hearts',
-  d: 'diamonds',
-  c: 'clubs',
-};
-
-// Engine rank codes: 2-9, T, J, Q, K, A
-const RANK_DISPLAY: Record<string, string> = {
-  T: '10',
-  J: 'J',
-  Q: 'Q',
-  K: 'K',
-  A: 'A',
-};
-
-// ── Parser ─────────────────────────────────────────────────────────────────
-function parseCard(raw: string): ParsedCard | null {
-  if (!raw || raw.length < 2) return null;
-  const suitChar = raw[raw.length - 1].toLowerCase();
-  const rankChar = raw.slice(0, raw.length - 1).toUpperCase();
-  const suit = SUIT_MAP[suitChar];
-  if (!suit) return null;
-  const rank = RANK_DISPLAY[rankChar] ?? rankChar;
-  return { rank, suit };
-}
 
 // ── Component ──────────────────────────────────────────────────────────────
 export default function PlayingCard({
@@ -117,7 +76,7 @@ export default function PlayingCard({
   if (dashed) {
     return (
       <div
-        className={cn('card-placeholder inline-flex items-center justify-center', className)}
+        className={cn('card-placeholder inline-flex items-center justify-center opacity-60', className)}
         style={baseStyle}
       >
         <svg width={s.w * 0.35} height={s.w * 0.35} viewBox="0 0 24 24" fill="none">
@@ -134,8 +93,11 @@ export default function PlayingCard({
 
   if (isFaceDown) {
     return (
-      <div
-        className={cn('card-back card-deal relative inline-flex overflow-hidden', className)}
+      <motion.div
+        initial={{ opacity: 0, scale: 0.88 }}
+        animate={{ opacity: 1, scale: 1 }}
+        transition={{ duration: 0.32, ease: [0.34, 1.56, 0.64, 1] }}
+        className={cn('card-back relative inline-flex overflow-hidden', className)}
         style={baseStyle}
       >
         {/* Subtle diagonal pattern inset */}
@@ -156,27 +118,39 @@ export default function PlayingCard({
             <circle cx="12" cy="12" r="2" fill="rgba(255,255,255,0.08)" />
           </svg>
         </div>
-      </div>
+      </motion.div>
     );
   }
 
   // ── Face-up card ───────────────────────────────────────────────────────
-  const { rank, suit } = parsed!;
-  const color = SUIT_COLORS[suit];
-  const symbol = SUIT_SYMBOLS[suit];
+  const { rank, suit, isRed } = parsed!;
+  const SuitIcon = SUIT_ICONS[suit];
 
   return (
-    <div
-      className={cn('card-face card-deal relative inline-flex overflow-hidden', className)}
+    <motion.div
+      initial={{ opacity: 0, scale: 0.88 }}
+      animate={{ opacity: 1, scale: 1 }}
+      whileHover={{ 
+        scale: 1.08, 
+        y: -8,
+        rotateZ: rotate > 0 ? rotate + 2 : rotate - 2,
+        transition: { type: "spring", stiffness: 400, damping: 10 } 
+      }}
+      whileTap={{ scale: 0.95 }}
+      transition={{ duration: 0.32, ease: [0.34, 1.56, 0.64, 1] }}
+      className={cn(
+        'poker-card-premium relative inline-flex overflow-hidden cursor-pointer border border-white/20 shadow-xl',
+        isRed ? 'suit-red' : 'suit-black',
+        winning && 'winning-card-glow',
+        className
+      )}
       style={{
         ...baseStyle,
-        ...(winning
-          ? {
-              animation:
-                'card-deal 0.32s cubic-bezier(0.34,1.56,0.64,1) forwards, winning-card-glow 1.5s ease-in-out infinite 0.4s',
-              border: '1.5px solid rgba(245,158,11,0.7)',
-            }
-          : {}),
+        ...(winning ? {
+          boxShadow: '0 0 12px rgba(245,158,11,0.5), 0 0 4px rgba(245,158,11,0.3)',
+          borderColor: 'var(--gold)',
+          borderWidth: 2,
+        } : {}),
       }}
     >
       {/* Top-left corner */}
@@ -191,16 +165,13 @@ export default function PlayingCard({
           className="font-extrabold leading-none"
           style={{
             fontSize: s.rankSize,
-            color,
             fontFamily: 'var(--font-display), var(--font-body), sans-serif',
             letterSpacing: '-0.02em',
           }}
         >
           {rank}
         </span>
-        <span className="leading-none" style={{ fontSize: s.suitCorner, color }}>
-          {symbol}
-        </span>
+        <SuitIcon size={s.suitCorner} fill="currentColor" strokeWidth={0} />
       </div>
 
       {/* Bottom-right corner (rotated 180°) */}
@@ -216,23 +187,18 @@ export default function PlayingCard({
           className="font-extrabold leading-none"
           style={{
             fontSize: s.rankSize,
-            color,
             fontFamily: 'var(--font-display), var(--font-body), sans-serif',
             letterSpacing: '-0.02em',
           }}
         >
           {rank}
         </span>
-        <span className="leading-none" style={{ fontSize: s.suitCorner, color }}>
-          {symbol}
-        </span>
+        <SuitIcon size={s.suitCorner} fill="currentColor" strokeWidth={0} />
       </div>
 
       {/* Center suit symbol */}
       <div className="absolute inset-0 flex items-center justify-center">
-        <span className="select-none leading-none" style={{ fontSize: s.suitCenter, color }}>
-          {symbol}
-        </span>
+        <SuitIcon size={s.suitCenter} fill="currentColor" strokeWidth={0} />
       </div>
 
       {/* Gloss overlay */}
@@ -243,6 +209,6 @@ export default function PlayingCard({
           background: 'linear-gradient(135deg, rgba(255,255,255,0.35) 0%, transparent 55%)',
         }}
       />
-    </div>
+    </motion.div>
   );
 }

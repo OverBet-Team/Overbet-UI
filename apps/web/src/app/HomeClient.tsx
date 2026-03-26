@@ -122,10 +122,10 @@ export default function HomeClient() {
       style={{ WebkitOverflowScrolling: "touch", padding: "20px 16px" }}
     >
       {/* Background glow */}
-      <div className="fixed pointer-events-none top-1/5 left-1/2 -translate-x-1/2 w-3/5 h-2/5 bg-[--accent]/[0.12] blur-[40px]" />
+      <div className="fixed pointer-events-none top-1/5 left-1/2 -translate-x-1/2 w-3/5 h-2/5 bg-[--tertiary]/[0.12] blur-[40px]" />
 
       {/* Setup card */}
-      <div className="relative w-full max-w-[460px] rounded-2xl overflow-hidden bg-[--bg-surface] border border-white/[0.08] shadow-2xl flex-shrink-0">
+      <div className="relative w-full max-w-[460px] rounded-2xl overflow-hidden bg-[--surface-container-low] border border-white/[0.08] shadow-2xl flex-shrink-0">
         {/* Header */}
         <div className="px-8 py-7 pb-5 border-b border-white/[0.06]">
           <div className="flex items-center gap-2.5 mb-1.5">
@@ -165,7 +165,7 @@ export default function HomeClient() {
 
           {/* Blind preview */}
           <div className="flex items-center gap-2 px-3.5 py-2.5 rounded-xl bg-white/[0.03] border border-white/[0.05]">
-            <ChipIcon size={14} color="rgba(167,139,250,0.7)" />
+            <ChipIcon size={14} color="var(--primary)" />
             <span className="text-white/35 text-xs">
               Blinds
             </span>
@@ -202,7 +202,7 @@ export default function HomeClient() {
               </>
             ) : (
               <>
-                <Play size={17} fill="white" />
+                <Play size={17} fill="currentColor" />
                 Start New Game
               </>
             )}
@@ -233,11 +233,11 @@ export default function HomeClient() {
           onClick={() => setShowJoinModal(false)}
         >
           <div
-            className="w-full max-w-[360px] bg-[--bg-surface] border border-white/10 rounded-2xl shadow-[0_25px_60px_rgba(0,0,0,0.7)] overflow-hidden"
+            className="w-full max-w-[360px] bg-[--surface-container-low] border border-white/10 rounded-2xl shadow-[0_25px_60px_rgba(0,0,0,0.7)] overflow-hidden"
             onClick={e => e.stopPropagation()}
           >
             {/* Thin accent line */}
-            <div className="h-[2px] bg-gradient-to-r from-transparent via-[--accent]/80 to-transparent" />
+            <div className="h-[2px] bg-gradient-to-r from-transparent via-[--tertiary]/80 to-transparent" />
 
             <div className="px-6 py-5 pb-6">
               <h2 className="text-white font-bold text-lg m-0 mb-1 font-display">
@@ -255,11 +255,11 @@ export default function HomeClient() {
                 placeholder="A3F9B2"
                 maxLength={6}
                 autoFocus
-                className="w-full py-3.5 text-center text-[28px] font-bold tracking-[0.35em] font-mono text-white bg-white/[0.06] border border-white/12 rounded-xl outline-none num-font focus:border-[--accent]/60 transition-colors box-border"
+                className="w-full py-3.5 text-center text-[28px] font-bold tracking-[0.35em] font-mono text-white bg-white/[0.06] border border-white/12 rounded-xl outline-none num-font focus:border-[--primary]/60 transition-colors box-border"
               />
 
               {joinError && (
-                <p style={{ color: "#f87171", fontSize: 12, margin: "8px 0 0", textAlign: "center" }}>
+                <p style={{ color: "var(--error)", fontSize: 12, margin: "8px 0 0", textAlign: "center" }}>
                   {joinError}
                 </p>
               )}

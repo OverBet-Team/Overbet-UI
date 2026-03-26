@@ -47,7 +47,7 @@ export function SettingsModal({
   return (
     <BaseModal isOpen onClose={onClose} isPortraitMobile={isPortraitMobile}>
       <div
-        className={`pointer-events-auto w-full font-body bg-[--bg-surface] border border-white/10 shadow-2xl ${
+        className={`pointer-events-auto w-full font-body bg-[--surface-container-low] border border-white/10 shadow-2xl ${
           isPortraitMobile ? 'rounded-t-[18px] max-h-[82dvh] overflow-y-auto' : 'rounded-2xl max-w-[420px]'
         }`}
         style={{ padding: isPortraitMobile ? '18px 16px 22px' : '28px' }}

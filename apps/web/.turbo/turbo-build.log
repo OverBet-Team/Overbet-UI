@@ -1,19 +1,27 @@
 
-> web@0.1.0 build /Users/ayan/Desktop/Manus Poker/apps/web
+> web@0.1.0 build /Users/viven/Projects/Overbet-UI/apps/web
 > next build
 
 ▲ Next.js 16.1.6 (Turbopack)
-- Environments: .env.local
 
   Creating an optimized production build ...
-✓ Compiled successfully in 2.1s
+✓ Compiled successfully in 1611.6ms
   Running TypeScript ...
+<<<<<<< HEAD
+  Collecting page data using 7 workers ...
+  Generating static pages using 7 workers (0/4) ...
+  Generating static pages using 7 workers (1/4) 
+  Generating static pages using 7 workers (2/4) 
+  Generating static pages using 7 workers (3/4) 
+✓ Generating static pages using 7 workers (4/4) in 205.8ms
+=======
   Collecting page data using 1 worker ...
   Generating static pages using 1 worker (0/4) ...
   Generating static pages using 1 worker (1/4)
   Generating static pages using 1 worker (2/4)
   Generating static pages using 1 worker (3/4)
 ✓ Generating static pages using 1 worker (4/4) in 71.8ms
+>>>>>>> origin/main
   Finalizing page optimization ...
 
 Route (app)

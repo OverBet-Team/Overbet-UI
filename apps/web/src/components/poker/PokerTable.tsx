@@ -131,7 +131,7 @@ export function PokerTable({
           className="absolute rounded-[175px] pointer-events-none"
           style={{
             inset: '14px',
-            border: '1px solid rgba(59,130,246,0.15)',
+            border: '1px solid var(--tertiary)',
           }}
         />
 
@@ -144,7 +144,7 @@ export function PokerTable({
             transform: 'translateX(-50%)',
             width: '50%',
             height: '35%',
-            background: 'radial-gradient(ellipse, rgba(59,130,246,0.2) 0%, transparent 70%)',
+            background: 'radial-gradient(ellipse, rgba(129,236,255,0.2) 0%, transparent 70%)',
             filter: 'blur(24px)',
           }}
         />
@@ -221,7 +221,7 @@ export function PokerTable({
                       <ChipAmount
                         amount={pot.amount}
                         iconSize={12}
-                        iconColor={pot.type === 'MAIN' ? '#f87171' : '#a5b4fc'}
+                        iconColor={pot.type === 'MAIN' ? 'var(--secondary)' : 'var(--primary)'}
                         amountStyle={{ color: 'inherit' }}
                       />
                     </span>

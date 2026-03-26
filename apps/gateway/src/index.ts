@@ -800,7 +800,10 @@ io.on('connection', (socket) => {
 
     socket.on('INTENT_SEAT_APPROVE', async (data: IntentSeatApprove) => {
         let roomData = roomStates[data.room_id];
-        if (!roomData) return emitError(socket, 'ERR_ROOM_NOT_FOUND', 'Room not found');
+        if (!roomData) {
+            roomData = await getOrHydrateRoom(data.room_id) as any;
+            if (!roomData) return emitError(socket, 'ERR_ROOM_NOT_FOUND', 'Room not found');
+        }
         console.log(`[INTENT_SEAT_APPROVE] room=${data.room_id} host=${userId} target=${data.targetPlayerId}`);
 
         // BUG-05: Only the host may approve seat requests
@@ -846,9 +849,9 @@ io.on('connection', (socket) => {
                 create: { id: data.targetPlayerId, username: pending.displayName || `Player_${data.targetPlayerId.substring(0, 4)}` }
             });
             await prisma.roomMember.upsert({
-                where: { roomId_userId: { roomId: data.room_id, userId: data.targetPlayerId } },
+                where: { roomId_userId: { roomId: roomData.dbRoomId!, userId: data.targetPlayerId } },
                 update: { seatIndex: pending.seatIndex, stack: pending.stack, status: 'ACTIVE' },
-                create: { roomId: data.room_id, userId: data.targetPlayerId, seatIndex: pending.seatIndex, stack: pending.stack, status: 'ACTIVE' }
+                create: { roomId: roomData.dbRoomId!, userId: data.targetPlayerId, seatIndex: pending.seatIndex, stack: pending.stack, status: 'ACTIVE' }
             });
 
             delete roomData.pendingSeats[data.targetPlayerId];
@@ -884,7 +887,10 @@ io.on('connection', (socket) => {
 
     socket.on('INTENT_SEAT_REJECT', async (data: IntentSeatReject) => {
         let roomData = roomStates[data.room_id];
-        if (!roomData) return emitError(socket, 'ERR_ROOM_NOT_FOUND', 'Room not found');
+        if (!roomData) {
+            roomData = await getOrHydrateRoom(data.room_id) as any;
+            if (!roomData) return emitError(socket, 'ERR_ROOM_NOT_FOUND', 'Room not found');
+        }
 
         const room = await prisma.room.findUnique({ where: { slug: data.room_id } });
         if (!room) return emitError(socket, 'ERR_ROOM_NOT_FOUND', 'Room not found');
