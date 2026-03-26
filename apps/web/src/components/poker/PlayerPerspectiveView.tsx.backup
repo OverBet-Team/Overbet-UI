@@ -14,8 +14,6 @@ import StatusBadge from "./StatusBadge";
 import AvatarRing from "./AvatarRing";
 import PotDisplay from "./PotDisplay";
 import HeroHand from "./HeroHand";
-import HandStrengthRing from "./HandStrengthRing";
-import HandAnalysisWidget from "./HandAnalysisWidget";
 import type { PlayerViewState, OpponentForView } from "@/lib/overbet-to-player-view";
 import type { TurnTimer } from "@/components/poker/Seat";
 
@@ -105,18 +103,12 @@ const OpponentSeat = React.memo(function OpponentSeat({
 
       {/* Avatar with ring - responsive sizing */}
       <div className="relative">
-        {/* Hand Strength Ring (optional) */}
-        {player.handStrength !== undefined && !isFolded && (
-          <HandStrengthRing strength={player.handStrength} size={80} />
-        )}
-        
         <div className="w-12 h-12 md:w-20 md:h-20">
           <AvatarRing
             name={player.username}
             size={48}
             status={avatarStatus}
             isDealer={player.isDealer}
-            handStrength={player.handStrength}
           >
             <AvatarPlaceholder name={player.username} size={48} />
           </AvatarRing>
@@ -264,45 +256,6 @@ const HeroTimer = React.memo(function HeroTimer({ timer, playerId }: HeroTimerPr
   );
 });
 
-// ═══════════════════════════════════════════════════════════════════════════
-// Elliptical positioning algorithm for desktop opponent placement
-// ═══════════════════════════════════════════════════════════════════════════
-
-/**
- * Calculate elliptical position for opponent in arc layout
- * Distributes players from 210° (left-middle) to -30° (right-middle)
- */
-function getPlayerPosition(index: number, total: number): { left: string; top: string } {
-  const startAngle = 210; // Slightly below left middle
-  const endAngle = -30;   // Slightly below right middle
-  const angleRange = startAngle - endAngle;
-  const angleStep = total > 1 ? angleRange / (total - 1) : 0;
-  
-  const angle = startAngle - (index * angleStep);
-  const radian = (angle * Math.PI) / 180;
-  
-  // Ellipse radius - adjust based on player count to prevent crowding
-  const rx = total > 5 ? 44 : 42;
-  const ry = total > 5 ? 34 : 32;
-  
-  const x = 50 + rx * Math.cos(radian);
-  const y = 54 - ry * Math.sin(radian);
-  
-  return { left: `${x}%`, top: `${y}%` };
-}
-
-/**
- * Calculate dynamic scale based on player count
- * More players = smaller avatars to prevent crowding
- */
-function getPlayerScale(total: number): number {
-  if (total <= 3) return 1;
-  if (total <= 5) return 0.85;
-  if (total <= 8) return 0.75;
-  return 0.65;
-}
-
-
 export const PlayerPerspectiveView = React.memo(function PlayerPerspectiveView({
   viewState,
   winnerId,
@@ -321,9 +274,6 @@ export const PlayerPerspectiveView = React.memo(function PlayerPerspectiveView({
   const isCleanup = phase === "CLEANUP" || phase === "SHOWDOWN";
   const highlightHero =
     winnerId === hero.id && hero.cards.some((c) => winnerCards?.includes(c));
-  
-  // Calculate dynamic scaling based on opponent count
-  const playerScale = getPlayerScale(opponents.length);
 
   return (
     <div
@@ -335,54 +285,21 @@ export const PlayerPerspectiveView = React.memo(function PlayerPerspectiveView({
       {/* Table gradient background */}
       <div className="absolute inset-0 table-gradient pointer-events-none z-0" />
 
-      {/* Opponents: elliptical arc on desktop, flexbox row on mobile */}
-      {compactMode ? (
-        // Mobile: horizontal row
-        <section className="flex justify-around items-start px-4 pt-4 z-10">
-          {opponents.map((opp, i) => (
-            <div key={opp.id} style={{ transform: `scale(${playerScale})` }}>
-              <OpponentSeat
-                player={opp}
-                isWinner={winnerId === opp.id}
-                showCards={isCleanup}
-                isSB={opp.isSB}
-                isBB={opp.isBB}
-                isActive={activePlayerId === opp.id}
-                delay={i * 0.06}
-              />
-            </div>
-          ))}
-        </section>
-      ) : (
-        // Desktop: elliptical arc positioning
-        <section className="absolute inset-0 z-10 pointer-events-none">
-          {opponents.map((opp, i) => {
-            const pos = getPlayerPosition(i, opponents.length);
-            return (
-              <div
-                key={opp.id}
-                className="absolute pointer-events-auto"
-                style={{
-                  left: pos.left,
-                  top: pos.top,
-                  transform: `translate(-50%, -50%) scale(${playerScale})`,
-                  transition: 'all 0.5s ease-out',
-                }}
-              >
-                <OpponentSeat
-                  player={opp}
-                  isWinner={winnerId === opp.id}
-                  showCards={isCleanup}
-                  isSB={opp.isSB}
-                  isBB={opp.isBB}
-                  isActive={activePlayerId === opp.id}
-                  delay={i * 0.06}
-                />
-              </div>
-            );
-          })}
-        </section>
-      )}
+      {/* Opponents: horizontal row on mobile, flanking on desktop */}
+      <section className="flex justify-around md:justify-between items-start px-4 md:px-24 pt-4 z-10">
+        {opponents.map((opp, i) => (
+          <OpponentSeat
+            key={opp.id}
+            player={opp}
+            isWinner={winnerId === opp.id}
+            showCards={isCleanup}
+            isSB={opp.isSB}
+            isBB={opp.isBB}
+            isActive={activePlayerId === opp.id}
+            delay={i * 0.06}
+          />
+        ))}
+      </section>
 
       {/* Center: pot + community cards */}
       <section className="flex-1 flex flex-col items-center justify-center gap-6 md:gap-8 z-20">
@@ -410,16 +327,12 @@ export const PlayerPerspectiveView = React.memo(function PlayerPerspectiveView({
           ) : null}
         </div>
 
-        {/* Community cards with staggered deal animations */}
+        {/* Community cards */}
         <div data-testid="board-cards" className="flex gap-1.5 md:gap-4">
           {board.map((card, i) => (
             <div key={i} data-testid={`board-card-${i}`} data-revealed={card ? "true" : "false"}>
               {card ? (
-                <PlayingCard 
-                  card={card} 
-                  size={compactMode ? "sm" : "md"}
-                  dealDelay={i * 100} 
-                />
+                <PlayingCard card={card} size={compactMode ? "sm" : "md"} />
               ) : (
                 <div className="card-placeholder w-14 h-20 md:w-24 md:h-36" />
               )}
@@ -454,16 +367,6 @@ export const PlayerPerspectiveView = React.memo(function PlayerPerspectiveView({
           }}
         />
       </div>
-
-      {/* Hand Analysis Widget (top-right, desktop only) */}
-      {!compactMode && (hero.handStrength !== undefined || hero.handType !== undefined) && (
-        <div className="absolute top-24 right-8 z-30">
-          <HandAnalysisWidget
-            handType={hero.handType}
-            handStrength={hero.handStrength}
-          />
-        </div>
-      )}
     </div>
   );
 });

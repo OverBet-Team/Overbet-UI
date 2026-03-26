@@ -14,6 +14,7 @@ import Shield from 'lucide-react/dist/esm/icons/shield'
 import HelpCircle from 'lucide-react/dist/esm/icons/help-circle'
 import ScrollText from 'lucide-react/dist/esm/icons/scroll-text'
 import Lock from 'lucide-react/dist/esm/icons/lock'
+import Coins from 'lucide-react/dist/esm/icons/coins'
 import { PokerTable } from "@/components/poker/PokerTable";
 import { PlayerPerspectiveView } from "@/components/poker/PlayerPerspectiveView";
 import { toPlayerViewState } from "@/lib/overbet-to-player-view";
@@ -988,25 +989,49 @@ export default function RoomClient({ slug, initialRoom }: RoomProps) {
   return (
     <div
       data-testid="in-game-view"
-      className="flex flex-col w-full overflow-hidden font-body"
-      style={{
-        height: isPortraitMobile ? "calc(100dvh - 56px)" : "calc(100dvh - 5rem)",
-        minHeight: 0,
-      }}
+      className="flex flex-col w-full h-screen overflow-hidden font-body"
     >
-      {/* Moon Poker header */}
+      {/* OVERBET header */}
       <header className="fixed top-0 left-0 w-full px-6 md:px-10 py-4 md:py-6 z-50 flex justify-between items-center bg-transparent">
         <div className="flex items-center gap-3 md:gap-10">
           <span className="font-headline font-bold text-sm md:text-base uppercase italic tracking-tighter text-[--on-surface] flex items-center gap-2">
             <div className="w-2 h-2 rounded-full bg-[--gold]" />
-            MOON POKER
+            OVERBET
           </span>
           <span className="hidden md:inline text-[0.6rem] font-headline uppercase tracking-[0.2em] text-[--on-surface-variant]/40">
             Table: <span className="text-[--on-surface]/80">{room.name}</span>
           </span>
         </div>
-        <div className="flex items-center gap-4 md:gap-6">
-          {/* Settings, Help, Fairness buttons will be moved here */}
+        <div className="flex items-center gap-3 md:gap-6">
+          {/* Chip balance */}
+          {myStack != null ? (
+            <div className="hidden md:flex items-center gap-2 bg-white/[0.03] px-4 py-1.5 rounded-lg border border-white/5">
+              <Coins size={12} />
+              <span className="font-headline font-bold text-xs tracking-tight text-[--on-surface]/90">{myStack}</span>
+            </div>
+          ) : null}
+          
+          {/* Icon buttons */}
+          <div className="flex items-center gap-3">
+            {isHost && (
+              <button
+                onClick={handleOpenSettings}
+                className="icon-btn hover:text-[--tertiary] hover:border-[--tertiary] focus-visible:ring-2 focus-visible:ring-[--ring-active] focus-visible:ring-offset-2"
+                title="Room Settings"
+                aria-label="Room settings"
+              >
+                <Settings size={16} />
+              </button>
+            )}
+            <button
+              onClick={() => setShowFairnessModal(true)}
+              className="icon-btn hover:text-[--tertiary] hover:border-[--tertiary] focus-visible:ring-2 focus-visible:ring-[--ring-active] focus-visible:ring-offset-2"
+              title="Provably Fair"
+              aria-label="Provably fair verification"
+            >
+              <Shield size={16} />
+            </button>
+          </div>
         </div>
       </header>
 
@@ -1016,6 +1041,28 @@ export default function RoomClient({ slug, initialRoom }: RoomProps) {
         <div className="absolute bottom-[10%] -right-[20%] w-[50%] h-[50%] rounded-full bg-[--tertiary]/5 blur-[100px]" />
         <div className="absolute top-[40%] left-[30%] w-[20%] h-[20%] rounded-full bg-[--secondary]/5 blur-[80px]" />
       </div>
+
+      {/* Floating action buttons (desktop only) */}
+      {!isPortraitMobile && (
+        <div className="fixed right-8 top-1/2 -translate-y-1/2 flex flex-col gap-3 z-40">
+          <button
+            onClick={() => setShowHelpOverlay(true)}
+            className="icon-btn hover:text-[--tertiary] hover:border-[--tertiary] focus-visible:ring-2 focus-visible:ring-[--ring-active] focus-visible:ring-offset-2"
+            title="Help & Shortcuts"
+            aria-label="Help and keyboard shortcuts"
+          >
+            <HelpCircle size={16} />
+          </button>
+          <button
+            onClick={() => setShowLogOverlay(true)}
+            className="icon-btn hover:text-[--tertiary] hover:border-[--tertiary] focus-visible:ring-2 focus-visible:ring-[--ring-active] focus-visible:ring-offset-2"
+            title="Game Log"
+            aria-label="View game log"
+          >
+            <ScrollText size={16} />
+          </button>
+        </div>
+      )}
 
       {/* ── Game canvas (flex-fill) ────────────────────────────────────────── */}
       <div style={{ flex: 1, minHeight: 0, display: "flex", flexDirection: "column", position: "relative", paddingTop: isPortraitMobile ? 36 : 0 }}>
@@ -1180,28 +1227,6 @@ export default function RoomClient({ slug, initialRoom }: RoomProps) {
             </div>
           </div>
         )}
-
-        {/* Top-right icon buttons */}
-        <div className="absolute top-8 right-8 flex gap-3 z-10">
-          {isHost && (
-            <button
-              onClick={handleOpenSettings}
-              className="icon-btn hover:text-[--tertiary] hover:border-[--tertiary] focus-visible:ring-2 focus-visible:ring-[--ring-active] focus-visible:ring-offset-2"
-              title="Room Settings"
-              aria-label="Room settings"
-            >
-              <Settings size={16} />
-            </button>
-          )}
-          <button
-            onClick={() => setShowFairnessModal(true)}
-            className="icon-btn hover:text-[--tertiary] hover:border-[--tertiary] focus-visible:ring-2 focus-visible:ring-[--ring-active] focus-visible:ring-offset-2"
-            title="Provably Fair"
-            aria-label="Provably fair verification"
-          >
-            <Shield size={16} />
-          </button>
-        </div>
 
         {/* Host controls (in-game, floating top-left) */}
         {!isPortraitMobile && <HostControlPanel floating />}
@@ -1384,6 +1409,8 @@ export default function RoomClient({ slug, initialRoom }: RoomProps) {
                 minRaise={gameState?.minRaise || 0}
                 pot={totalPot}
                 compact
+                turnTimer={turnTimer}
+                userId={userId}
                 onAction={handleAction}
               />
             ) : (
@@ -1402,33 +1429,15 @@ export default function RoomClient({ slug, initialRoom }: RoomProps) {
           justifyContent: "space-between",
           padding: "0 20px",
         }} className="glass-panel border-t border-[--outline-variant]/20">
-          <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
-            <button
-              onClick={() => setShowHelpOverlay((v) => !v)}
-              style={{
-                display: "flex", alignItems: "center", gap: 6, padding: "8px 14px",
-                borderRadius: 999, border: "1px solid var(--outline-variant)",
-                background: showHelpOverlay ? "rgba(255,255,255,0.08)" : "transparent",
-                color: "var(--on-surface-variant)", fontSize: 13, fontWeight: 600,
-                cursor: "pointer",
-              }}
-            >
-              <HelpCircle size={16} />
-              Help
-            </button>
-            <button
-              onClick={() => setShowLogOverlay((v) => !v)}
-              style={{
-                display: "flex", alignItems: "center", gap: 6, padding: "8px 14px",
-                borderRadius: 999, border: "1px solid var(--outline-variant)",
-                background: showLogOverlay ? "rgba(255,255,255,0.08)" : "transparent",
-                color: "var(--on-surface-variant)", fontSize: 13, fontWeight: 600,
-                cursor: "pointer",
-              }}
-            >
-              <ScrollText size={16} />
-              Log
-            </button>
+          {/* Left: YOUR BANK */}
+          <div className="flex items-center gap-2">
+            <span className="text-[--on-surface-variant]/40 uppercase tracking-widest text-[0.6rem] font-semibold font-headline">
+              YOUR BANK
+            </span>
+            <div className="flex items-center gap-2 bg-white/5 px-4 py-2 rounded-lg border border-white/5">
+              <Coins size={12} color="var(--gold)" />
+              <span className="font-headline font-bold text-sm text-[--on-surface]">{myStack ?? 0}</span>
+            </div>
           </div>
 
           <div style={{ flex: 1, display: "flex", justifyContent: "center", alignItems: "center", minWidth: 0, maxWidth: 480 }}>
@@ -1440,6 +1449,8 @@ export default function RoomClient({ slug, initialRoom }: RoomProps) {
                 playerBet={playerBet}
                 minRaise={gameState?.minRaise || 0}
                 pot={totalPot}
+                turnTimer={turnTimer}
+                userId={userId}
                 onAction={handleAction}
               />
             ) : (
@@ -1449,54 +1460,24 @@ export default function RoomClient({ slug, initialRoom }: RoomProps) {
             )}
           </div>
 
-          <div style={{ display: "flex", alignItems: "center", gap: 12 }}>
-            <div style={{
-              display: "flex", flexDirection: "column", alignItems: "flex-end",
-              padding: "6px 14px", borderRadius: 12,
-              background: "rgba(255,255,255,0.04)", border: "1px solid rgba(255,255,255,0.06)",
-            }}>
-              <div style={{ display: "flex", alignItems: "center", gap: 5, marginBottom: 2 }}>
-                <Lock size={10} style={{ color: "rgba(255,255,255,0.4)" }} />
-                <span style={{ color: "rgba(255,255,255,0.5)", fontSize: 10, fontWeight: 700, textTransform: "uppercase", letterSpacing: "0.06em" }}>
-                  Your Bank
-                </span>
-              </div>
-              <div style={{ display: "flex", alignItems: "center", gap: 6 }}>
-                {myStack != null ? (
-                  <ChipAmount
-                    amount={myStack}
-                    iconSize={16}
-                    amountStyle={{ color: "var(--primary)", fontSize: 18, fontWeight: 800 }}
-                  />
-                ) : (
-                  <span style={{ color: "var(--primary)", fontSize: 18, fontWeight: 800, fontVariantNumeric: "tabular-nums" }}>—</span>
-                )}
-                {playerBet > 0 && (
-                  <span style={{
-                    display: "inline-flex",
-                    alignItems: "center",
-                    gap: 4,
-                    padding: "2px 6px",
-                    borderRadius: 6,
-                    background: "rgba(228, 215, 253, 0.2)",
-                    color: "var(--primary)",
-                    fontSize: 10,
-                    fontWeight: 700,
-                  }}>
-                    <span>Bet</span>
-                    <ChipAmount
-                      amount={playerBet}
-                      iconSize={10}
-                      iconColor="var(--primary)"
-                      amountStyle={{ color: "inherit", fontSize: 10, fontWeight: 700 }}
-                    />
-                  </span>
-                )}
-              </div>
-            </div>
-            {turnTimer && turnTimer.playerId === userId && (
-              <TurnTimerPill timer={turnTimer} />
-            )}
+          {/* Right: Icon buttons */}
+          <div className="flex items-center gap-4">
+            <button
+              onClick={() => setShowHelpOverlay((v) => !v)}
+              className="icon-btn hover:text-[--tertiary] hover:border-[--tertiary] focus-visible:ring-2 focus-visible:ring-[--ring-active]"
+              title="Help"
+              aria-label="Show help"
+            >
+              <HelpCircle size={16} />
+            </button>
+            <button
+              onClick={() => setShowLogOverlay((v) => !v)}
+              className="icon-btn hover:text-[--tertiary] hover:border-[--tertiary] focus-visible:ring-2 focus-visible:ring-[--ring-active]"
+              title="Game Log"
+              aria-label="Show game log"
+            >
+              <ScrollText size={16} />
+            </button>
           </div>
         </div>
       )}

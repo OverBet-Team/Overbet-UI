@@ -7,7 +7,7 @@ export function formatChipAmount(amount: number) {
 
 export function ChipIcon({
   size = 12,
-  color = 'var(--on-surface-variant)',
+  color = 'var(--tertiary)',
   style,
 }: {
   size?: number;

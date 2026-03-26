@@ -79,11 +79,11 @@ const SeatTimer = React.memo(function SeatTimer({ timer, playerId }: SeatTimerPr
   const timerColor =
     timerPhase === 'timebank'
       ? progress < 0.2
-        ? '#ef4444'
-        : '#f97316'
+        ? '#ef4444'  // Red for critical timebank
+        : '#f97316'  // Orange for timebank
       : progress < 0.2
-        ? '#ef4444'
-        : '#81ecff';
+        ? '#ef4444'  // Red for critical
+        : 'var(--tertiary)';  // Tertiary (cyan) for normal
 
   return (
     <>

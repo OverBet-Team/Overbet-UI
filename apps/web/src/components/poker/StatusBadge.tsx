@@ -1,5 +1,7 @@
 import type { FC } from "react";
 import { memo } from "react";
+import { motion } from "framer-motion";
+import { cn } from "@/lib/utils";
 
 interface StatusBadgeProps {
   status: string;
@@ -7,25 +9,48 @@ interface StatusBadgeProps {
 }
 
 /**
- * StatusBadge displays player status above their avatar
- * Examples: "CALLED", "FOLDED", "THINKING", "RAISED"
- * Active players get accent color, others get muted
+ * StatusBadge displays player status above their avatar with spring animation
+ * Per-status colors: called=yellow, folded=muted, checked=tertiary, raised=secondary, active=primary
  */
 const StatusBadge: FC<StatusBadgeProps> = ({ status, isActive = false }) => {
+  const normalizedStatus = status.toLowerCase();
+  
+  // Determine colors based on status
+  const statusColors = {
+    called: "bg-yellow-400/20 text-yellow-400 border-yellow-400/40",
+    folded: "bg-white/5 text-[--on-surface-variant]/40 border-white/10",
+    checked: "bg-[--tertiary]/20 text-[--tertiary] border-[--tertiary]/40",
+    raised: "bg-[--secondary]/20 text-[--secondary] border-[--secondary]/40",
+    active: "bg-[--primary]/20 text-[--primary] border-[--primary]/40",
+    thinking: "bg-[--primary]/20 text-[--primary] border-[--primary]/40",
+  };
+
+  const colorClass = statusColors[normalizedStatus as keyof typeof statusColors] 
+    || (isActive 
+      ? "bg-[--tertiary]/10 text-[--tertiary] border-[--tertiary]/20"
+      : "bg-white/5 text-[--on-surface-variant]/40 border-white/5"
+    );
+
   return (
-    <div
-      className={`
-        px-3 py-0.5 rounded-full text-[0.55rem] font-bold uppercase tracking-widest font-headline
-        ${
-          isActive
-            ? "bg-[--tertiary]/10 text-[--tertiary] border border-[--tertiary]/20"
-            : "bg-white/5 text-[--on-surface-variant]/40 border border-white/5"
-        }
-      `}
+    <motion.div
+      key={status}
+      initial={{ opacity: 0, y: 15, scale: 0.5, rotate: -10 }}
+      animate={{ opacity: 1, y: 0, scale: 1, rotate: 0 }}
+      exit={{ opacity: 0, y: -15, scale: 0.5, rotate: 10 }}
+      transition={{
+        type: "spring",
+        stiffness: 400,
+        damping: 15,
+        mass: 0.8
+      }}
+      className={cn(
+        "px-3 py-0.5 rounded-full border text-[0.55rem] font-bold uppercase tracking-widest font-headline whitespace-nowrap shadow-lg shadow-black/50",
+        colorClass
+      )}
       aria-label={`Player status: ${status}`}
     >
       {status}
-    </div>
+    </motion.div>
   );
 };
 

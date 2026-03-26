@@ -39,6 +39,10 @@ export interface OpponentForView {
   isActive: boolean;
   isSB: boolean;
   isBB: boolean;
+  /** Optional hand strength from 0-1 (future: from backend analysis) */
+  handStrength?: number;
+  /** Optional hand classification (e.g., 'Two Pair', 'Flush') */
+  handType?: string;
 }
 
 export interface HeroForView {
@@ -49,6 +53,10 @@ export interface HeroForView {
   /** Uppercase status: ACTIVE, FOLDED, CALLED, RAISED, ALL_IN, etc. */
   status: string;
   cards: string[];
+  /** Optional hand strength from 0-1 (future: from backend analysis) */
+  handStrength?: number;
+  /** Optional hand classification (e.g., 'Two Pair', 'Flush') */
+  handType?: string;
 }
 
 export interface PlayerViewState {

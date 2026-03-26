@@ -57,10 +57,14 @@ export const ANIMATION = {
   slow: '0.3s',
 } as const;
 
-// Common color patterns
+// Common color patterns (using CSS custom properties from design system)
 export const COLORS = {
-  glassBg: 'rgba(25, 25, 28, 0.4)',
-  overlayBg: 'rgba(16, 13, 28, 0.98)',
-  gradientTop: 'rgba(19,19,21,0.88)',
-  gradientBottom: 'rgba(19,19,21,0.2)',
+  glassBg: 'rgba(25, 25, 28, 0.4)',  // glass-panel background
+  overlayBg: 'rgba(14, 14, 16, 0.98)',  // modal backdrop (near bg-base)
+  gradientTop: 'rgba(19, 19, 21, 0.88)',  // surface-container-low
+  gradientBottom: 'rgba(19, 19, 21, 0.2)',  // surface-container-low faded
+  accent: 'var(--tertiary)',  // Primary accent color (cyan)
+  gold: 'var(--gold)',  // Gold accent for highlights
+  danger: 'var(--danger)',  // Error/danger state
+  success: 'var(--success)',  // Success state
 } as const;

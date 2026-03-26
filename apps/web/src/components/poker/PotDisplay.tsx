@@ -1,5 +1,6 @@
 import type { FC } from "react";
 import { memo } from "react";
+import { motion } from "framer-motion";
 
 interface PotDisplayProps {
   amount: number;
@@ -8,9 +9,9 @@ interface PotDisplayProps {
 }
 
 /**
- * PotDisplay renders editorial-scale pot amount
+ * PotDisplay renders editorial-scale pot amount with motion scale animation
  * Mobile: text-5xl, Desktop: text-[6.25rem] (100px)
- * Includes tertiary blur glow and optional label
+ * Includes tertiary blur glow and spring scale on change
  */
 const PotDisplay: FC<PotDisplayProps> = ({
   amount,
@@ -32,17 +33,26 @@ const PotDisplay: FC<PotDisplayProps> = ({
         {/* Background glow */}
         <div className="absolute inset-0 blur-2xl bg-[--tertiary]/10 rounded-full" />
 
-        {/* Amount */}
-        <h1
+        {/* Amount with motion scale */}
+        <motion.h1
+          key={amount}
+          initial={{ scale: 1.15, opacity: 0.8 }}
+          animate={{ scale: 1, opacity: 0.8 }}
+          transition={{ 
+            type: "spring", 
+            stiffness: 300, 
+            damping: 20,
+            duration: 0.4
+          }}
           className={`
             font-headline font-bold text-[--on-surface] tracking-tighter relative
             ${compact ? "text-5xl" : "text-5xl md:text-[6.25rem]"}
-            leading-none opacity-80
+            leading-none
           `}
           aria-label={`Pot amount: ${amount}`}
         >
           {amount}
-        </h1>
+        </motion.h1>
       </div>
     </div>
   );

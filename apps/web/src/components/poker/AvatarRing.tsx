@@ -1,5 +1,6 @@
 import type { FC, ReactNode } from "react";
 import { memo } from "react";
+import { cn } from "@/lib/utils";
 
 interface AvatarRingProps {
   name: string;
@@ -7,13 +8,15 @@ interface AvatarRingProps {
   status: "active" | "inactive" | "folded";
   isDealer?: boolean;
   children?: ReactNode;
+  /** Optional hand strength for future ring integration (0-1) */
+  handStrength?: number;
 }
 
 /**
  * AvatarRing wraps avatar content with colored ring based on player status
- * - active: cyan ring with radial glow
- * - inactive: outline-variant ring
- * - folded: secondary ring with grayscale filter
+ * - active: cyan ring with glow (avatar-glow-active)
+ * - inactive: subtle border
+ * - folded: grayscale with reduced opacity (avatar-glow-inactive)
  */
 const AvatarRing: FC<AvatarRingProps> = ({
   name,
@@ -21,27 +24,19 @@ const AvatarRing: FC<AvatarRingProps> = ({
   status,
   isDealer = false,
   children,
+  handStrength,
 }) => {
-  const ringClasses = {
-    active: "border-2 border-[--tertiary] shadow-[0_0_15px_rgba(129,236,255,0.3)]",
-    inactive: "border-2 border-[--outline-variant]/50",
-    folded: "border-2 border-[--secondary]/40 grayscale opacity-60",
-  };
-
-  const containerClasses = status === "folded" ? "opacity-60 grayscale" : "";
+  const ringClasses = cn(
+    "w-24 h-24 rounded-full p-1 bg-[--bg-base] transition-all duration-500 relative",
+    status === "active" && "avatar-glow-active",
+    status === "inactive" && "border-2 border-white/5",
+    status === "folded" && "avatar-glow-inactive"
+  );
 
   return (
-    <div className={`relative ${containerClasses}`}>
-      {/* Radial glow behind active player */}
-      {status === "active" ? (
-        <div className="absolute -inset-4 radial-glow pointer-events-none" />
-      ) : null}
-
-      {/* Avatar ring */}
-      <div
-        className={`rounded-full p-0.5 bg-[--bg-base] ${ringClasses[status]}`}
-        style={{ width: size, height: size }}
-      >
+    <div className="relative">
+      {/* Avatar ring with status-based styling */}
+      <div className={ringClasses} style={{ width: size, height: size }}>
         {children ? (
           children
         ) : (
