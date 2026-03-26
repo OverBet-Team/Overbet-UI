@@ -18,7 +18,7 @@ import { PokerTable } from "@/components/poker/PokerTable";
 import { PlayerPerspectiveView } from "@/components/poker/PlayerPerspectiveView";
 import { toPlayerViewState } from "@/lib/overbet-to-player-view";
 import { getPotDisplayAmounts } from "@/lib/pot-display";
-import { ActionBar } from "@/components/poker/ActionBar";
+import { ActionBar } from "@/components/poker/action-bar";
 import dynamic from 'next/dynamic'
 const BuyInModal = dynamic(() => import('@/components/poker/BuyInModal').then(m => ({ default: m.BuyInModal })), { ssr: false })
 import { GameLog } from "@/components/poker/GameLog";

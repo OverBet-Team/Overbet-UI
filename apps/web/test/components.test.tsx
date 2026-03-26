@@ -1,7 +1,7 @@
 // @vitest-environment jsdom
 import { describe, it, expect, vi } from 'vitest';
 import { fireEvent, render, screen } from '@testing-library/react';
-import { ActionBar } from '../src/components/poker/ActionBar';
+import { ActionBar } from '../src/components/poker/action-bar';
 
 describe('ActionBar', () => {
   it('renders inactive state when not active', () => {
