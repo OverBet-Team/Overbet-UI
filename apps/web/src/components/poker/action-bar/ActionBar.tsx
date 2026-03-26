@@ -3,7 +3,6 @@
 import React, { useState, useEffect, useCallback } from "react";
 import { X, Check } from "lucide-react";
 import { BankDisplay } from "./BankDisplay";
-import { TimerRing } from "./TimerRing";
 import { ActionButton } from "./ActionButton";
 import { BetSlider } from "./BetSlider";
 import type { ActionBarProps } from "./types";
@@ -155,11 +154,10 @@ export function ActionBar({
       >
         {/* Left cluster: Bank + Timer */}
         <div className="flex items-center gap-4 shrink-0">
-          <BankDisplay amount={bank ?? stack} />
-
-          {turnTimer && turnTimer.playerId === userId && (
-            <TimerRing timer={turnTimer} />
-          )}
+          <BankDisplay 
+            amount={bank ?? stack} 
+            timer={turnTimer && turnTimer.playerId === userId ? turnTimer : null}
+          />
         </div>
 
         {/* Separator */}

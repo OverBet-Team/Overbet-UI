@@ -523,13 +523,13 @@ export const PlayerPerspectiveView = React.memo(function PlayerPerspectiveView({
       </section>
 
       {/* Hero hand: floating above action bar */}
-      <div className="absolute bottom-36 left-1/2 -translate-x-1/2 z-30 pointer-events-none overflow-visible">
+      <div className="absolute bottom-20 left-1/2 -translate-x-1/2 z-30 pointer-events-none overflow-visible">
         {turnTimer && turnTimer.playerId === hero.id ? (
           <HeroTimer timer={turnTimer} playerId={hero.id} />
         ) : null}
         
         {hero.cards && hero.cards.length > 0 ? (
-          <HeroHand cards={hero.cards} size="md" />
+          <HeroHand cards={hero.cards} size="sm" />
         ) : null}
       </div>
 

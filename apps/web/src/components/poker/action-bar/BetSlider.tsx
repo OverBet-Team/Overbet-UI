@@ -103,7 +103,7 @@ export const BetSlider = React.memo(function BetSlider({
         <button
           onClick={onConfirm}
           disabled={disabled}
-          className="w-full py-3 rounded-lg bg-[--tertiary] text-black font-extrabold text-base shadow-[0_0_12px_rgba(129,236,255,0.3)] hover:shadow-[0_0_20px_rgba(129,236,255,0.5)] active:scale-95 transition-all"
+          className="w-full py-3 rounded-lg bg-[--success] text-black font-extrabold text-base shadow-[0_0_16px_rgba(34,197,94,0.4)] hover:shadow-[0_0_24px_rgba(34,197,94,0.6)] hover:brightness-110 active:scale-95 transition-all"
         >
           Raise to {clampedValue}
         </button>
@@ -173,7 +173,7 @@ export const BetSlider = React.memo(function BetSlider({
       <button
         onClick={onConfirm}
         disabled={disabled}
-        className="bg-[--tertiary] text-black font-extrabold rounded-lg px-5 py-2.5 text-base shadow-[0_0_12px_rgba(129,236,255,0.3)] hover:shadow-[0_0_20px_rgba(129,236,255,0.5)] active:scale-95 whitespace-nowrap transition-all"
+        className="bg-[--success] text-black font-extrabold rounded-lg px-5 py-2.5 text-base shadow-[0_0_16px_rgba(34,197,94,0.4)] hover:shadow-[0_0_24px_rgba(34,197,94,0.6)] hover:brightness-110 active:scale-95 whitespace-nowrap transition-all"
       >
         Confirm ↵
       </button>
