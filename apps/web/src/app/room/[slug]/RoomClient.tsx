@@ -610,46 +610,34 @@ export default function RoomClient({ slug, initialRoom }: RoomProps) {
         </button>
 
         {isSeatPanelOpen && (
-          <div
-            style={{
-              marginTop: 8,
-              padding: "12px",
-              borderRadius: 14,
-              background: "rgba(16,13,28,0.96)",
-              border: "1px solid rgba(255,255,255,0.12)",
-              boxShadow: "0 16px 40px rgba(0,0,0,0.55)",
-            }}
-          >
-            <div style={{ display: "flex", gap: 8, marginBottom: 10 }}>
+          <div className="glass-panel rounded-2xl p-4 shadow-[0_16px_40px_rgba(0,0,0,0.55)] border border-white/10">
+            <div className="flex gap-2 mb-3">
               <button
                 data-testid="host-start-resume-button"
                 onClick={isPaused ? handleResumeGame : handleStartGame}
                 disabled={!isPaused && !canStart}
-                style={{
-                  flex: 1, padding: "6px 8px", borderRadius: 9, border: "none",
-                  background: isPaused
-                    ? "linear-gradient(135deg, #22c55e, #16a34a)"
-                    : "linear-gradient(135deg, #ef4444, #dc2626)",
-                  color: "#fff",
-                  opacity: !isPaused && !canStart ? 0.45 : 1,
-                  fontSize: 11, fontWeight: 700, cursor: !isPaused && !canStart ? "not-allowed" : "pointer",
-                  fontFamily: "Outfit, sans-serif",
-                }}
+                className={`
+                  flex-1 py-2 px-4 rounded-xl font-bold text-xs uppercase tracking-wider
+                  transition-all duration-200
+                  ${isPaused
+                    ? 'bg-[--tertiary] hover:bg-[--tertiary-dim] text-white shadow-[0_4px_12px_rgba(0,229,255,0.3)]'
+                    : 'bg-[--tertiary] hover:bg-[--tertiary-dim] text-white shadow-[0_4px_12px_rgba(0,229,255,0.3)]'
+                  }
+                  ${!isPaused && !canStart ? 'opacity-45 cursor-not-allowed' : 'cursor-pointer'}
+                `}
               >
-                {isPaused ? "Resume" : "Start"}
+                {isPaused ? 'Resume' : 'Start'}
               </button>
               <button
                 data-testid="host-pause-button"
                 onClick={handlePauseGame}
                 disabled={!canPause}
-                style={{
-                  flex: 1, padding: "6px 8px", borderRadius: 9,
-                  border: "1px solid rgba(251,146,60,0.55)",
-                  background: "rgba(251,146,60,0.12)",
-                  color: "#fdba74", opacity: canPause ? 1 : 0.45,
-                  fontSize: 11, fontWeight: 700, cursor: canPause ? "pointer" : "not-allowed",
-                  fontFamily: "Outfit, sans-serif",
-                }}
+                className={`
+                  flex-1 py-2 px-4 rounded-xl font-bold text-xs uppercase tracking-wider
+                  border border-white/20 bg-white/5 hover:bg-white/10 text-white/80
+                  transition-all duration-200
+                  ${canPause ? 'cursor-pointer' : 'opacity-45 cursor-not-allowed'}
+                `}
               >
                 Pause
               </button>
@@ -1003,14 +991,6 @@ export default function RoomClient({ slug, initialRoom }: RoomProps) {
           </span>
         </div>
         <div className="flex items-center gap-3 md:gap-6">
-          {/* Chip balance */}
-          {myStack != null ? (
-            <div className="hidden md:flex items-center gap-2 bg-white/[0.03] px-4 py-1.5 rounded-lg border border-white/5">
-              <Coins size={12} />
-              <span className="font-headline font-bold text-xs tracking-tight text-[--on-surface]/90">{myStack}</span>
-            </div>
-          ) : null}
-          
           {/* Icon buttons */}
           <div className="flex items-center gap-3">
             {isHost && (
