@@ -156,7 +156,7 @@ export function ActionBar({
         <div className="flex items-center gap-4 shrink-0">
           <BankDisplay 
             amount={bank ?? stack} 
-            timer={turnTimer && turnTimer.playerId === userId ? turnTimer : null}
+            timer={turnTimer}
           />
         </div>
 

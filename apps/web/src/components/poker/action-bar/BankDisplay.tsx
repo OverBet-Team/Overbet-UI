@@ -31,8 +31,8 @@ export const BankDisplay = React.memo(function BankDisplay({
   const progress = timer && timer.total > 0 ? timeLeft / timer.total : 0;
   
   // Timer ring dimensions
-  const size = 48;
-  const strokeWidth = 3;
+  const size = 56;
+  const strokeWidth = 3.5;
   const radius = size / 2 - strokeWidth;
   const circumference = 2 * Math.PI * radius;
   const offset = circumference * (1 - progress);
@@ -48,7 +48,10 @@ export const BankDisplay = React.memo(function BankDisplay({
     <div className={`flex items-center gap-3 ${className}`}>
       {/* Timer Ring */}
       {timer && (
-        <div className="relative" style={{ width: size, height: size }}>
+        <div 
+          className={`relative shrink-0 ${progress < 0.2 ? 'animate-pulse' : ''}`}
+          style={{ width: size, height: size }}
+        >
           <svg 
             className="-rotate-90" 
             width={size} 
@@ -78,7 +81,7 @@ export const BankDisplay = React.memo(function BankDisplay({
               style={{ transition: "stroke 0.2s" }} 
             />
           </svg>
-          <span className="absolute inset-0 flex items-center justify-center text-sm font-bold text-white tabular-nums">
+          <span className="absolute inset-0 flex items-center justify-center text-base font-extrabold text-white tabular-nums drop-shadow-[0_2px_4px_rgba(0,0,0,0.8)]">
             {secs}
           </span>
         </div>
