@@ -41,6 +41,26 @@
   --on-surface: #f6f3f5;
   --on-surface-variant: #acaaad;
 
+  /* Z-Index Scale — single source of truth for layering */
+  --z-background: 0;
+  --z-table: 10;
+  --z-opponents: 20;
+  --z-center: 25;
+  --z-hero: 30;
+  --z-action-bar: 40;
+  --z-floating-controls: 50;
+  --z-header: 60;
+  --z-modals: 70;
+  --z-toast: 80;
+
+  /* Seat ring color palette (per-player deterministic colors) */
+  --ring-cyan: #81ecff;
+  --ring-gold: #f59e0b;
+  --ring-magenta: #ff6d8b;
+  --ring-purple: #e4d7fd;
+  --ring-green: #22c55e;
+  --ring-orange: #f97316;
+
   /* Typography */
   --font-display: var(--font-space-grotesk);
   --font-body: var(--font-inter);

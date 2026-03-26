@@ -10,9 +10,9 @@ interface HeroHandProps {
 }
 
 const sizeClasses = {
-  sm: { container: "w-20 h-32", text: "text-lg", suitCorner: 14, suitCenter: 36 },
-  md: { container: "w-24 h-36", text: "text-xl", suitCorner: 16, suitCenter: 44 },
-  lg: { container: "w-32 h-48", text: "text-2xl", suitCorner: 20, suitCenter: 56 },
+  sm: { container: 'w-[88px] h-[124px]', text: 'text-xl', suitCorner: 15, suitCenter: 38 },
+  md: { container: 'w-[100px] h-[144px]', text: 'text-2xl', suitCorner: 18, suitCenter: 48 },
+  lg: { container: 'w-[120px] h-[172px]', text: 'text-3xl', suitCorner: 22, suitCenter: 60 },
 };
 
 const SUIT_ICONS = {
@@ -42,7 +42,7 @@ const HeroHand: FC<HeroHandProps> = ({ cards, size = "md" }) => {
   const Card2Icon = card2Data ? SUIT_ICONS[card2Data.suit] : null;
 
   return (
-    <div className="flex -space-x-8">
+    <div className="flex -space-x-10">
       {/* Card 1 - rotated left with staggered entry */}
       <motion.div
         initial={{ opacity: 0, y: 60, rotateZ: -12, scale: 0.9 }}
@@ -61,7 +61,7 @@ const HeroHand: FC<HeroHandProps> = ({ cards, size = "md" }) => {
         }}
         className={`
           ${container}
-          poker-card-premium flex flex-col p-3 justify-between shadow-2xl
+          poker-card-premium flex flex-col p-3 justify-between shadow-2xl border border-white/15
           cursor-pointer z-10
         `}
         aria-label={`Card 1: ${cards[0]}`}
@@ -100,7 +100,7 @@ const HeroHand: FC<HeroHandProps> = ({ cards, size = "md" }) => {
           }}
           className={`
             ${container}
-            poker-card-premium flex flex-col p-3 justify-between shadow-2xl
+            poker-card-premium flex flex-col p-3 justify-between shadow-2xl border border-white/15
             cursor-pointer z-0
           `}
           aria-label={`Card 2: ${cards[1]}`}

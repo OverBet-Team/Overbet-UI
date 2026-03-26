@@ -10,33 +10,66 @@ interface AvatarRingProps {
   children?: ReactNode;
   /** Optional hand strength for future ring integration (0-1) */
   handStrength?: number;
+  /** Determines ring border color via RING_COLORS palette */
+  seatIndex?: number;
+}
+
+const RING_COLORS = [
+  'var(--ring-cyan)',
+  'var(--ring-gold)',
+  'var(--ring-magenta)',
+  'var(--ring-purple)',
+  'var(--ring-green)',
+  'var(--ring-orange)',
+];
+
+function getRingColor(seatIndex?: number): string {
+  if (seatIndex === undefined) return 'var(--ring-cyan)';
+  return RING_COLORS[seatIndex % RING_COLORS.length];
 }
 
 /**
- * AvatarRing wraps avatar content with colored ring based on player status
- * - active: cyan ring with glow (avatar-glow-active)
- * - inactive: subtle border
- * - folded: grayscale with reduced opacity (avatar-glow-inactive)
+ * AvatarRing wraps avatar content with per-seat colored ring based on player status.
+ * - active: colored ring with matching glow (avatar-glow-active)
+ * - inactive: same color at 30% opacity, subtle shadow
+ * - folded: grayscale with minimal border (avatar-glow-inactive)
  */
 const AvatarRing: FC<AvatarRingProps> = ({
   name,
-  size = 96,
+  size = 80,
   status,
   isDealer = false,
   children,
   handStrength,
+  seatIndex,
 }) => {
+  const ringColor = getRingColor(seatIndex);
+
+  const ringStyle: React.CSSProperties = {
+    width: size,
+    height: size,
+    borderWidth: status === 'active' ? 3 : 2,
+    borderStyle: 'solid',
+    borderColor: status === 'folded'
+      ? 'rgba(255,255,255,0.05)'
+      : status === 'active'
+        ? ringColor
+        : `color-mix(in srgb, ${ringColor} 30%, transparent)`,
+    boxShadow: status === 'active'
+      ? `0 0 20px color-mix(in srgb, ${ringColor} 40%, transparent)`
+      : 'none',
+  };
+
   const ringClasses = cn(
-    "w-24 h-24 rounded-full p-1 bg-[--bg-base] transition-all duration-500 relative",
-    status === "active" && "avatar-glow-active",
-    status === "inactive" && "border-2 border-white/5",
-    status === "folded" && "avatar-glow-inactive"
+    'rounded-full p-1 bg-[--bg-base] transition-all duration-500 relative',
+    status === 'active' && 'avatar-glow-active',
+    status === 'folded' && 'avatar-glow-inactive'
   );
 
   return (
     <div className="relative">
       {/* Avatar ring with status-based styling */}
-      <div className={ringClasses} style={{ width: size, height: size }}>
+      <div className={ringClasses} style={ringStyle}>
         {children ? (
           children
         ) : (

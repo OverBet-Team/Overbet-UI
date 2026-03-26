@@ -214,102 +214,116 @@ export function ActionBar({
     );
   }
 
-  // ── Desktop: 3 buttons + inline slider ────────────────────────────────────
+  // ── Desktop: 3-zone layout ─────────────────────────────────────────────────
   return (
     <div data-testid="action-bar" className="flex flex-col w-full font-body">
-      <nav className="glass-dock rounded-t-[1.5rem] border-t border-[--outline-variant]/20 px-6 py-4 shadow-[0_-20px_40px_rgba(0,0,0,0.4)] flex items-center justify-center gap-6">
-        
-        {/* FOLD button */}
-        <button
-          data-testid="action-fold"
-          onClick={() => onAction("FOLD")}
-          className="flex flex-col items-center gap-1 px-6 py-3 rounded-xl bg-[--secondary]/10 hover:bg-[--secondary]/20 text-[--secondary] transition-all focus-visible:ring-2 focus-visible:ring-[--ring-active]"
-        >
-          <X size={20} />
-          <span className="text-xs font-bold uppercase tracking-wider">Fold</span>
-          <span className="text-[8px] font-mono opacity-35">F</span>
-        </button>
+      <nav className="glass-dock rounded-t-[1.5rem] border-t border-[--outline-variant]/20 px-6 py-4 shadow-[0_-20px_40px_rgba(0,0,0,0.4)] flex items-center justify-between gap-4">
 
-        {/* CHECK/CALL button */}
-        <button
-          data-testid="action-check-call"
-          onClick={() => onAction(toCall > 0 ? "CALL" : "CHECK")}
-          className={`flex flex-col items-center gap-1 px-6 py-3 rounded-xl transition-all focus-visible:ring-2 focus-visible:ring-[--ring-active] ${
-            toCall > 0
-              ? "bg-[--tertiary]/10 hover:bg-[--tertiary]/20 text-[--tertiary]"
-              : "bg-white/5 hover:bg-white/10 text-white/80"
-          }`}
-        >
-          <Check size={20} />
-          <span className="text-xs font-bold uppercase tracking-wider">
-            {toCall > 0 ? `Call ${toCall}` : "Check"}
-          </span>
-          <span className="text-[8px] font-mono opacity-35">C</span>
-        </button>
+        {/* Left zone: Timer indicator */}
+        <div className="flex items-center gap-3 min-w-[160px]">
+          {turnTimer && turnTimer.playerId === userId && (
+            <div className="flex items-center gap-2 px-3 py-1.5 rounded-full bg-white/5 border border-white/10">
+              <div className="w-2 h-2 rounded-full bg-[--success] animate-pulse" />
+              <span className="text-xs font-bold text-white/70 tabular-nums">LIVE</span>
+            </div>
+          )}
+        </div>
 
-        {/* RAISE button */}
-        {canRaise && (
+        {/* Center zone: action buttons */}
+        <div className="flex items-center gap-3">
+          {/* FOLD button */}
           <button
-            data-testid="action-raise"
-            onClick={() => setShowRaiseSlider((v) => !v)}
-            className={`flex flex-col items-center gap-1 px-6 py-3 rounded-xl transition-all focus-visible:ring-2 focus-visible:ring-[--ring-active] ${
-              showRaiseSlider
-                ? "bg-[--tertiary]/20 text-[--tertiary] scale-105"
-                : "bg-[--tertiary]/10 hover:bg-[--tertiary]/20 text-[--tertiary]"
+            data-testid="action-fold"
+            onClick={() => onAction("FOLD")}
+            className="flex flex-col items-center gap-1 px-4 py-2.5 rounded-xl bg-[--secondary]/10 hover:bg-[--secondary]/20 text-[--secondary] border border-[--secondary]/20 transition-all focus-visible:ring-2 focus-visible:ring-[--ring-magenta]"
+          >
+            <X size={16} />
+            <span className="text-xs font-bold uppercase tracking-wider">Fold</span>
+            <span className="text-[8px] font-mono opacity-35">F</span>
+          </button>
+
+          {/* CHECK/CALL button */}
+          <button
+            data-testid="action-check-call"
+            onClick={() => onAction(toCall > 0 ? "CALL" : "CHECK")}
+            className={`flex flex-col items-center gap-1 px-8 py-3 rounded-xl glass-panel border border-[--tertiary]/30 transition-all focus-visible:ring-2 focus-visible:ring-[--ring-cyan] ${
+              toCall > 0 ? "text-[--tertiary]" : "text-white/80"
             }`}
           >
-            <ArrowUpRight size={20} />
-            <span className="text-xs font-bold uppercase tracking-wider">Raise</span>
-            <span className="text-[8px] font-mono opacity-35">R</span>
+            <Check size={18} />
+            <span className="text-xs font-bold uppercase tracking-wider">
+              {toCall > 0 ? `Call ${toCall}` : "Check"}
+            </span>
+            <span className="text-[8px] font-mono opacity-35">C</span>
           </button>
-        )}
 
-        {/* ALL-IN button */}
-        <button
-          data-testid="action-all-in"
-          onClick={() => onAction("ALL_IN")}
-          className="flex flex-col items-center gap-1 px-6 py-3 rounded-xl bg-[--gold]/10 hover:bg-[--gold]/20 text-[--gold] transition-all focus-visible:ring-2 focus-visible:ring-[--ring-active]"
-        >
-          <span className="text-xl font-bold">★</span>
-          <span className="text-xs font-bold uppercase tracking-wider">All-In</span>
-          <span className="text-[8px] font-mono opacity-35">A</span>
-        </button>
-
-        {/* Inline raise slider (shows when RAISE clicked) */}
-        {showRaiseSlider && canRaise && (
-          <div className="flex items-center gap-4 px-6 py-3 bg-black/30 rounded-xl border border-white/10">
-            <div className="flex flex-col gap-1">
-              <span className="text-[10px] uppercase tracking-wider text-white/40">Amount</span>
-              <span className="text-lg font-bold text-[--tertiary]">{raiseAmount}</span>
-            </div>
-            <input
-              type="range"
-              min={minRaiseTo}
-              max={maxRaiseTo}
-              step={1}
-              value={raiseAmount}
-              onChange={(e) => setRaiseAmount(Number(e.target.value))}
-              className="bet-slider w-32"
-            />
-            <div className="flex gap-2">
-              {presets.map((preset) => (
-                <button
-                  key={preset.label}
-                  onClick={() => setRaiseAmount(preset.value)}
-                  className="px-3 py-1.5 rounded-lg bg-white/5 border border-white/10 text-[10px] font-bold uppercase hover:bg-white/10"
-                >
-                  {preset.label}
-                </button>
-              ))}
-            </div>
+          {/* RAISE button */}
+          {canRaise && (
             <button
-              onClick={handleRaise}
-              className="px-4 py-2 rounded-lg bg-[--tertiary] text-white font-bold text-sm hover:bg-[--tertiary-dim] whitespace-nowrap"
+              data-testid="action-raise"
+              onClick={() => setShowRaiseSlider((v) => !v)}
+              className={`flex flex-col items-center gap-1 px-8 py-3 rounded-xl glass-panel border border-[--tertiary]/30 text-[--tertiary] transition-all focus-visible:ring-2 focus-visible:ring-[--ring-cyan] ${
+                showRaiseSlider ? "scale-105" : ""
+              }`}
             >
-              Confirm ↵
+              <ArrowUpRight size={18} />
+              <span className="text-xs font-bold uppercase tracking-wider">Raise</span>
+              <span className="text-[8px] font-mono opacity-35">R</span>
             </button>
-          </div>
-        )}
+          )}
+        </div>
+
+        {/* Right zone: raise controls + All-In */}
+        <div className="flex items-center gap-3 min-w-[160px] justify-end">
+          {/* Inline raise slider in right zone */}
+          {showRaiseSlider && canRaise && (
+            <div className="flex items-center gap-3">
+              <div className="flex flex-col gap-0.5">
+                <span className="text-[10px] uppercase tracking-wider text-white/40">Amount</span>
+                <span className="text-lg font-bold text-[--tertiary]">{raiseAmount}</span>
+              </div>
+              <input
+                type="range"
+                min={minRaiseTo}
+                max={maxRaiseTo}
+                step={1}
+                value={raiseAmount}
+                onChange={(e) => setRaiseAmount(Number(e.target.value))}
+                className="bet-slider w-28"
+              />
+              {presets.length > 0 && (
+                <div className="flex gap-1">
+                  {presets.map((preset) => (
+                    <button
+                      key={preset.label}
+                      onClick={() => setRaiseAmount(preset.value)}
+                      className="bg-white/5 border border-white/10 rounded-full px-3 py-1 text-[10px] font-bold uppercase hover:bg-white/10"
+                    >
+                      {preset.label}
+                    </button>
+                  ))}
+                </div>
+              )}
+              <button
+                onClick={handleRaise}
+                className="bg-[--tertiary] text-black font-bold rounded-lg px-4 py-2 text-sm hover:opacity-90 whitespace-nowrap"
+              >
+                Confirm ↵
+              </button>
+            </div>
+          )}
+
+          {/* ALL-IN button */}
+          <button
+            data-testid="action-all-in"
+            onClick={() => onAction("ALL_IN")}
+            className="flex flex-col items-center gap-1 px-5 py-2.5 rounded-xl bg-[--gold]/10 border border-[--gold]/30 text-[--gold] transition-all focus-visible:ring-2 focus-visible:ring-[--ring-gold]"
+          >
+            <span className="text-xl font-bold">★</span>
+            <span className="text-xs font-bold uppercase tracking-wider">All-In</span>
+            <span className="text-[8px] font-mono opacity-35">A</span>
+          </button>
+        </div>
       </nav>
     </div>
   );

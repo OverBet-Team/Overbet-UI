@@ -587,7 +587,7 @@ export default function RoomClient({ slug, initialRoom }: RoomProps) {
     return (
       <div
         style={{
-          ...(floating ? { position: "absolute", top: 8, left: 8, zIndex: 24 } : {}),
+          ...(floating ? { position: "absolute", top: 8, left: 8, zIndex: 50 } : {}),
           width: floating ? 260 : "100%",
           maxWidth: floating ? 320 : "100%",
           fontFamily: "Outfit, sans-serif",
@@ -980,7 +980,7 @@ export default function RoomClient({ slug, initialRoom }: RoomProps) {
       className="flex flex-col w-full h-screen overflow-hidden font-body"
     >
       {/* OVERBET header */}
-      <header className="fixed top-0 left-0 w-full px-6 md:px-10 py-4 md:py-6 z-50 flex justify-between items-center bg-transparent">
+      <header className="fixed top-0 left-0 w-full px-6 md:px-10 py-4 md:py-6 z-[60] flex justify-between items-center bg-transparent">
         <div className="flex items-center gap-3 md:gap-10">
           <span className="font-headline font-bold text-sm md:text-base uppercase italic tracking-tighter text-[--on-surface] flex items-center gap-2">
             <div className="w-2 h-2 rounded-full bg-[--gold]" />
@@ -1050,7 +1050,7 @@ export default function RoomClient({ slug, initialRoom }: RoomProps) {
               top: isPortraitMobile ? 44 : 12,
               left: "50%",
               transform: "translateX(-50%)",
-              zIndex: 26,
+              zIndex: 50,
               padding: PADDING.standard,
               borderRadius: 10,
               background: "rgba(255,110,132,0.15)",
@@ -1097,7 +1097,7 @@ export default function RoomClient({ slug, initialRoom }: RoomProps) {
                       position: "fixed",
                       left: 20,
                       bottom: isPortraitMobile ? "calc(148px + env(safe-area-inset-bottom, 0px))" : 88,
-                      zIndex: 60,
+                      zIndex: 50,
                       display: "flex",
                       alignItems: "center",
                       gap: 7,
@@ -1142,7 +1142,7 @@ export default function RoomClient({ slug, initialRoom }: RoomProps) {
             top: 0,
             left: 0,
             right: 0,
-            zIndex: 12,
+            zIndex: 30,
             display: "flex",
             alignItems: "center",
             justifyContent: "space-between",
@@ -1192,7 +1192,7 @@ export default function RoomClient({ slug, initialRoom }: RoomProps) {
         {isPaused && (
           <div style={{
             position: "absolute", top: 10, left: "50%", transform: "translateX(-50%)",
-            zIndex: 23, padding: "6px 12px", borderRadius: 999,
+            zIndex: 50, padding: "6px 12px", borderRadius: 999,
             background: "rgba(251,146,60,0.14)", border: "1px solid rgba(251,146,60,0.5)",
             color: "#fdba74", fontSize: 11, fontWeight: 700, textTransform: "uppercase", letterSpacing: "0.06em",
           }}>
@@ -1208,13 +1208,12 @@ export default function RoomClient({ slug, initialRoom }: RoomProps) {
         {!gameState && (
           <div style={{
             position: "absolute",
-            bottom: isPortraitMobile ? undefined : 88,
-            top: isPortraitMobile ? 50 : undefined,
+            top: "50%",
             left: "50%",
-            transform: "translateX(-50%)",
+            transform: "translate(-50%, -50%)",
             display: "flex", alignItems: "center", gap: 12, padding: "14px 18px",
             borderRadius: 16, background: "rgba(228,215,253,0.06)",
-            border: "1px solid var(--primary)", zIndex: 20,
+            border: "1px solid var(--primary)", zIndex: 40,
           }}>
             <div style={{
               width: 8, height: 8, borderRadius: "50%", flexShrink: 0,
@@ -1255,12 +1254,11 @@ export default function RoomClient({ slug, initialRoom }: RoomProps) {
         {isBusted && !pendingRequests.some((r) => r.playerId === userId) && (
           <div data-testid="rebuy-cta" style={{
             position: "absolute",
-            bottom: isPortraitMobile ? undefined : 88,
-            top: isPortraitMobile ? 50 : undefined,
+            top: "50%",
             left: "50%",
-            transform: "translateX(-50%)",
+            transform: "translate(-50%, -50%)",
             display: "flex", alignItems: "center", justifyContent: "space-between",
-            padding: "14px 18px", borderRadius: 16, zIndex: 20,
+            padding: "14px 18px", borderRadius: 16, zIndex: 40,
             background: "rgba(255,109,139,0.06)", border: "1px solid var(--secondary)",
           }}>
             <div>
@@ -1287,13 +1285,12 @@ export default function RoomClient({ slug, initialRoom }: RoomProps) {
         {!isHost && !!myPendingRequest && (
           <div data-testid="pending-request-banner" style={{
             position: "absolute",
-            bottom: isPortraitMobile ? undefined : 88,
-            top: isPortraitMobile ? 50 : undefined,
+            top: "50%",
             left: "50%",
-            transform: "translateX(-50%)",
+            transform: "translate(-50%, -50%)",
             display: "flex", alignItems: "center", gap: 10, padding: "12px 16px",
             borderRadius: 12, background: "rgba(228,215,253,0.06)",
-            border: "1px solid rgba(228, 215, 253, 0.2)", zIndex: 20,
+            border: "1px solid rgba(228, 215, 253, 0.2)", zIndex: 40,
           }}>
             <div style={{
               width: 8, height: 8, borderRadius: "50%", background: "var(--primary)",
@@ -1313,7 +1310,7 @@ export default function RoomClient({ slug, initialRoom }: RoomProps) {
         <div style={{
           flexShrink: 0,
           position: "relative",
-          zIndex: 24,
+          zIndex: 40,
           display: "flex",
           flexDirection: "column",
           gap: 8,
@@ -1381,7 +1378,7 @@ export default function RoomClient({ slug, initialRoom }: RoomProps) {
           height: 72,
           flexShrink: 0,
           position: "relative",
-          zIndex: 24,
+          zIndex: 40,
           display: "flex",
           alignItems: "center",
           justifyContent: "space-between",
@@ -1443,7 +1440,7 @@ export default function RoomClient({ slug, initialRoom }: RoomProps) {
       {/* Game log overlay — toggle from bottom bar */}
       {showLogOverlay && (
         <div style={{
-          position: "fixed", inset: 0, zIndex: 40,
+          position: "fixed", inset: 0, zIndex: 70,
           background: "rgba(0,0,0,0.7)", backdropFilter: "blur(8px)",
           display: "flex",
           alignItems: isPortraitMobile ? "flex-end" : "center",
@@ -1470,7 +1467,7 @@ export default function RoomClient({ slug, initialRoom }: RoomProps) {
       {showHostOverlay && isPortraitMobile && (
         <div
           style={{
-            position: "fixed", inset: 0, zIndex: 42,
+            position: "fixed", inset: 0, zIndex: 70,
             background: "rgba(0,0,0,0.7)", backdropFilter: "blur(8px)",
             display: "flex", alignItems: "flex-end", justifyContent: "center", padding: 0,
           }}
@@ -1499,7 +1496,7 @@ export default function RoomClient({ slug, initialRoom }: RoomProps) {
       {/* Help overlay */}
       {showHelpOverlay && (
         <div style={{
-          position: "fixed", inset: 0, zIndex: 40,
+          position: "fixed", inset: 0, zIndex: 70,
           background: "rgba(0,0,0,0.7)", backdropFilter: "blur(8px)",
           display: "flex",
           alignItems: isPortraitMobile ? "flex-end" : "center",

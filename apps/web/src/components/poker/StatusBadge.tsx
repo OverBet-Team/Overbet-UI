@@ -10,25 +10,25 @@ interface StatusBadgeProps {
 
 /**
  * StatusBadge displays player status above their avatar with spring animation
- * Per-status colors: called=yellow, folded=muted, checked=tertiary, raised=secondary, active=primary
+ * Per-status colors: called=gold, folded=muted, checked=tertiary, raised=secondary, active=tertiary
  */
 const StatusBadge: FC<StatusBadgeProps> = ({ status, isActive = false }) => {
   const normalizedStatus = status.toLowerCase();
   
   // Determine colors based on status
   const statusColors = {
-    called: "bg-yellow-400/20 text-yellow-400 border-yellow-400/40",
-    folded: "bg-white/5 text-[--on-surface-variant]/40 border-white/10",
-    checked: "bg-[--tertiary]/20 text-[--tertiary] border-[--tertiary]/40",
+    called: "bg-[--gold]/20 text-[--gold] border-[--gold]/40",
+    folded: "bg-white/5 text-[--text-muted] border-white/10",
+    checked: "bg-[--tertiary]/15 text-[--tertiary] border-[--tertiary]/30",
     raised: "bg-[--secondary]/20 text-[--secondary] border-[--secondary]/40",
-    active: "bg-[--primary]/20 text-[--primary] border-[--primary]/40",
-    thinking: "bg-[--primary]/20 text-[--primary] border-[--primary]/40",
+    active: "bg-[--tertiary]/15 text-[--tertiary] border-[--tertiary]/30",
+    thinking: "bg-[--tertiary]/15 text-[--tertiary] border-[--tertiary]/30",
   };
 
   const colorClass = statusColors[normalizedStatus as keyof typeof statusColors] 
     || (isActive 
       ? "bg-[--tertiary]/10 text-[--tertiary] border-[--tertiary]/20"
-      : "bg-white/5 text-[--on-surface-variant]/40 border-white/5"
+      : "bg-white/5 text-[--text-muted] border-white/5"
     );
 
   return (

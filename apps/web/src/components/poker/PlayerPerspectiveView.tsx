@@ -62,6 +62,7 @@ const OpponentSeat = React.memo(function OpponentSeat({
   isBB,
   isActive,
   delay,
+  turnTimer,
 }: {
   player: OpponentForView;
   isWinner?: boolean;
@@ -70,6 +71,7 @@ const OpponentSeat = React.memo(function OpponentSeat({
   isBB?: boolean;
   isActive?: boolean;
   delay?: number;
+  turnTimer?: TurnTimer | null;
 }) {
   const isFolded = player.status === "FOLDED" || player.status === "folded";
   const cards = Array.isArray(player.cards) ? player.cards : [];
@@ -89,6 +91,12 @@ const OpponentSeat = React.memo(function OpponentSeat({
     ? "THINKING"
     : "";
 
+  // Timer: show ring when this opponent is the active player with a running timer
+  const isTimerActive = isActive && turnTimer && turnTimer.playerId === player.id;
+
+  // Desktop avatar size: 64px base
+  const avatarSize = 64;
+
   return (
     <motion.div
       className="flex flex-col items-center gap-1"
@@ -103,24 +111,28 @@ const OpponentSeat = React.memo(function OpponentSeat({
         ) : null}
       </div>
 
-      {/* Avatar with ring - responsive sizing */}
+      {/* Avatar with ring */}
       <div className="relative">
         {/* Hand Strength Ring (optional) */}
         {player.handStrength !== undefined && !isFolded && (
-          <HandStrengthRing strength={player.handStrength} size={80} />
+          <HandStrengthRing strength={player.handStrength} size={avatarSize + 16} />
         )}
         
-        <div className="w-12 h-12 md:w-20 md:h-20">
-          <AvatarRing
-            name={player.username}
-            size={48}
-            status={avatarStatus}
-            isDealer={player.isDealer}
-            handStrength={player.handStrength}
-          >
-            <AvatarPlaceholder name={player.username} size={48} />
-          </AvatarRing>
-        </div>
+        {/* Timer SVG ring for active opponent */}
+        {isTimerActive && turnTimer && (
+          <OpponentTimerRing timer={turnTimer} playerId={player.id} size={avatarSize + 12} />
+        )}
+
+        <AvatarRing
+          name={player.username}
+          size={avatarSize}
+          status={avatarStatus}
+          isDealer={player.isDealer}
+          handStrength={player.handStrength}
+          seatIndex={player.seatIndex}
+        >
+          <AvatarPlaceholder name={player.username} size={avatarSize - 8} />
+        </AvatarRing>
 
         {/* SB/BB chips */}
         {isSB ? (
@@ -175,6 +187,86 @@ const OpponentSeat = React.memo(function OpponentSeat({
 });
 
 // ═══════════════════════════════════════════════════════════════════════════
+// OpponentTimerRing — SVG ring timer for opponent seats
+// ═══════════════════════════════════════════════════════════════════════════
+
+const OpponentTimerRing = React.memo(function OpponentTimerRing({
+  timer,
+  playerId,
+  size,
+}: {
+  timer: TurnTimer;
+  playerId: string;
+  size: number;
+}) {
+  const circumference = 2 * Math.PI * (size / 2 - 3);
+  const [timeLeft, setTimeLeft] = React.useState<number>(0);
+  const [displayTotal, setDisplayTotal] = React.useState<number>(1);
+  const [timerPhase, setTimerPhase] = React.useState<"base" | "timebank">("base");
+
+  React.useEffect(() => {
+    if (timer.playerId !== playerId) {
+      setTimeLeft(0);
+      return;
+    }
+    setDisplayTotal(timer.total);
+    setTimerPhase(timer.phase);
+    const interval = setInterval(() => {
+      const remaining = Math.max(0, timer.expiresAt - Date.now());
+      setTimeLeft(remaining);
+      if (remaining === 0) clearInterval(interval);
+    }, 50);
+    return () => clearInterval(interval);
+  }, [timer, playerId]);
+
+  const progress = displayTotal > 0 ? timeLeft / displayTotal : 0;
+  const strokeOffset = circumference * (1 - progress);
+  const timerColor =
+    timerPhase === "timebank"
+      ? progress < 0.2 ? "var(--danger)" : "var(--ring-orange)"
+      : progress < 0.2 ? "var(--danger)" : "var(--tertiary)";
+
+  return (
+    <div
+      className="absolute pointer-events-none"
+      style={{
+        top: -(size - 64) / 2,
+        left: -(size - 64) / 2,
+        width: size,
+        height: size,
+      }}
+    >
+      <svg
+        className="-rotate-90"
+        style={{ width: size, height: size }}
+        viewBox={`0 0 ${size} ${size}`}
+      >
+        <circle
+          cx={size / 2}
+          cy={size / 2}
+          r={size / 2 - 3}
+          fill="none"
+          stroke="rgba(255,255,255,0.06)"
+          strokeWidth="2.5"
+        />
+        <circle
+          cx={size / 2}
+          cy={size / 2}
+          r={size / 2 - 3}
+          fill="none"
+          stroke={timerColor}
+          strokeWidth="2.5"
+          strokeDasharray={circumference}
+          strokeDashoffset={strokeOffset}
+          strokeLinecap="round"
+          style={{ transition: "stroke 0.2s ease" }}
+        />
+      </svg>
+    </div>
+  );
+});
+
+// ═══════════════════════════════════════════════════════════════════════════
 // HeroTimer — SVG ring for hero turn timer
 // ═══════════════════════════════════════════════════════════════════════════
 
@@ -212,11 +304,11 @@ const HeroTimer = React.memo(function HeroTimer({ timer, playerId }: HeroTimerPr
   const timerColor =
     timerPhase === "timebank"
       ? progress < 0.2
-        ? "#ef4444"
-        : "#f97316"
+        ? "var(--danger)"
+        : "var(--ring-orange)"
       : progress < 0.2
-      ? "#ef4444"
-      : "#22c55e";
+      ? "var(--danger)"
+      : "var(--tertiary)";
 
   return (
     <>
@@ -253,7 +345,7 @@ const HeroTimer = React.memo(function HeroTimer({ timer, playerId }: HeroTimerPr
         className="absolute z-20 text-sm font-bold tabular-nums"
         style={{
           color:
-            timerPhase === "timebank" ? "rgba(249,115,22,0.9)" : "rgba(34,197,94,0.9)",
+            timerPhase === "timebank" ? "var(--ring-orange)" : "var(--tertiary)",
         }}
         aria-live="polite"
         aria-label={`${timeLeftSecs} seconds remaining`}
@@ -338,7 +430,7 @@ export const PlayerPerspectiveView = React.memo(function PlayerPerspectiveView({
       {/* Opponents: elliptical arc on desktop, flexbox row on mobile */}
       {compactMode ? (
         // Mobile: horizontal row
-        <section className="flex justify-around items-start px-4 pt-4 z-10">
+        <section className="flex justify-around items-start px-4 pt-4 z-20">
           {opponents.map((opp, i) => (
             <div key={opp.id} style={{ transform: `scale(${playerScale})` }}>
               <OpponentSeat
@@ -349,13 +441,14 @@ export const PlayerPerspectiveView = React.memo(function PlayerPerspectiveView({
                 isBB={opp.isBB}
                 isActive={activePlayerId === opp.id}
                 delay={i * 0.06}
+                turnTimer={turnTimer}
               />
             </div>
           ))}
         </section>
       ) : (
         // Desktop: elliptical arc positioning
-        <section className="absolute inset-0 z-10 pointer-events-none">
+        <section className="absolute inset-0 z-20 pointer-events-none">
           {opponents.map((opp, i) => {
             const pos = getPlayerPosition(i, opponents.length);
             return (
@@ -377,6 +470,7 @@ export const PlayerPerspectiveView = React.memo(function PlayerPerspectiveView({
                   isBB={opp.isBB}
                   isActive={activePlayerId === opp.id}
                   delay={i * 0.06}
+                  turnTimer={turnTimer}
                 />
               </div>
             );
@@ -385,7 +479,7 @@ export const PlayerPerspectiveView = React.memo(function PlayerPerspectiveView({
       )}
 
       {/* Center: pot + community cards */}
-      <section className="flex-1 flex flex-col items-center justify-center gap-6 md:gap-8 z-20">
+      <section className="flex-1 flex flex-col items-center justify-center gap-6 md:gap-8 z-[25]">
         {/* Pot display */}
         <div className="flex flex-col items-center gap-2">
           <PotDisplay amount={totalPot} compact={compactMode} />
@@ -417,11 +511,11 @@ export const PlayerPerspectiveView = React.memo(function PlayerPerspectiveView({
               {card ? (
                 <PlayingCard 
                   card={card} 
-                  size={compactMode ? "sm" : "md"}
+                  size={compactMode ? "sm" : "lg"}
                   dealDelay={i * 100} 
                 />
               ) : (
-                <div className="card-placeholder w-14 h-20 md:w-24 md:h-36" />
+                <div className="card-placeholder w-14 h-20 md:w-[96px] md:h-[132px]" />
               )}
             </div>
           ))}
@@ -429,7 +523,7 @@ export const PlayerPerspectiveView = React.memo(function PlayerPerspectiveView({
       </section>
 
       {/* Hero hand: floating above action bar */}
-      <div className="absolute bottom-24 left-1/2 -translate-x-1/2 z-30">
+      <div className="absolute bottom-28 left-1/2 -translate-x-1/2 z-30 pointer-events-none">
         {turnTimer && turnTimer.playerId === hero.id ? (
           <HeroTimer timer={turnTimer} playerId={hero.id} />
         ) : null}
@@ -440,7 +534,7 @@ export const PlayerPerspectiveView = React.memo(function PlayerPerspectiveView({
       </div>
 
       {/* Hero info below cards */}
-      <div className="absolute bottom-6 left-1/2 -translate-x-1/2 z-30 flex flex-col items-center gap-1">
+      <div className="absolute bottom-8 left-1/2 -translate-x-1/2 z-30 flex flex-col items-center gap-1">
         <span className="text-[--text-primary] font-semibold font-body text-xs md:text-sm">
           {hero.username}
         </span>
@@ -457,7 +551,7 @@ export const PlayerPerspectiveView = React.memo(function PlayerPerspectiveView({
 
       {/* Hand Analysis Widget (top-right, desktop only) */}
       {!compactMode && (hero.handStrength !== undefined || hero.handType !== undefined) && (
-        <div className="absolute top-24 right-8 z-30">
+        <div className="absolute top-24 right-8 z-[25]">
           <HandAnalysisWidget
             handType={hero.handType}
             handStrength={hero.handStrength}

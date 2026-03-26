@@ -37,7 +37,7 @@ interface SeatProps {
   centerOffset?: { x: number; y: number };
 }
 
-const CIRCUMFERENCE = 2 * Math.PI * 34; // r=34
+const CIRCUMFERENCE = 2 * Math.PI * 42; // r=42 (matches 92px SVG ring for w-20 h-20 avatar)
 
 // ═══════════════════════════════════════════════════════════════════════════
 // SeatTimer — Extracted to isolate 50ms re-renders (Vercel rule: use-ref-transient-values)
@@ -88,24 +88,24 @@ const SeatTimer = React.memo(function SeatTimer({ timer, playerId }: SeatTimerPr
   return (
     <>
       {/* SVG wrapper div for GPU acceleration (Vercel rule: animate-svg-wrapper) */}
-      <div className="absolute -top-[6px] -left-[6px] w-[76px] h-[76px] pointer-events-none">
+      <div className="absolute -top-[6px] -left-[6px] w-[92px] h-[92px] pointer-events-none">
         <svg
           className="-rotate-90"
-          style={{ width: 76, height: 76 }}
-          viewBox="0 0 76 76"
+          style={{ width: 92, height: 92 }}
+          viewBox="0 0 92 92"
         >
           <circle
-            cx="38"
-            cy="38"
-            r="34"
+            cx="46"
+            cy="46"
+            r="42"
             fill="none"
             stroke="rgba(255,255,255,0.08)"
             strokeWidth="3"
           />
           <circle
-            cx="38"
-            cy="38"
-            r="34"
+            cx="46"
+            cy="46"
+            r="42"
             fill="none"
             stroke={timerColor}
             strokeWidth="3"
@@ -193,7 +193,7 @@ export const Seat = React.memo(function Seat({
   timer,
   centerOffset = { x: 0, y: 0 },
 }: SeatProps) {
-  const emptySeatSize = 'clamp(44px, 5.5vw, 56px)';
+  const emptySeatSize = 'clamp(48px, 6vw, 64px)';
 
   // ── Empty seat ──────────────────────────────────────────────────────────
   if (!player) {
@@ -201,7 +201,7 @@ export const Seat = React.memo(function Seat({
       <button
         data-testid={`seat-empty-${seatIndex}`}
         onClick={() => onSeatClick(seatIndex)}
-        className="flex flex-col items-center justify-center min-w-[44px] min-h-[44px] rounded-full border-2 border-dashed border-[--outline-variant]/20 bg-black/25 cursor-pointer transition-all duration-200 text-white/20 font-bold hover:border-[--tertiary] hover:bg-[--tertiary]/10 hover:text-[--tertiary] focus-visible:ring-2 focus-visible:ring-[--ring-active] focus-visible:ring-offset-2"
+        className="flex flex-col items-center justify-center min-w-[48px] min-h-[48px] rounded-full border-2 border-dashed border-[--outline-variant]/25 bg-[--surface-container]/40 cursor-pointer transition-all duration-300 text-white/15 font-bold hover:border-[--tertiary]/60 hover:bg-[--tertiary]/10 hover:text-[--tertiary] hover:shadow-[0_0_20px_rgba(129,236,255,0.15)] focus-visible:ring-2 focus-visible:ring-[--ring-active] focus-visible:ring-offset-2"
         style={{
           width: emptySeatSize,
           height: emptySeatSize,
@@ -248,10 +248,10 @@ export const Seat = React.memo(function Seat({
       </AnimatePresence>
 
       {/* Avatar circle with timer components */}
-      <div className="relative w-16 h-16">
+      <div className="relative w-20 h-20">
         {/* Active glow ring */}
         {isActive && (
-          <div className="absolute -inset-1 rounded-full border-2 border-[--accent]/60 shadow-[0_0_16px_rgba(59,130,246,0.35)] animate-pulse" />
+          <div className="absolute -inset-1 rounded-full border-2 border-[--accent]/60 shadow-[0_0_16px_rgba(129,236,255,0.3)] animate-pulse" />
         )}
 
         {/* Timer ring and countdown (extracted to SeatTimer) */}
@@ -259,20 +259,20 @@ export const Seat = React.memo(function Seat({
 
         {/* Avatar body */}
         <div
-          className="w-16 h-16 rounded-full border-3 flex items-center justify-center text-[22px] font-extrabold font-display shadow-lg transition-all duration-[250ms] relative"
+          className="w-20 h-20 rounded-full border-3 flex items-center justify-center text-[26px] font-extrabold font-display shadow-lg transition-all duration-[250ms] relative"
           style={{
             background: isActive
-              ? 'linear-gradient(135deg, #1e1b4b, #312e81)'
-              : 'linear-gradient(135deg, #1f2937, #111827)',
+              ? 'linear-gradient(135deg, var(--surface-container-high), var(--surface-container))'
+              : 'linear-gradient(135deg, var(--surface-container-high), var(--bg-surface))',
             borderColor: isActive
-              ? 'rgba(59,130,246,0.7)'
+              ? 'var(--accent)'
               : isPending
-                ? 'rgba(99,102,241,0.4)'
+                ? 'var(--primary-container)'
                 : isFolded
-                  ? 'rgba(239,68,68,0.3)'
+                  ? 'var(--danger)'
                   : 'rgba(255,255,255,0.1)',
-            color: isActive ? '#c4b5fd' : 'rgba(255,255,255,0.7)',
-            boxShadow: isActive ? '0 4px 20px rgba(59,130,246,0.4)' : '0 4px 12px rgba(0,0,0,0.5)',
+            color: isActive ? 'var(--primary)' : 'var(--on-surface-variant)',
+            boxShadow: isActive ? '0 4px 20px rgba(129,236,255,0.3)' : '0 4px 12px rgba(0,0,0,0.5)',
           }}
         >
           {player.username?.[0]?.toUpperCase()}
@@ -290,7 +290,7 @@ export const Seat = React.memo(function Seat({
 
           {/* Pending indicator */}
           {isPending && (
-            <div className="absolute -right-1 -bottom-1 w-[22px] h-[22px] rounded-full bg-indigo-500/90 text-white text-[8px] font-bold flex items-center justify-center border-2 border-white/20 shadow-md z-10">
+            <div className="absolute -right-1 -bottom-1 w-[22px] h-[22px] rounded-full bg-[--primary]/90 text-white text-[8px] font-bold flex items-center justify-center border-2 border-white/20 shadow-md z-10">
               ···
             </div>
           )}
@@ -336,19 +336,19 @@ export const Seat = React.memo(function Seat({
           className="px-2.5 py-[3px] rounded-full backdrop-blur-md text-[10px] font-bold uppercase tracking-wider font-body whitespace-nowrap max-w-[100px] overflow-hidden text-ellipsis"
           style={{
             border: isActive
-              ? '1px solid rgba(59,130,246,0.6)'
+              ? '1px solid var(--accent)'
               : isPending
-                ? '1px solid rgba(99,102,241,0.35)'
+                ? '1px solid var(--primary-container)'
                 : isFolded
-                  ? '1px solid rgba(239,68,68,0.25)'
+                  ? '1px solid var(--danger)'
                   : '1px solid rgba(255,255,255,0.1)',
             background: isActive
-              ? 'rgba(59,130,246,0.25)'
+              ? 'rgba(129,236,255,0.15)'
               : isPending
-                ? 'rgba(99,102,241,0.12)'
+                ? 'rgba(228,215,253,0.12)'
                 : 'rgba(0,0,0,0.6)',
-            color: isActive ? '#c4b5fd' : isPending ? '#a5b4fc' : 'rgba(255,255,255,0.8)',
-            boxShadow: isActive ? '0 2px 12px rgba(59,130,246,0.3)' : undefined,
+            color: isActive ? 'var(--accent)' : isPending ? 'var(--primary)' : 'rgba(255,255,255,0.8)',
+            boxShadow: isActive ? '0 2px 12px rgba(129,236,255,0.2)' : undefined,
           }}
         >
           {player.username}
@@ -358,11 +358,11 @@ export const Seat = React.memo(function Seat({
         </div>
 
         {/* Chip count */}
-        <div className="px-2 py-0.5 rounded-md border border-indigo-500/20 bg-indigo-500/[0.08] text-[10px] font-bold font-mono text-indigo-300">
+        <div className="px-2 py-0.5 rounded-md border border-[--tertiary]/20 bg-[--tertiary]/[0.08] text-[10px] font-bold font-mono text-[--tertiary]">
           <ChipAmount
             amount={player.chips}
             iconSize={10}
-            iconColor="#a5b4fc"
+            iconColor="var(--tertiary)"
             amountStyle={{ color: 'inherit', fontFamily: 'monospace' }}
           />
         </div>

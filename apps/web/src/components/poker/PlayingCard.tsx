@@ -76,7 +76,7 @@ export default function PlayingCard({
   if (dashed) {
     return (
       <div
-        className={cn('card-placeholder inline-flex items-center justify-center', className)}
+        className={cn('card-placeholder inline-flex items-center justify-center opacity-60', className)}
         style={baseStyle}
       >
         <svg width={s.w * 0.35} height={s.w * 0.35} viewBox="0 0 24 24" fill="none">
@@ -139,12 +139,19 @@ export default function PlayingCard({
       whileTap={{ scale: 0.95 }}
       transition={{ duration: 0.32, ease: [0.34, 1.56, 0.64, 1] }}
       className={cn(
-        'poker-card-premium relative inline-flex overflow-hidden cursor-pointer',
+        'poker-card-premium relative inline-flex overflow-hidden cursor-pointer border border-white/20 shadow-xl',
         isRed ? 'suit-red' : 'suit-black',
         winning && 'winning-card-glow',
         className
       )}
-      style={baseStyle}
+      style={{
+        ...baseStyle,
+        ...(winning ? {
+          boxShadow: '0 0 12px rgba(245,158,11,0.5), 0 0 4px rgba(245,158,11,0.3)',
+          borderColor: 'var(--gold)',
+          borderWidth: 2,
+        } : {}),
+      }}
     >
       {/* Top-left corner */}
       <div
