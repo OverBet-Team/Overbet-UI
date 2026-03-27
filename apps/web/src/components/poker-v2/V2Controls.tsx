@@ -13,6 +13,7 @@ import React, { useState, useEffect, useCallback } from "react";
 import { motion, AnimatePresence } from "framer-motion";
 import { Check, X, ArrowUpRight, Zap } from "lucide-react";
 import type { TurnTimer } from "@/components/poker/Seat";
+import "./v2-tokens.css";
 
 export type PlayerActionType = "FOLD" | "CALL" | "CHECK" | "RAISE" | "ALL_IN";
 
@@ -233,7 +234,6 @@ export const V2Controls = React.memo(function V2Controls({
           <button
             data-testid="v2-action-raise"
             aria-label="Raise bet"
-            aria-disabled={!canRaise ? "true" : undefined}
             onClick={() => setShowRaise((v) => !v)}
             disabled={!canRaise}
             className={cn(

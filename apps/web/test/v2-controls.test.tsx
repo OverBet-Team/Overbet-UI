@@ -144,10 +144,10 @@ describe("V2Controls — accessibility", () => {
     expect(btn.getAttribute("aria-label")).toBeTruthy();
   });
 
-  it("raise button has aria-disabled when stack < minRaise", () => {
+  it("raise button is natively disabled when stack < minRaise", () => {
     render(<V2Controls {...defaultProps} minRaise={2000} stack={100} />);
     const btn = screen.getByTestId("v2-action-raise");
-    expect(btn.getAttribute("aria-disabled")).toBe("true");
+    expect((btn as HTMLButtonElement).disabled).toBe(true);
   });
 
   it("all-in button has aria-label", () => {
