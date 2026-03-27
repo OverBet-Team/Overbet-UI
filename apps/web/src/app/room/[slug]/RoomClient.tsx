@@ -1059,7 +1059,7 @@ export default function RoomClient({ slug, initialRoom }: RoomProps) {
           // ── v2 path ───────────────────────────────────────────────────────
           if (uiVersion === "v2") {
             return (
-              <div style={{ flex: 1, minHeight: 0, display: "flex", width: "100%", position: "relative" }}>
+              <div style={{ flex: 1, minHeight: 0, height: "100%", width: "100%", position: "relative" }}>
                 <V2GameContainer
                   viewState={viewState}
                   winnerId={winner?.winnerId}
@@ -1346,8 +1346,8 @@ export default function RoomClient({ slug, initialRoom }: RoomProps) {
         )}
       </div>
 
-      {/* ── Moon-style bottom tray ──────────────────────────────────────────── */}
-      {isPortraitMobile ? (
+      {/* ── Moon-style bottom tray — hidden in v2 (V2Controls is fixed-bottom) ── */}
+      {uiVersion !== "v2" && (isPortraitMobile ? (
         <div style={{
           flexShrink: 0,
           position: "relative",
@@ -1398,25 +1398,22 @@ export default function RoomClient({ slug, initialRoom }: RoomProps) {
               {turnTimer && turnTimer.playerId === userId && <TurnTimerPill timer={turnTimer} />}
             </div>
           </div>
-          {/* V2Controls is fixed-position inside V2GameContainer — skip ActionBar in v2 */}
-          {uiVersion !== "v2" && (
-            <div style={{ width: "100%", display: "flex", justifyContent: "center" }}>
-              {gameState && gameState.phase !== "LOBBY" && gameState.phase !== "CLEANUP" ? (
-                <ActionBar
-                  isActive={isActivePlayer}
-                  stack={myPlayerInfo?.stack || 0}
-                  currentBet={gameState?.currentBet || 0}
-                  playerBet={playerBet}
-                  minRaise={gameState?.minRaise || 0}
-                  pot={totalPot}
-                  compact
-                  onAction={handleAction}
-                />
-              ) : (
-                <span style={{ color: "rgba(255,255,255,0.35)", fontSize: 12, fontWeight: 500 }}>Waiting for hand…</span>
-              )}
-            </div>
-          )}
+          <div style={{ width: "100%", display: "flex", justifyContent: "center" }}>
+            {gameState && gameState.phase !== "LOBBY" && gameState.phase !== "CLEANUP" ? (
+              <ActionBar
+                isActive={isActivePlayer}
+                stack={myPlayerInfo?.stack || 0}
+                currentBet={gameState?.currentBet || 0}
+                playerBet={playerBet}
+                minRaise={gameState?.minRaise || 0}
+                pot={totalPot}
+                compact
+                onAction={handleAction}
+              />
+            ) : (
+              <span style={{ color: "rgba(255,255,255,0.35)", fontSize: 12, fontWeight: 500 }}>Waiting for hand…</span>
+            )}
+          </div>
         </div>
       ) : (
         <div style={{
@@ -1461,9 +1458,8 @@ export default function RoomClient({ slug, initialRoom }: RoomProps) {
             </button>
           </div>
 
-          {/* V2Controls is fixed-position inside V2GameContainer — skip ActionBar in v2 */}
           <div style={{ flex: 1, display: "flex", justifyContent: "center", alignItems: "center", minWidth: 0, maxWidth: 480 }}>
-            {uiVersion !== "v2" && gameState && gameState.phase !== "LOBBY" && gameState.phase !== "CLEANUP" ? (
+            {gameState && gameState.phase !== "LOBBY" && gameState.phase !== "CLEANUP" ? (
               <ActionBar
                 isActive={isActivePlayer}
                 stack={myPlayerInfo?.stack || 0}
@@ -1530,7 +1526,7 @@ export default function RoomClient({ slug, initialRoom }: RoomProps) {
             )}
           </div>
         </div>
-      )}
+      ))}
 
       {/* Game log overlay — toggle from bottom bar */}
       {showLogOverlay && (

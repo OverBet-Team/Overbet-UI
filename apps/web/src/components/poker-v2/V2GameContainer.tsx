@@ -95,7 +95,7 @@ export function V2GameContainer({
 
   // v1 fallback rendered inside the error boundary
   const v1Fallback = (
-    <div style={{ flex: 1, minHeight: 0, display: "flex", flexDirection: "column", width: "100%", position: "relative" }}>
+    <div style={{ flex: 1, minHeight: 0, height: "100%", width: "100%", position: "relative" }}>
       <PlayerPerspectiveView
         viewState={viewState}
         winnerId={winnerId}
@@ -117,7 +117,7 @@ export function V2GameContainer({
 
   return (
     <V2ErrorBoundary fallback={v1Fallback}>
-      <div style={{ flex: 1, minHeight: 0, display: "flex", flexDirection: "column", width: "100%", position: "relative" }}>
+      <div style={{ flex: 1, minHeight: 0, height: "100%", width: "100%", position: "relative" }}>
         <V2TableView {...tableProps} />
         <V2Controls
           isActive={isActive}

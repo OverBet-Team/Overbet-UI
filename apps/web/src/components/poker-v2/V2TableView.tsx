@@ -82,7 +82,7 @@ export const V2TableView = React.memo(function V2TableView({
   const phaseLabel = phase ? (PHASE_NAMES[phase] ?? phase) : null;
 
   return (
-    <div className="v2-root relative w-full h-full overflow-hidden select-none">
+    <div className="v2-root absolute inset-0 overflow-hidden select-none">
       {/* Atmospheric grain */}
       <div className="v2-grain-overlay" aria-hidden />
 
