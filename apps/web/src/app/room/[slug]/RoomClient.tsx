@@ -962,7 +962,7 @@ export default function RoomClient({ slug, initialRoom }: RoomProps) {
         </div>
 
         {/* Settings modal */}
-        {showSettingsModal && settingsDraft && <SettingsModal />}
+        {showSettingsModal && settingsDraft && settingsModal}
 
         {/* Seat-selection table preview */}
         <div className="mt-10 w-full flex justify-center">
@@ -1254,7 +1254,7 @@ export default function RoomClient({ slug, initialRoom }: RoomProps) {
         )}
 
         {/* Modals */}
-        {showSettingsModal && settingsDraft && <SettingsModal />}
+        {showSettingsModal && settingsDraft && settingsModal}
         {showFairnessModal && fairnessModal}
 
         {/* Pre-hand waiting banner — floating above bottom bar */}
