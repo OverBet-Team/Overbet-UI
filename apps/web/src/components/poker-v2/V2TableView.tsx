@@ -80,6 +80,9 @@ export const V2TableView = React.memo(function V2TableView({
 }: V2TableViewProps) {
   const opponentScale = getOpponentScale(opponents.length);
   const phaseLabel = phase ? (PHASE_NAMES[phase] ?? phase) : null;
+  const winnerPlayer = winnerId
+    ? ([...opponents, hero].find((p) => p.id === winnerId) ?? null)
+    : null;
 
   return (
     <div className="v2-root absolute inset-0 overflow-hidden select-none">
@@ -177,6 +180,43 @@ export const V2TableView = React.memo(function V2TableView({
           ))}
         </div>
       </div>
+
+      {/* ── Winner announcement overlay ──────────────────────────────────── */}
+      <AnimatePresence>
+        {winnerPlayer && (
+          <motion.div
+            data-testid="v2-winner-overlay"
+            key={`winner-${winnerId}`}
+            initial={{ opacity: 0, scale: 0.85, y: -20 }}
+            animate={{ opacity: 1, scale: 1, y: 0 }}
+            exit={{ opacity: 0, scale: 0.9, y: -10 }}
+            transition={{ type: "spring", stiffness: 200, damping: 18 }}
+            className="absolute top-8 left-1/2 -translate-x-1/2 z-50 pointer-events-none"
+          >
+            <div
+              className="px-6 py-3 rounded-2xl border"
+              style={{
+                background: "rgba(0,227,253,0.08)",
+                borderColor: "rgba(0,227,253,0.35)",
+                backdropFilter: "blur(12px)",
+              }}
+            >
+              <p
+                className="text-[0.6rem] font-bold uppercase tracking-[0.3em] mb-1 text-center opacity-60"
+                style={{ fontFamily: "var(--v2-font-headline)", color: "var(--v2-tertiary)" }}
+              >
+                Winner
+              </p>
+              <p
+                className="font-bold text-xl tracking-tight text-center"
+                style={{ fontFamily: "var(--v2-font-headline)", color: "var(--v2-on-surface)" }}
+              >
+                {winnerPlayer.username}
+              </p>
+            </div>
+          </motion.div>
+        )}
+      </AnimatePresence>
 
       {/* ── Hero zone ─────────────────────────────────────────────────────── */}
       <div className="absolute bottom-[180px] left-1/2 -translate-x-1/2 z-30 flex flex-col items-center gap-4">

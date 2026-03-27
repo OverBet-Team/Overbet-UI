@@ -106,4 +106,20 @@ describe("V2TableView", () => {
     // Just verify it renders without error
     expect(container.querySelector("[data-testid='v2-board-cards']")).toBeTruthy();
   });
+
+  it("renders winner overlay when winnerId is set", () => {
+    render(<V2TableView {...baseProps} winnerId="p2" />);
+    expect(screen.getByTestId("v2-winner-overlay")).toBeTruthy();
+  });
+
+  it("does not render winner overlay when winnerId is absent", () => {
+    render(<V2TableView {...baseProps} />);
+    expect(screen.queryByTestId("v2-winner-overlay")).toBeNull();
+  });
+
+  it("winner overlay shows the winner username", () => {
+    render(<V2TableView {...baseProps} winnerId="p2" />);
+    const overlay = screen.getByTestId("v2-winner-overlay");
+    expect(overlay.textContent).toContain("Bob");
+  });
 });

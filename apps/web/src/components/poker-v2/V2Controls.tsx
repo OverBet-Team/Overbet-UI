@@ -71,6 +71,7 @@ export const V2Controls = React.memo(function V2Controls({
   pot,
   onAction,
   turnTimer,
+  compact = false,
 }: V2ControlsProps) {
   const callAmount = Math.max(0, currentBet - playerBet);
   const isCheck = callAmount === 0;
@@ -127,9 +128,12 @@ export const V2Controls = React.memo(function V2Controls({
     return (
       <div
         data-testid="v2-controls-inactive"
-        className="fixed bottom-0 left-0 w-full px-10 pb-8 z-40 pointer-events-none"
+        className={cn(
+          "v2-root fixed bottom-0 left-0 w-full z-40 pointer-events-none",
+          compact ? "px-4 pb-4" : "px-10 pb-8"
+        )}
       >
-        <div className="w-full h-[80px] v2-glass-panel rounded-[32px] px-8 flex items-center justify-center opacity-30">
+        <div className={cn("w-full v2-glass-panel rounded-[32px] px-8 flex items-center justify-center opacity-30", compact ? "h-[60px]" : "h-[80px]")}>
           <p
             className="text-[0.6rem] font-bold uppercase tracking-[0.2em]"
             style={{ fontFamily: "var(--v2-font-headline)", color: "var(--v2-on-surface-variant)" }}
@@ -142,8 +146,8 @@ export const V2Controls = React.memo(function V2Controls({
   }
 
   return (
-    <div className="fixed bottom-0 left-0 w-full px-10 pb-8 z-40">
-      <div className="w-full v2-glass-panel rounded-[32px] px-8 py-4 flex items-center justify-between gap-6">
+    <div className={cn("v2-root fixed bottom-0 left-0 w-full z-40", compact ? "px-4 pb-4" : "px-10 pb-8")}>
+      <div className={cn("w-full v2-glass-panel rounded-[32px] flex items-center justify-between gap-6", compact ? "px-4 py-2" : "px-8 py-4")}>
 
         {/* Left: Stack + timer ring */}
         <div className="flex items-center gap-6">
@@ -196,6 +200,7 @@ export const V2Controls = React.memo(function V2Controls({
           {/* Fold */}
           <button
             data-testid="v2-action-fold"
+            aria-label="Fold hand"
             onClick={() => onAction("FOLD")}
             className="flex flex-col items-center gap-1 group px-3 py-2 rounded-xl hover:bg-white/5 transition-all"
           >
@@ -211,6 +216,7 @@ export const V2Controls = React.memo(function V2Controls({
           {/* Check / Call */}
           <button
             data-testid="v2-action-check-call"
+            aria-label={isCheck ? "Check" : `Call ${callAmount}`}
             onClick={() => onAction(isCheck ? "CHECK" : "CALL")}
             className="h-12 px-6 bg-white/[0.03] border border-white/5 rounded-xl flex items-center gap-2 hover:bg-white/[0.06] transition-all"
           >
@@ -226,6 +232,8 @@ export const V2Controls = React.memo(function V2Controls({
           {/* Raise toggle — hidden when stack < minRaise (short stack) */}
           <button
             data-testid="v2-action-raise"
+            aria-label="Raise bet"
+            aria-disabled={!canRaise ? "true" : undefined}
             onClick={() => setShowRaise((v) => !v)}
             disabled={!canRaise}
             className={cn(
@@ -248,6 +256,7 @@ export const V2Controls = React.memo(function V2Controls({
           {/* All-in */}
           <button
             data-testid="v2-action-all-in"
+            aria-label="Go all-in"
             onClick={() => onAction("ALL_IN")}
             className="h-12 px-5 bg-[--v2-secondary]/10 border border-[--v2-secondary]/20 rounded-xl flex items-center gap-2 hover:bg-[--v2-secondary]/20 transition-all"
           >

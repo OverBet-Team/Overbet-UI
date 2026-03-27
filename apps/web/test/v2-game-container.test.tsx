@@ -69,9 +69,9 @@ describe("V2GameContainer", () => {
   });
 
   it("passes winnerId down to table view", () => {
-    // When a winnerId is set, the winner's username should still render
+    // When a winnerId is set, the winner's username appears (possibly multiple times — in seat + overlay)
     render(<V2GameContainer {...defaultProps} winnerId="p2" />);
-    expect(screen.getByText("Bob")).toBeTruthy();
+    expect(screen.getAllByText("Bob").length).toBeGreaterThan(0);
   });
 
   it("renders without crashing when board has all nulls", () => {

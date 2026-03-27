@@ -104,6 +104,93 @@ describe("V2Controls — active state", () => {
   });
 });
 
+describe("V2Controls — accessibility", () => {
+  const defaultProps = {
+    isActive: true,
+    stack: 1000,
+    currentBet: 100,
+    playerBet: 0,
+    minRaise: 200,
+    onAction: vi.fn(),
+  };
+
+  it("active container has v2-root class for CSS scoping", () => {
+    const { container } = render(<V2Controls {...defaultProps} />);
+    expect(container.firstElementChild?.classList.contains("v2-root")).toBe(true);
+  });
+
+  it("inactive container has v2-root class for CSS scoping", () => {
+    const { container } = render(
+      <V2Controls {...defaultProps} isActive={false} />
+    );
+    expect(container.firstElementChild?.classList.contains("v2-root")).toBe(true);
+  });
+
+  it("fold button has aria-label", () => {
+    render(<V2Controls {...defaultProps} />);
+    const btn = screen.getByTestId("v2-action-fold");
+    expect(btn.getAttribute("aria-label")).toBeTruthy();
+  });
+
+  it("check/call button has aria-label", () => {
+    render(<V2Controls {...defaultProps} />);
+    const btn = screen.getByTestId("v2-action-check-call");
+    expect(btn.getAttribute("aria-label")).toBeTruthy();
+  });
+
+  it("raise button has aria-label when canRaise", () => {
+    render(<V2Controls {...defaultProps} minRaise={200} stack={1000} />);
+    const btn = screen.getByTestId("v2-action-raise");
+    expect(btn.getAttribute("aria-label")).toBeTruthy();
+  });
+
+  it("raise button has aria-disabled when stack < minRaise", () => {
+    render(<V2Controls {...defaultProps} minRaise={2000} stack={100} />);
+    const btn = screen.getByTestId("v2-action-raise");
+    expect(btn.getAttribute("aria-disabled")).toBe("true");
+  });
+
+  it("all-in button has aria-label", () => {
+    render(<V2Controls {...defaultProps} />);
+    const btn = screen.getByTestId("v2-action-all-in");
+    expect(btn.getAttribute("aria-label")).toBeTruthy();
+  });
+});
+
+describe("V2Controls — compact mode", () => {
+  it("renders with compact layout when compact=true", () => {
+    const { container } = render(
+      <V2Controls
+        isActive
+        compact
+        stack={500}
+        currentBet={0}
+        playerBet={0}
+        minRaise={20}
+        onAction={vi.fn()}
+      />
+    );
+    // compact mode uses a shorter height class
+    const panel = container.querySelector(".v2-glass-panel");
+    expect(panel).toBeTruthy();
+  });
+
+  it("inactive compact renders without error", () => {
+    const { container } = render(
+      <V2Controls
+        isActive={false}
+        compact
+        stack={500}
+        currentBet={0}
+        playerBet={0}
+        minRaise={20}
+        onAction={vi.fn()}
+      />
+    );
+    expect(container.querySelector("[data-testid='v2-controls-inactive']")).toBeTruthy();
+  });
+});
+
 describe("V2Controls — keyboard shortcuts", () => {
   it("triggers FOLD on 'f' key", () => {
     const onAction = vi.fn();
