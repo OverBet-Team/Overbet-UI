@@ -43,7 +43,7 @@ const V2Avatar = React.memo(function V2Avatar({
         "rounded-full flex items-center justify-center font-bold transition-all duration-300",
         "bg-[--v2-surface-container] border-2",
         isActive
-          ? "v2-avatar-glow-active border-[--v2-tertiary]"
+          ? "v2-avatar-glow-active v2-active-ring border-[--v2-tertiary]"
           : isFolded
           ? "v2-avatar-glow-inactive border-white/5"
           : "border-white/10"

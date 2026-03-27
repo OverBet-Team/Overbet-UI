@@ -13,6 +13,7 @@
 
 import React from "react";
 import { motion, AnimatePresence } from "framer-motion";
+import { Circle } from "lucide-react";
 import type { V2TableViewProps } from "@/lib/overbet-to-v2-view";
 import { PHASE_NAMES } from "@/lib/gameLogFormatters";
 import { V2Player } from "./V2Player";
@@ -79,7 +80,8 @@ export const V2TableView = React.memo(function V2TableView({
   compactMode = false,
 }: V2TableViewProps) {
   const opponentScale = getOpponentScale(opponents.length);
-  const phaseLabel = phase ? (PHASE_NAMES[phase] ?? phase) : null;
+  // Unknown phases (LOBBY, DEAL_FLOP, etc.) return null — only show named phases
+  const phaseLabel = phase ? (PHASE_NAMES[phase] ?? null) : null;
   const winnerPlayer = winnerId
     ? ([...opponents, hero].find((p) => p.id === winnerId) ?? null)
     : null;
@@ -135,6 +137,7 @@ export const V2TableView = React.memo(function V2TableView({
         {/* Total pot */}
         <div data-testid="v2-total-pot" className="text-center mb-6">
           <div className="flex items-center justify-center gap-1.5 mb-1 opacity-40">
+            <Circle size={12} className="fill-current" style={{ color: "var(--v2-on-surface)" }} />
             <p
               className="text-[0.5rem] uppercase tracking-[0.3em] font-bold"
               style={{ fontFamily: "var(--v2-font-headline)", color: "var(--v2-on-surface)" }}
@@ -150,7 +153,7 @@ export const V2TableView = React.memo(function V2TableView({
             style={{
               fontFamily: "var(--v2-font-headline)",
               color: "var(--v2-on-surface)",
-              fontSize: compactMode ? 48 : 72,
+              fontSize: compactMode ? 56 : 96,
               lineHeight: 1,
             }}
           >
@@ -167,16 +170,27 @@ export const V2TableView = React.memo(function V2TableView({
         </div>
 
         {/* Board cards */}
-        <div data-testid="v2-board-cards" className="flex gap-3 items-center">
+        <div data-testid="v2-board-cards" className="flex gap-4 items-center">
           {board.map((card, i) => (
-            <div key={`board-${i}-${card ?? "empty"}`} data-testid={`v2-board-card-${i}`}>
+            <motion.div
+              key={`board-${i}-${card ?? "empty"}`}
+              data-testid={`v2-board-card-${i}`}
+              initial={card ? { opacity: 0, scale: 0.4, y: -80, rotateY: 180, rotateZ: 20 } : false}
+              animate={card ? { opacity: 1, scale: 1, y: 0, rotateY: 0, rotateZ: 0 } : {}}
+              transition={card ? {
+                delay: i * 0.12,
+                type: "spring",
+                stiffness: 120,
+                damping: 14,
+                mass: 0.8,
+              } : {}}
+            >
               <V2PlayingCard
                 card={card ?? undefined}
                 size={compactMode ? "sm" : "md"}
                 winning={winnerCards?.includes(card ?? "") ?? false}
-                dealDelay={i * 0.1}
               />
-            </div>
+            </motion.div>
           ))}
         </div>
       </div>
@@ -199,6 +213,7 @@ export const V2TableView = React.memo(function V2TableView({
                 background: "rgba(0,227,253,0.08)",
                 borderColor: "rgba(0,227,253,0.35)",
                 backdropFilter: "blur(12px)",
+                WebkitBackdropFilter: "blur(12px)",
               }}
             >
               <p
@@ -219,7 +234,7 @@ export const V2TableView = React.memo(function V2TableView({
       </AnimatePresence>
 
       {/* ── Hero zone ─────────────────────────────────────────────────────── */}
-      <div className="absolute bottom-[180px] left-1/2 -translate-x-1/2 z-30 flex flex-col items-center gap-4">
+      <div className={`absolute ${compactMode ? "bottom-[120px]" : "bottom-[140px]"} left-1/2 -translate-x-1/2 z-30 flex flex-col items-center gap-4`}>
         {/* Hero hole cards */}
         <div
           data-testid="v2-hero-cards"
