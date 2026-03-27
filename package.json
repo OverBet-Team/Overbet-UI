@@ -1,0 +1,51 @@
+{
+    "name": "overbet",
+    "private": true,
+    "workspaces": [
+        "apps/*",
+        "packages/*"
+    ],
+    "scripts": {
+        "build": "turbo run build",
+        "predev": "npm run generate --workspace=@overbet/db",
+        "dev": "turbo run dev",
+        "test": "vitest run",
+        "test:e2e": "playwright test",
+        "test:e2e:playwright": "playwright test",
+        "test:e2e:headed": "playwright test --headed",
+        "test:browser:agent": "bash ./tests/browser-cli/agent-browser-multiplayer-smoke.sh",
+        "test:browser:agent:2p:regression": "bash ./tests/browser-cli/agent-browser-2p-regression.sh",
+        "test:browser:agent:3p": "bash ./tests/browser-cli/agent-browser-3player-smoke.sh",
+        "test:browser:agent:3p:timer": "bash ./tests/browser-cli/agent-browser-3player-timer.sh",
+        "test:browser:agent:soak": "bash ./tests/browser-cli/agent-browser-soak.sh",
+        "test:browser:agent:nplayer": "bash ./tests/browser-cli/agent-browser-nplayer-run.sh",
+        "test:browser:agent:4p": "PLAYER_COUNT=4 TARGET_HANDS=1 SCENARIO_NAME=4p-smoke bash ./tests/browser-cli/agent-browser-nplayer-run.sh",
+        "test:browser:agent:5p": "PLAYER_COUNT=5 TARGET_HANDS=1 SCENARIO_NAME=5p-smoke bash ./tests/browser-cli/agent-browser-nplayer-run.sh",
+        "test:browser:agent:6p": "PLAYER_COUNT=6 TARGET_HANDS=1 SCENARIO_NAME=6p-smoke bash ./tests/browser-cli/agent-browser-nplayer-run.sh",
+        "test:browser:agent:4p:timer": "PLAYER_COUNT=4 bash ./tests/browser-cli/agent-browser-nplayer-timer.sh",
+        "test:browser:agent:5p:timer": "PLAYER_COUNT=5 bash ./tests/browser-cli/agent-browser-nplayer-timer.sh",
+        "test:browser:agent:6p:timer": "PLAYER_COUNT=6 bash ./tests/browser-cli/agent-browser-nplayer-timer.sh",
+        "test:browser:agent:7p:preflight": "PLAYER_COUNT=7 PREFLIGHT_ONLY=1 SCENARIO_NAME=7p-preflight bash ./tests/browser-cli/agent-browser-nplayer-run.sh",
+        "test:browser:agent:7p": "PLAYER_COUNT=7 TARGET_HANDS=1 SCENARIO_NAME=7p-smoke bash ./tests/browser-cli/agent-browser-nplayer-run.sh",
+        "test:browser:agent:4p:soak": "PLAYER_COUNT=4 SOAK_HANDS=${SOAK_HANDS:-30} SCENARIO_NAME=4p-soak bash ./tests/browser-cli/agent-browser-nplayer-soak.sh",
+        "test:browser:agent:5p:soak": "PLAYER_COUNT=5 SOAK_HANDS=${SOAK_HANDS:-30} SCENARIO_NAME=5p-soak bash ./tests/browser-cli/agent-browser-nplayer-soak.sh",
+        "test:browser:agent:6p:soak": "PLAYER_COUNT=6 SOAK_HANDS=${SOAK_HANDS:-30} SCENARIO_NAME=6p-soak bash ./tests/browser-cli/agent-browser-nplayer-soak.sh",
+        "test:browser:agent:7p:soak": "PLAYER_COUNT=7 SOAK_HANDS=${SOAK_HANDS:-30} SCENARIO_NAME=7p-soak bash ./tests/browser-cli/agent-browser-nplayer-soak.sh",
+        "test:browser:agent:timer:matrix": "bash ./tests/browser-cli/agent-browser-timer-matrix.sh",
+        "test:browser:agent:tiered": "bash ./tests/browser-cli/agent-browser-tiered-validation.sh",
+        "lint": "turbo run lint",
+        "format": "prettier --write \"**/*.{ts,tsx,md}\"",
+        "vercel-build": "npm run generate --workspace=@overbet/db && turbo run build"
+    },
+    "devDependencies": {
+        "@playwright/test": "^1.58.2",
+        "agent-browser": "^0.19.0",
+        "next": "16.1.6",
+        "prettier": "^3.2.0",
+        "prisma": "5.22.0",
+        "react": "19.2.3",
+        "react-dom": "19.2.3",
+        "turbo": "^1.12.0",
+        "vitest": "^4.0.18"
+    }
+}

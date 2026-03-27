@@ -1,0 +1,215 @@
+/**
+ * PlayingCard — Visual Refactor with Motion + Lucide Icons
+ *
+ * Accepts either:
+ *   - A raw engine card string like "Ah", "Tc", "2d", "Ks"
+ *   - faceDown=true for opponent hidden cards
+ *   - dashed=true for unrevealed community card slots
+ */
+
+import { Heart, Diamond, Spade, Club } from 'lucide-react';
+import { motion } from 'framer-motion';
+import { cn } from '@/lib/utils';
+import { parseCard, SUIT_COLORS, type Suit } from '@/lib/card-utils';
+
+// ── Types ──────────────────────────────────────────────────────────────────
+type Size = 'xs' | 'sm' | 'md' | 'lg' | 'xl';
+
+interface PlayingCardProps {
+  /** Raw engine card string, e.g. "Ah", "Tc", "2d" */
+  card?: string;
+  size?: Size;
+  rotate?: number;
+  className?: string;
+  style?: React.CSSProperties;
+  dealDelay?: number;
+  faceDown?: boolean;
+  /** Unrevealed community card slot — dashed border placeholder */
+  dashed?: boolean;
+  /** Highlight with gold glow (winning hand card) */
+  winning?: boolean;
+}
+
+// ── Constants ──────────────────────────────────────────────────────────────
+const SIZES: Record<
+  Size,
+  { w: number; h: number; r: number; rankSize: number; suitCorner: number; suitCenter: number }
+> = {
+  xs: { w: 34, h: 46, r: 5, rankSize: 10, suitCorner: 8, suitCenter: 16 },
+  sm: { w: 48, h: 66, r: 7, rankSize: 13, suitCorner: 10, suitCenter: 22 },
+  md: { w: 72, h: 100, r: 10, rankSize: 18, suitCorner: 13, suitCenter: 34 },
+  lg: { w: 96, h: 132, r: 12, rankSize: 22, suitCorner: 16, suitCenter: 46 },
+  xl: { w: 130, h: 178, r: 16, rankSize: 30, suitCorner: 22, suitCenter: 64 },
+};
+
+const SUIT_ICONS = {
+  hearts: Heart,
+  diamonds: Diamond,
+  spades: Spade,
+  clubs: Club,
+};
+
+// ── Component ──────────────────────────────────────────────────────────────
+export default function PlayingCard({
+  card,
+  size = 'md',
+  rotate = 0,
+  className,
+  style,
+  dealDelay = 0,
+  faceDown = false,
+  dashed = false,
+  winning = false,
+}: PlayingCardProps) {
+  const s = SIZES[size];
+
+  const baseStyle: React.CSSProperties = {
+    width: s.w,
+    height: s.h,
+    borderRadius: s.r,
+    transform: `rotate(${rotate}deg)`,
+    ...style,
+  };
+
+  // ── Dashed placeholder (unrevealed community card) ─────────────────────
+  if (dashed) {
+    return (
+      <div
+        className={cn('card-placeholder inline-flex items-center justify-center opacity-60', className)}
+        style={baseStyle}
+      >
+        <svg width={s.w * 0.35} height={s.w * 0.35} viewBox="0 0 24 24" fill="none">
+          <circle cx="12" cy="12" r="8" stroke="rgba(255,255,255,0.12)" strokeWidth="1.5" />
+          <circle cx="12" cy="12" r="4" stroke="rgba(255,255,255,0.08)" strokeWidth="1" />
+        </svg>
+      </div>
+    );
+  }
+
+  // ── Face-down card (opponent hidden) ───────────────────────────────────
+  const parsed = card ? parseCard(card) : null;
+  const isFaceDown = faceDown || !parsed;
+
+  if (isFaceDown) {
+    return (
+      <motion.div
+        layoutId={card ? `card-${card}` : undefined}
+        initial={{ opacity: 0, scale: 0.88, y: 20 }}
+        animate={{ opacity: 1, scale: 1, y: 0 }}
+        transition={{ duration: 0.4, ease: [0.23, 1, 0.32, 1], delay: dealDelay / 1000 }}
+        className={cn('card-back relative inline-flex overflow-hidden', className)}
+        style={baseStyle}
+      >
+        {/* Subtle diagonal pattern inset */}
+        <div
+          className="absolute border border-white/[0.07]"
+          style={{
+            inset: 4,
+            borderRadius: s.r - 2,
+            background:
+              'repeating-linear-gradient(45deg, transparent, transparent 3px, rgba(255,255,255,0.02) 3px, rgba(255,255,255,0.02) 6px)',
+          }}
+        />
+        {/* Center icon */}
+        <div className="absolute inset-0 flex items-center justify-center">
+          <svg width={s.w * 0.38} height={s.w * 0.38} viewBox="0 0 24 24" fill="none">
+            <circle cx="12" cy="12" r="9" stroke="rgba(255,255,255,0.1)" strokeWidth="1.5" />
+            <circle cx="12" cy="12" r="5" stroke="rgba(255,255,255,0.07)" strokeWidth="1" />
+            <circle cx="12" cy="12" r="2" fill="rgba(255,255,255,0.08)" />
+          </svg>
+        </div>
+      </motion.div>
+    );
+  }
+
+  // ── Face-up card ───────────────────────────────────────────────────────
+  const { rank, suit, isRed } = parsed!;
+  const SuitIcon = SUIT_ICONS[suit];
+
+  return (
+    <motion.div
+      layoutId={`card-${card}`}
+      initial={{ opacity: 0, scale: 0.88, y: 20 }}
+      animate={{ opacity: 1, scale: 1, y: 0 }}
+      whileHover={{ 
+        scale: 1.08, 
+        y: -8,
+        rotateZ: rotate > 0 ? rotate + 2 : rotate - 2,
+        transition: { type: "spring", stiffness: 400, damping: 10 } 
+      }}
+      whileTap={{ scale: 0.95 }}
+      transition={{ duration: 0.4, ease: [0.23, 1, 0.32, 1], delay: dealDelay / 1000 }}
+      className={cn(
+        'poker-card-premium relative inline-flex overflow-hidden cursor-pointer border border-white/20 shadow-xl',
+        isRed ? 'suit-red' : 'suit-black',
+        winning && 'winning-card-glow',
+        className
+      )}
+      style={{
+        ...baseStyle,
+        ...(winning ? {
+          boxShadow: '0 0 20px var(--gold-glow), 0 0 4px var(--gold)',
+          borderColor: 'var(--gold)',
+          borderWidth: 2,
+        } : {}),
+      }}
+    >
+      {/* Top-left corner */}
+      <div
+        className="absolute flex flex-col items-center gap-px leading-none"
+        style={{
+          top: s.r * 0.5,
+          left: s.r * 0.55,
+        }}
+      >
+        <span
+          className="font-black leading-none"
+          style={{
+            fontSize: s.rankSize,
+            fontFamily: 'var(--font-display), var(--font-body), sans-serif',
+            letterSpacing: '-0.04em',
+          }}
+        >
+          {rank}
+        </span>
+        <SuitIcon size={s.suitCorner} fill="currentColor" strokeWidth={0} />
+      </div>
+
+      {/* Bottom-right corner (rotated 180°) */}
+      <div
+        className="absolute flex flex-col items-center gap-px leading-none"
+        style={{
+          bottom: s.r * 0.5,
+          right: s.r * 0.55,
+          transform: 'rotate(180deg)',
+        }}
+      >
+        <span
+          className="font-black leading-none"
+          style={{
+            fontSize: s.rankSize,
+            fontFamily: 'var(--font-display), var(--font-body), sans-serif',
+            letterSpacing: '-0.04em',
+          }}
+        >
+          {rank}
+        </span>
+        <SuitIcon size={s.suitCorner} fill="currentColor" strokeWidth={0} />
+      </div>
+
+      {/* Center suit symbol */}
+      <div className="absolute inset-0 flex items-center justify-center opacity-10">
+        <SuitIcon size={s.suitCenter} fill="currentColor" strokeWidth={0} />
+      </div>
+
+      {/* Gloss overlay */}
+      <div
+        className="pointer-events-none absolute inset-0"
+        style={{
+          borderRadius: s.r,
+          background: 'linear-gradient(135deg, rgba(255,255,255,0.2) 0%, transparent 50%)',
+        }}
+      />
+    </motion.div>
+  );
+}

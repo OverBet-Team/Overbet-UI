@@ -1,0 +1,27 @@
+{
+    "project": "Overbet MVP - Playable NLH Game",
+    "goal": "Execute Sprints 6 and 7 to achieve a playable MVP with room creation, link sharing, and game start.",
+    "tasks": [
+        {
+            "title": "Sprint 6: Full Backend Integration (Gateway, Engine, DB)",
+            "agent": "backend-agent",
+            "priority": "P0",
+            "dependencies": []
+        },
+        {
+            "title": "Sprint 7: Full Frontend Room, Lobby, and Table Flow",
+            "agent": "frontend-agent",
+            "priority": "P0",
+            "dependencies": []
+        },
+        {
+            "title": "MVP QA Review",
+            "agent": "qa-agent",
+            "priority": "P1",
+            "dependencies": [
+                "Sprint 6: Full Backend Integration (Gateway, Engine, DB)",
+                "Sprint 7: Full Frontend Room, Lobby, and Table Flow"
+            ]
+        }
+    ]
+}

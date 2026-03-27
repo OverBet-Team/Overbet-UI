@@ -1,0 +1,71 @@
+generator client {
+  provider      = "prisma-client-js"
+  binaryTargets = ["native", "rhel-openssl-3.0.x"]
+}
+
+datasource db {
+  provider  = "postgresql"
+  url       = env("DATABASE_URL")
+  directUrl = env("DIRECT_URL")
+}
+
+model User {
+  id        String       @id @default(uuid())
+  username  String
+  isGuest   Boolean      @default(false)
+  createdAt DateTime     @default(now())
+  updatedAt DateTime     @updatedAt
+  rooms     Room[]
+  members   RoomMember[]
+}
+
+model RoomMember {
+  id        String   @id @default(uuid())
+  roomId    String
+  room      Room     @relation(fields: [roomId], references: [id])
+  userId    String
+  user      User     @relation(fields: [userId], references: [id])
+  seatIndex Int?
+  stack     Int      @default(0)
+  status    String   @default("ACTIVE")
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@unique([roomId, userId])
+}
+
+model Room {
+  id        String       @id @default(uuid())
+  slug      String       @unique
+  name      String
+  status    String       @default("LOBBY") // LOBBY, IN_PROGRESS
+  hostId    String
+  host      User         @relation(fields: [hostId], references: [id])
+  settings  Json?        // Variant & modding configuration
+  createdAt DateTime     @default(now())
+  updatedAt DateTime     @updatedAt
+  hands     Hand[]
+  members   RoomMember[]
+}
+
+model Hand {
+  id        String      @id @default(uuid())
+  roomId    String
+  room      Room        @relation(fields: [roomId], references: [id])
+  metadata  Json? // Plugin modifiers & pot sizes
+  createdAt DateTime    @default(now())
+  events    HandEvent[]
+}
+
+model HandEvent {
+  id        String   @id @default(uuid())
+  handId    String
+  hand      Hand     @relation(fields: [handId], references: [id])
+  type      String
+  sequence  Int
+  payload   Json
+  createdAt DateTime @default(now())
+
+  @@unique([handId, sequence])
+}
