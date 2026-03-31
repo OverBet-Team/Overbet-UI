@@ -128,6 +128,7 @@ export default function RoomClient({ slug, initialRoom }: RoomProps) {
   const [isSeatPanelOpen, setIsSeatPanelOpen] = useState(false);
   const [showHostOverlay, setShowHostOverlay] = useState(false);
   const [lastSocketError, setLastSocketError] = useState<string | null>(null);
+  const [gatewayStatus, setGatewayStatus] = useState<"warming" | "ready" | "failed">("warming");
   const [approvedSeatOverride, setApprovedSeatOverride] = useState<PlayerData | null>(null);
   const [cleanupShowAllRevealed, setCleanupShowAllRevealed] = useState(false);
   const justApprovedRef = useRef(false);
@@ -154,9 +155,42 @@ export default function RoomClient({ slug, initialRoom }: RoomProps) {
     return () => clearTimeout(t);
   }, [lastSocketError]);
 
+  // ── Gateway warm-up: wake Render before opening socket ──────────────────────
+  // Render free-tier 503s lack CORS headers, so fetch() is blocked by the browser.
+  // Instead we load an <img> pointed at /healthz — images bypass CORS entirely.
+  // When the server is awake, the image "loads" (even though it's JSON, not an image —
+  // the onerror fires, but crucially the HTTP request itself woke the server).
+  // We retry until we get a successful fetch (CORS headers present = app is up).
+  useEffect(() => {
+    const gatewayUrl = process.env.NEXT_PUBLIC_GATEWAY_URL || "http://localhost:4000";
+    let cancelled = false;
+    let timer: ReturnType<typeof setTimeout>;
+    const MAX_ATTEMPTS = 8;
+    const INTERVAL_MS = 3000;
+
+    async function warmUp(attempt: number) {
+      if (cancelled) return;
+      try {
+        // First try a normal fetch — works once the app is up and CORS headers are present
+        const res = await fetch(`${gatewayUrl}/healthz`, { cache: "no-store" });
+        if (res.ok) { setGatewayStatus("ready"); return; }
+      } catch {
+        // CORS-blocked (Render 503) or network error — wake server via image ping
+        if (typeof document !== "undefined") {
+          const img = new Image();
+          img.src = `${gatewayUrl}/healthz?_wake=${Date.now()}`;
+        }
+      }
+      if (attempt >= MAX_ATTEMPTS) { setGatewayStatus("failed"); return; }
+      timer = setTimeout(() => warmUp(attempt + 1), INTERVAL_MS);
+    }
+    warmUp(1);
+    return () => { cancelled = true; clearTimeout(timer); };
+  }, []);
+
   // ── Socket setup ────────────────────────────────────────────────────────────
   useEffect(() => {
-    if (!userId) return;
+    if (!userId || gatewayStatus !== "ready") return;
 
     const socketInstance = io(
       process.env.NEXT_PUBLIC_GATEWAY_URL || "http://localhost:4000",
@@ -419,7 +453,7 @@ export default function RoomClient({ slug, initialRoom }: RoomProps) {
     });
 
     return () => { socketInstance.disconnect(); };
-  }, [slug, userId]);
+  }, [slug, userId, gatewayStatus]);
 
   // ── Handlers ────────────────────────────────────────────────────────────────
   const copyLink = () => {
@@ -507,6 +541,21 @@ export default function RoomClient({ slug, initialRoom }: RoomProps) {
     socket?.emit("INTENT_UPDATE_SETTINGS", { room_id: slug, settings: settingsDraft });
     setShowSettingsModal(false);
   };
+
+  if (gatewayStatus === "warming") return (
+    <div style={{ display: "flex", flexDirection: "column", alignItems: "center", justifyContent: "center", minHeight: "100vh", gap: 12, color: "rgba(255,255,255,0.5)", fontFamily: "Outfit, sans-serif" }}>
+      <div style={{ width: 32, height: 32, border: "3px solid rgba(255,255,255,0.15)", borderTopColor: "#a78bfa", borderRadius: "50%", animation: "spin 0.8s linear infinite" }} />
+      <style>{`@keyframes spin { to { transform: rotate(360deg); } }`}</style>
+      Connecting to server…
+    </div>
+  );
+
+  if (gatewayStatus === "failed") return (
+    <div style={{ display: "flex", flexDirection: "column", alignItems: "center", justifyContent: "center", minHeight: "100vh", gap: 12, color: "rgba(255,255,255,0.5)", fontFamily: "Outfit, sans-serif" }}>
+      <span style={{ fontSize: 32 }}>⚠️</span>
+      <span>Server is unavailable. Please refresh and try again.</span>
+    </div>
+  );
 
   if (!room) return (
     <div style={{ display: "flex", alignItems: "center", justifyContent: "center", minHeight: "100vh", color: "rgba(255,255,255,0.5)", fontFamily: "Outfit, sans-serif" }}>
